@@ -1,4 +1,4 @@
-Saturday, 12 August 2017: Version 1.0.0.4b
+Saturday, 19 August 2017: Version 1.0.0.4b
 	added background color selection
 	added close
 	added status bar
