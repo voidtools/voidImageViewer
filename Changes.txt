@@ -1,0 +1,34 @@
+Saturday, 12 August 2017: Version 1.0.0.2b
+	added background color selection
+	added Open Location
+	added close
+	added status bar
+	added keyboard and mouse customization
+	added print
+	added play gifs at least once option
+	added set as desktop background
+	added prevent sleep when playing or animating
+	added custom slideshow rate
+	added animation menu
+	added copy to / move to menu
+	added automatic window sizes
+	added animation controls
+	added mouse back/forward
+	added min/mag filter modes
+	added file associations
+	added multiple instances / single instance
+	added open folders support
+	added properties option
+	added middle mouse move
+	added IStream support
+	added navigation
+	added hide cursor on fullscreen
+	improved portability
+	improved 1:1 mode.
+	fixed an issue with transparent gifs
+	fixed an issue when deleting an image and displaying the next image
+	fixed an issue with holding a handle to the current directory
+
+Friday, 17 February 2017: Version 0.0.0.1
+	created project
+	
