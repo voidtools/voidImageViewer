@@ -1,6 +1,5 @@
-Saturday, 12 August 2017: Version 1.0.0.2b
+Saturday, 12 August 2017: Version 1.0.0.4b
 	added background color selection
-	added Open Location
 	added close
 	added status bar
 	added keyboard and mouse customization
@@ -12,23 +11,29 @@ Saturday, 12 August 2017: Version 1.0.0.2b
 	added animation menu
 	added copy to / move to menu
 	added automatic window sizes
+	added multiple instances / single instance
+	improved portability
+	fixed an issue with holding a handle to the current directory
+
+Saturday, 18 Feburary 2017: Version 0.2.0.3b
+	added Multiple instances support
+	added multiple file drag drop support
+	added command line options /slideshow /fullscreen /window /rate <milliseconds> and /?
+	added Edit and Preview file menu items
+
+Saturday, 17 August 2016: Version 0.0.0.1b
 	added animation controls
 	added mouse back/forward
 	added min/mag filter modes
 	added file associations
-	added multiple instances / single instance
 	added open folders support
+	added Open Location
 	added properties option
 	added middle mouse move
 	added IStream support
 	added navigation
 	added hide cursor on fullscreen
-	improved portability
+	improved slideshow mode
 	improved 1:1 mode.
 	fixed an issue with transparent gifs
 	fixed an issue when deleting an image and displaying the next image
-	fixed an issue with holding a handle to the current directory
-
-Friday, 17 February 2017: Version 0.0.0.1
-	created project
-	
