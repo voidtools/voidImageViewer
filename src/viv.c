@@ -17,6 +17,8 @@
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 // TODO: (*=done)
+// OpenGL renderer
+// Direct3D renderer
 // graphics::GetHalftonePalette for 256 color mode.
 // high dpi icons
 // control toolbar customization
