@@ -32,6 +32,26 @@ uintptr_t utf8_length(const utf8_t *text)
 	return (uintptr_t)(p - text);
 }
 
+uintptr_t utf8_length_double_null(const utf8_t *text)
+{
+	const utf8_t *p;
+	
+	p = text;
+	
+	for(;;)
+	{
+		if ((*p == 0) && (p[1] == 0))
+		{	
+			p++;
+			break;
+		}
+		
+		p++;
+	}
+	
+	return (uintptr_t)(p - text);
+}
+
 int utf8_to_int(const utf8_t *str)
 {
 	int i;

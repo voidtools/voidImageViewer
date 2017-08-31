@@ -82,6 +82,15 @@ void string_copy_utf8(wchar_t *buf,const utf8_t *s)
 	MultiByteToWideChar(CP_UTF8,0,s,-1,buf,STRING_SIZE);
 }
 
+void string_copy_utf8_double_null(wchar_t *buf,const utf8_t *s)
+{
+	int slen;
+	
+	slen = utf8_length_double_null(s);
+	
+	MultiByteToWideChar(CP_UTF8,0,s,slen+1,buf,STRING_SIZE);
+}
+
 void string_cat(wchar_t *buf,const wchar_t *s)
 {
 	wchar_t *d;

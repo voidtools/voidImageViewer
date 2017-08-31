@@ -23,6 +23,7 @@
 
 static void _os_qsort_indexes_shortsort(void **lo,void **hi,int (*comp)(const void *,const void *));
 static FARPROC __os_get_proc_address(HMODULE hmodule,const char *name);
+static int CALLBACK _os_BrowseCallbackProc(HWND hwnd,UINT uMsg,LPARAM lParam,LPARAM lpData);
 
 HINSTANCE os_hinstance = 0;
 DWORD os_major_version = 0; // 4 = 9x/nt, 5 = xp,2k,server2k3, 6 = vista
@@ -52,11 +53,13 @@ int (__stdcall *os_GdipDeleteGraphics)(void *graphics) = 0;
 BOOL (STDAPICALLTYPE *os_IsUserAnAdmin)(void) = 0;
 HRESULT (__stdcall *os_EnableThemeDialogTexture)(HWND hwnd, DWORD dwFlags) = 0;
 unsigned int (__cdecl *_os_controlfp)(unsigned int _NewValue,unsigned int _Mask) = 0;
+BOOL (WINAPI *os_ChangeWindowMessageFilterEx)(HWND hWnd,UINT message,DWORD action,void *pChangeFilterStruct) = 0;
 int os_logical_wide = 96;
 int os_logical_high = 96;
 
 static COLORREF *_os_custom_colors = 0;
 static HMODULE _os_shell32_hmodule = 0;
+static HMODULE _os_user32_hmodule = 0;
 static HMODULE _os_UxTheme_hmodule = 0;
 static HMODULE _os_gdiplus_hmodule = 0;
 static HMODULE _os_ucrtbase_hmodule = 0;
@@ -616,13 +619,19 @@ void os_init(void)
 		os_SHOpenFolderAndSelectItems = (void *)GetProcAddress(_os_shell32_hmodule,"SHOpenFolderAndSelectItems");
 		os_IsUserAnAdmin = (void *)GetProcAddress(_os_shell32_hmodule,"IsUserAnAdmin");
 	}
-	
+
+	_os_user32_hmodule = LoadLibraryA("user32.dll");
+	if (_os_user32_hmodule)
+	{
+		os_ChangeWindowMessageFilterEx = (void *)GetProcAddress(_os_user32_hmodule,"ChangeWindowMessageFilterEx");
+	}
+
 	_os_UxTheme_hmodule = LoadLibraryA("UxTheme.dll");
 	if (_os_UxTheme_hmodule)
 	{
 		os_EnableThemeDialogTexture = (void *)GetProcAddress(_os_UxTheme_hmodule,"EnableThemeDialogTexture");
 	}
-
+	
 	// set floating point to int mode to truncate
 	_os_ucrtbase_hmodule = LoadLibraryA("ucrtbase.dll");
 	if (_os_ucrtbase_hmodule)
@@ -670,6 +679,11 @@ void os_init(void)
 
 void os_kill(void)
 {
+	if (_os_user32_hmodule)
+	{
+		FreeLibrary(_os_user32_hmodule);
+	}
+		
 	if (_os_shell32_hmodule)
 	{
 		FreeLibrary(_os_shell32_hmodule);
@@ -880,4 +894,52 @@ void os_shell_execute(HWND hwnd,const wchar_t *filename,int wait,const char *ver
 	
 		CoTaskMemFree(pidl);
 	}			
+}
+
+static int CALLBACK _os_BrowseCallbackProc(HWND hwnd,UINT uMsg,LPARAM lParam,LPARAM lpData)
+{
+	switch(uMsg)
+	{
+		case BFFM_INITIALIZED:
+			SendMessage(hwnd,BFFM_SETSELECTIONW,(WPARAM)1,(LPARAM)lpData);
+			break;
+	}
+	
+	return 0;
+}
+
+
+//TODO: resolve shortcuts.. need to use IFileOpenDialog on vista and later to do this easily.
+// returns null cbuf if failure.
+int os_browse_for_folder(HWND parent,wchar_t *filename)
+{
+	BROWSEINFOW bi;
+	ITEMIDLIST *iil;
+	int ret;
+	
+	// BIF_USENEWUI wont bring the initial selection into view.
+	// BIF_NOTRANSLATETARGETS we dont want symbolic links targets, we want the actual path.
+	os_zero_memory(&bi,sizeof(BROWSEINFOW));
+	bi.hwndOwner = parent;
+	bi.lpszTitle = 0;
+	bi.pszDisplayName = filename;
+	bi.ulFlags = BIF_USENEWUI | BIF_RETURNONLYFSDIRS | BIF_NOTRANSLATETARGETS;
+	bi.lpfn = _os_BrowseCallbackProc;
+	bi.lParam = (LPARAM)filename;
+
+	ret = 0;
+	
+	iil = (ITEMIDLIST *)SHBrowseForFolderW(&bi);
+
+	if (iil)
+	{
+		if (SHGetPathFromIDListW(iil,filename))
+		{
+			ret = 1;
+		}
+
+		CoTaskMemFree(iil);
+	}
+	
+	return ret;
 }

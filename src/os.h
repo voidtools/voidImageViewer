@@ -59,6 +59,7 @@ int os_get_special_folder_path(wchar_t *wbuf,int nFolder);
 void os_create_shell_link(const wchar_t *exe_filename_wbuf,const wchar_t *lnk_wbuf);
 void os_center_dialog(HWND hwnd);
 void os_shell_execute(HWND hwnd,const wchar_t *filename,int wait,const char *verb,const wchar_t *params);
+int os_browse_for_folder(HWND parent,wchar_t *filename);
 
 extern HINSTANCE os_hinstance;
 extern DWORD os_major_version;
@@ -89,6 +90,7 @@ extern BOOL (WINAPI *os_CreateTimerQueueTimer)(PHANDLE phNewTimer,HANDLE TimerQu
 extern BOOL (WINAPI *os_DeleteTimerQueueTimer)(HANDLE TimerQueue,HANDLE Timer,HANDLE CompletionEvent);
 extern BOOL (STDAPICALLTYPE *os_IsUserAnAdmin)(void);
 extern HRESULT (__stdcall *os_EnableThemeDialogTexture)(HWND hwnd, DWORD dwFlags);
+extern BOOL (WINAPI *os_ChangeWindowMessageFilterEx)(HWND hWnd,UINT message,DWORD action,void *pChangeFilterStruct);
 extern int os_logical_wide;
 extern int os_logical_high;
 

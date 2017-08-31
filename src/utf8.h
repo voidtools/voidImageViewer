@@ -21,6 +21,7 @@ extern "C" {
 #endif
 
 uintptr_t utf8_length(const utf8_t *text);
+uintptr_t utf8_length_double_null(const utf8_t *text);
 int utf8_to_int(const utf8_t *str);
 utf8_t *utf8_skip_utf8_header(const utf8_t *p);
 utf8_t *utf8_alloc_utf8_n(const char *s,uintptr_t size_in_bytes);

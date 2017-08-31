@@ -27,6 +27,11 @@
 // rotate option?
 // string table for localization.
 // right click -> open with ...open with, or rather get a proper context menu. CDefFolderMenu_Create2
+// *fix stream for gifs, don't load the entire image before loading the gif. viv_istream_t hurts loading performance, will leave CreateStreamOnHGlobal for now.
+// *allow WM_CLOSE from admin/nonadmin. 
+// *sysmenu when fullscreen -needed to show size cursors
+// *fixed a bug with move to/copy to
+// *fixed a bug with save as filters.
 // *fix ico association. -whats wrong with ico association?
 // *startmenu shortcuts
 // *dont use current directory so we can delete the folder of the current shown image .
@@ -118,6 +123,7 @@
 enum
 {
 	VIV_REPLY_LOAD_IMAGE_COMPLETE = 0,
+	VIV_REPLY_LOAD_IMAGE_FAILED,
 	VIV_REPLY_LOAD_IMAGE_FIRST_FRAME,
 	VIV_REPLY_LOAD_IMAGE_ADDITIONAL_FRAME,
 };
@@ -284,6 +290,11 @@ enum
 	VIV_ID_OPTIONS_GENERAL,
 	VIV_ID_OPTIONS_VIEW,
 	VIV_ID_OPTIONS_CONTROLS,
+
+	VIV_ID_FILE_OPEN_FILE,
+	VIV_ID_FILE_OPEN_FOLDER,
+	VIV_ID_FILE_ADD_FILE,
+	VIV_ID_FILE_ADD_FOLDER,
 };
 
 #define VIV_ID_NAV_PLAYLIST_START	10000
@@ -433,7 +444,6 @@ static viv_dragdrop_t *viv_dragdrop_add(const WIN32_FIND_DATA *fd);
 static void viv_dragdrop_add_path(const wchar_t *full_path_and_filename);
 static void viv_dragdrop_add_filename(const wchar_t *filename);
 static void viv_dragdrop_delete(const wchar_t *filename);
-static void viv_get_path_part(wchar_t *buf,const wchar_t *s);
 static void viv_timer_stop(void);
 static int viv_is_window_maximized(HWND hwnd);
 static void viv_load_settings_by_location(const wchar_t *path,int is_root);
@@ -626,15 +636,21 @@ static int viv_fullscreen_background_color_r = 0;
 static int viv_fullscreen_background_color_g = 0;
 static int viv_fullscreen_background_color_b = 0;
 static int viv_options_last_page = 0;
-static int viv_timer = 0; // 0 = TimerQueue, 1 = WM_TIMER
 static int viv_short_jump = 500;
 static int viv_medium_jump = 1000;
 static int viv_long_jump = 2000;
+static wchar_t *viv_last_open_file = 0;
+static wchar_t *viv_last_open_folder = 0;
 
 static viv_command_t viv_commands[] = 
 {
 	{"&File",MF_POPUP,VIV_MENU_ROOT,VIV_MENU_FILE},
 
+	{"&Open File...",MF_STRING,VIV_MENU_FILE,VIV_ID_FILE_OPEN_FILE},
+	{"&Open Folder...",MF_STRING,VIV_MENU_FILE,VIV_ID_FILE_OPEN_FOLDER},
+	{"&Add File...",MF_STRING|MF_OWNERDRAW,VIV_MENU_FILE,VIV_ID_FILE_ADD_FILE},
+	{"&Add Folder...",MF_STRING|MF_OWNERDRAW,VIV_MENU_FILE,VIV_ID_FILE_ADD_FOLDER},
+	{0,MF_SEPARATOR,VIV_MENU_FILE,0},
 	{"Open F&ile Location...",MF_STRING,VIV_MENU_FILE,VIV_ID_FILE_OPEN_FILE_LOCATION},
 	{"&Edit...",MF_STRING,VIV_MENU_FILE,VIV_ID_FILE_EDIT},
 	{"Pre&view...",MF_STRING,VIV_MENU_FILE,VIV_ID_FILE_PREVIEW},
@@ -788,10 +804,14 @@ static viv_command_t viv_commands[] =
 
 viv_default_key_t viv_default_keys[] =
 {
+	{VIV_ID_FILE_OPEN_FILE,VIV_KEYFLAG_CTRL | 'O'},
+	{VIV_ID_FILE_ADD_FILE,VIV_KEYFLAG_CTRL | VIV_KEYFLAG_SHIFT | 'O'},
+	{VIV_ID_FILE_OPEN_FOLDER,VIV_KEYFLAG_CTRL | 'B'},
+	{VIV_ID_FILE_ADD_FOLDER,VIV_KEYFLAG_CTRL | VIV_KEYFLAG_SHIFT | 'B'},
 	{VIV_ID_FILE_OPEN_FILE_LOCATION,VIV_KEYFLAG_CTRL | VK_RETURN},
 	{VIV_ID_FILE_EDIT,VIV_KEYFLAG_CTRL | 'E'},
 	{VIV_ID_FILE_PRINT,VIV_KEYFLAG_CTRL | 'P'},
-//	{VIV_ID_FILE_SET_DESKTOP_WALLPAPER,VIV_KEYFLAG_CTRL | 'D'}, // this needs a confirmation
+//	{VIV_ID_FILE_SET_DESKTOP_WALLPAPER,VIV_KEYFLAG_CTRL | 'D'}, // this needs a confirmation dialog
 	{VIV_ID_FILE_CLOSE,VIV_KEYFLAG_CTRL | 'W'},
 	{VIV_ID_FILE_DELETE,VK_DELETE},
 	{VIV_ID_FILE_EXIT,VIV_KEYFLAG_CTRL | 'Q'},
@@ -1158,7 +1178,7 @@ static void viv_on_size(void)
 
 	if (!IsIconic(viv_hwnd))
 	{
-		if (!IsMaximized(viv_hwnd))
+		if (!viv_is_window_maximized(viv_hwnd))
 		{
 			if (!viv_is_fullscreen)
 			{
@@ -1736,6 +1756,90 @@ static void viv_command(int command_id)
 			viv_copy(1);
 			break;
 			
+		case VIV_ID_FILE_OPEN_FILE:
+		case VIV_ID_FILE_ADD_FILE:
+			{
+				OPENFILENAME ofn;
+				wchar_t tobuf[STRING_SIZE+1];
+				wchar_t filter_wbuf[STRING_SIZE];
+				wchar_t title_wbuf[STRING_SIZE];
+				
+				os_zero_memory(&ofn,sizeof(OPENFILENAME));
+
+				string_copy(tobuf,viv_last_open_file ? viv_last_open_file : L"");
+
+				string_copy_utf8_double_null(filter_wbuf,(const utf8_t *)
+					"All Image Files\0*.bmp;*.gif;*.ico;*.jpeg;*.jpg;*.png;*.tif;*.tiff\0"
+					"*.* (All Files)\0*.*\0");
+
+				string_copy_utf8(title_wbuf,"Open Image");
+				
+				ofn.lStructSize = sizeof(OPENFILENAME);
+				ofn.hwndOwner = viv_hwnd;
+				ofn.hInstance = os_hinstance;
+				ofn.lpstrFilter = filter_wbuf;
+				ofn.nFilterIndex = 1;
+				ofn.lpstrFile = tobuf;
+				ofn.nMaxFile = STRING_SIZE;
+				ofn.lpstrTitle = title_wbuf;
+				ofn.Flags = OFN_ENABLESIZING | OFN_NOCHANGEDIR;
+				
+				if (GetOpenFileName(&ofn))
+				{
+					if (command_id == VIV_ID_FILE_OPEN_FILE)
+					{
+						viv_dragdrop_clearall();
+	
+						viv_open_from_filename(ofn.lpstrFile);
+					}
+					else
+					{
+						viv_dragdrop_add_filename(ofn.lpstrFile);
+					}
+					
+					if (viv_last_open_file)
+					{
+						mem_free(viv_last_open_file);
+					}
+					
+					viv_last_open_file = string_alloc(ofn.lpstrFile);
+				}
+			}
+			break;
+			
+		case VIV_ID_FILE_OPEN_FOLDER:
+		case VIV_ID_FILE_ADD_FOLDER:
+			
+			{
+				wchar_t filename[STRING_SIZE];
+				
+				string_copy(filename,viv_last_open_folder ? viv_last_open_folder : L"");
+				
+				if (command_id == VIV_ID_FILE_OPEN_FOLDER)
+				{
+					viv_dragdrop_clearall();
+				}
+				
+				if (os_browse_for_folder(viv_hwnd,filename))
+				{
+					viv_dragdrop_add_path(filename);
+
+					if (viv_last_open_folder)
+					{
+						mem_free(viv_last_open_folder);
+					}
+					
+					viv_last_open_folder = string_alloc(filename);
+
+					if (command_id == VIV_ID_FILE_OPEN_FOLDER)
+					{
+						viv_home(0);
+					}
+				}
+			}
+			
+			break;
+			
 		case VIV_ID_FILE_DELETE:
 			viv_delete();
 			break;
@@ -1780,8 +1884,8 @@ static void viv_command(int command_id)
 				
 				os_zero_memory(&ofn,sizeof(OPENFILENAME));
 				
-				string_copy(tobuf,string_get_filename_part(viv_current_fd->cFileName));
-				string_copy_utf8(filter_wbuf,(const utf8_t *)"*.* (All Files)\0*.*\0");
+				string_copy(tobuf,viv_current_fd->cFileName);
+				string_copy_utf8_double_null(filter_wbuf,(const utf8_t *)"*.* (All Files)\0*.*\0");
 				string_copy_utf8(title_wbuf,command_id == VIV_ID_EDIT_COPY_TO ? (const utf8_t *)"Copy To" : (const utf8_t *)"Move To");
 				
 				ofn.lStructSize = sizeof(OPENFILENAME);
@@ -1999,6 +2103,14 @@ static LRESULT CALLBACK viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 				switch(e->type)
 				{
 					case VIV_REPLY_LOAD_IMAGE_COMPLETE:
+					case VIV_REPLY_LOAD_IMAGE_FAILED:
+					
+						if (e->type == VIV_REPLY_LOAD_IMAGE_FAILED)
+						{
+							viv_clear();
+
+							InvalidateRect(viv_hwnd,NULL,FALSE);
+						}
 						
 						if (viv_load_image_thread)
 						{
@@ -2030,7 +2142,7 @@ static LRESULT CALLBACK viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 						viv_toolbar_update_buttons();
 
 						break;
-					
+										
 					case VIV_REPLY_LOAD_IMAGE_FIRST_FRAME:
 					{
 						viv_reply_load_image_first_frame_t *first_frame;
@@ -2301,19 +2413,17 @@ static LRESULT CALLBACK viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 		{
 			wchar_t filename[STRING_SIZE];
 			DWORD count;
+			int is_shift;
 			
-			viv_dragdrop_clearall();
+			is_shift = (GetKeyState(VK_SHIFT) < 0);
+			if (!is_shift)
+			{
+				viv_dragdrop_clearall();
+			}
 			
 			count = DragQueryFile((HDROP)wParam,0xFFFFFFFF,0,0);
 			
-			if (count == 1)
-			{
-				DragQueryFile((HDROP)wParam,0,filename,STRING_SIZE);
-			
-				viv_open_from_filename(filename);
-			}
-			else
-			if (count >= 2)
+			if ((count >= 2) || (is_shift))
 			{
 				DWORD i;
 				
@@ -2324,7 +2434,17 @@ static LRESULT CALLBACK viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 					viv_dragdrop_add_filename(filename);
 				}
 			
-				viv_home(0);
+				if (!is_shift)
+				{
+					viv_home(0);
+				}
+			}
+			else
+			if (count == 1)
+			{
+				DragQueryFile((HDROP)wParam,0,filename,STRING_SIZE);
+			
+				viv_open_from_filename(filename);
 			}
 			
 			SetForegroundWindow(hwnd);
@@ -2484,11 +2604,14 @@ static LRESULT CALLBACK viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 				
 					if (!viv_doing)
 					{
-						if (!viv_is_show_caption)
+						if (!viv_is_fullscreen)
 						{
-							SendMessage(hwnd,WM_NCLBUTTONDOWN,(WPARAM)HTCAPTION,lParam);
-							return 0;
-						}				
+							if (!viv_is_show_caption)
+							{
+								SendMessage(hwnd,WM_NCLBUTTONDOWN,(WPARAM)HTCAPTION,lParam);
+								return 0;
+							}				
+						}
 
 						viv_doing = 1;
 						viv_doing_x = GET_X_LPARAM(lParam);
@@ -3341,7 +3464,6 @@ static void viv_load_settings_by_location(const wchar_t *path,int is_root)
 		ini_get_int(ini,(const utf8_t *)"fullscreen_background_color_g",&viv_fullscreen_background_color_g);
 		ini_get_int(ini,(const utf8_t *)"fullscreen_background_color_b",&viv_fullscreen_background_color_b);
 		ini_get_int(ini,(const utf8_t *)"options_last_page",&viv_options_last_page);
-		ini_get_int(ini,(const utf8_t *)"timer",&viv_timer);
 		ini_get_int(ini,(const utf8_t *)"short_jump",&viv_short_jump);
 		ini_get_int(ini,(const utf8_t *)"medium_jump",&viv_medium_jump);
 		ini_get_int(ini,(const utf8_t *)"long_jump",&viv_long_jump);
@@ -3778,8 +3900,6 @@ static void viv_process_command_line(wchar_t *cl)
 	file_count = 0;
 	single[0] = 0;
 	
-	viv_dragdrop_clearall();
-	
 	p = viv_skip_ws(p);
 	
 	// skip filename
@@ -3925,12 +4045,10 @@ static void viv_process_command_line(wchar_t *cl)
 
 	if (file_count >= 1)
 	{
+		viv_dragdrop_clearall();
+		
 		// open the first image specified.
 		viv_open_from_filename(single);
-	}
-	else
-	{
-		viv_home(0);
 	}
 	
 	if (start_slideshow)
@@ -4119,6 +4237,13 @@ static int viv_init(void)
 		rect.left,rect.top,rect.right - rect.left,rect.bottom - rect.top,
 		0,viv_hmenu,os_hinstance,NULL);
 		
+	// allow non-admin/admins to close this window.
+	if (os_ChangeWindowMessageFilterEx)
+	{
+		// MSGFLT_ALLOW = 1
+		os_ChangeWindowMessageFilterEx(viv_hwnd,WM_CLOSE,1,0);
+	}
+		
 	viv_status_show(viv_is_show_status);
 	viv_controls_show(viv_is_show_controls);
 	
@@ -4208,6 +4333,16 @@ static void viv_kill(void)
 	CoUninitialize();
 	
 	DeleteCriticalSection(&viv_cs);
+
+	if (viv_last_open_file)
+	{
+		mem_free(viv_last_open_file);
+	}
+
+	if (viv_last_open_folder)
+	{
+		mem_free(viv_last_open_folder);
+	}
 
 	mem_free(viv_current_fd);
 	
@@ -4345,7 +4480,6 @@ static void viv_save_settings_by_location(const wchar_t *path,int is_root)
 			viv_write_int(h,"fullscreen_background_color_g",viv_fullscreen_background_color_g);
 			viv_write_int(h,"fullscreen_background_color_b",viv_fullscreen_background_color_b);
 			viv_write_int(h,"options_last_page",viv_options_last_page);
-			viv_write_int(h,"timer",viv_timer);
 			viv_write_int(h,"short_jump",viv_short_jump);
 			viv_write_int(h,"medium_jump",viv_medium_jump);
 			viv_write_int(h,"long_jump",viv_long_jump);
@@ -5878,7 +6012,7 @@ static void viv_open_file_location(void)
 			wchar_t path_part[STRING_SIZE];
 			ITEMIDLIST *folder_idlist;
 			
-			viv_get_path_part(path_part,viv_current_fd->cFileName);
+			string_get_path_part(path_part,viv_current_fd->cFileName);
 		
 			// if path_part_buf.buf is an empty string, os_ILCreateFromPath will
 			// correctly return the desktop pidl (an empty pidl).
@@ -6031,6 +6165,9 @@ static void viv_blank(void)
 
 	viv_status_update();
 	viv_update_title();
+
+	// free all dropfiles
+	viv_dragdrop_clearall();
 
 	InvalidateRect(viv_hwnd,0,FALSE);
 }
@@ -7385,41 +7522,6 @@ static void viv_dragdrop_add_filename(const wchar_t *filename)
 	}
 }
 
-static void viv_get_path_part(wchar_t *buf,const wchar_t *s)
-{
-	const wchar_t *p;
-	const wchar_t *last;
-	wchar_t *d;
-	
-	d = buf;
-	p = s;
-	last = 0;
-	
-	while(*p)
-	{
-		if (*p == '\\')
-		{
-			last = p;
-		}
-		
-		p++;
-	}
-	
-	if (last)
-	{
-		p = s;
-		
-		while(p != last)
-		{
-			*d++ = *p;
-			
-			p++;
-		}
-	}
-
-	*d = 0;
-}
-
 static void viv_timer_stop(void)
 {
 	if (viv_is_animation_timer)
@@ -7596,6 +7698,16 @@ static void viv_update_frame(void)
 		RECT clientrect;
 		RECT newrect;
 		RECT oldrect;
+		int was_maximized;
+		
+		was_maximized = 0;
+
+		// get out of maximized state.
+		if (viv_is_window_maximized(viv_hwnd))
+		{
+			ShowWindow(viv_hwnd,SW_RESTORE);
+			was_maximized = 1;
+		}
 		
 		oldstyle = GetWindowLong(viv_hwnd,GWL_STYLE);
 		newstyle = oldstyle;
@@ -7663,6 +7775,13 @@ static void viv_update_frame(void)
 		SetWindowLong(viv_hwnd,GWL_STYLE,newstyle);
 		
 		SetWindowPos(viv_hwnd,HWND_TOP,windowrect.left,windowrect.top,windowrect.right - windowrect.left,windowrect.bottom - windowrect.top,SWP_FRAMECHANGED|SWP_NOACTIVATE|SWP_NOCOPYBITS);
+
+		// if there is no catpion or thick frame we should not allow maximize
+		// avoid our resize borders when maximized.
+		if ((was_maximized) && (viv_is_show_caption) && (viv_is_show_thickframe))
+		{
+			ShowWindow(viv_hwnd,SW_MAXIMIZE);
+		}
 	}
 }
 
@@ -7794,11 +7913,21 @@ static void viv_frame_skip(int size)
 	}
 }
 
+// 14.447 - CreateStreamOnHGlobal - this is too slow over slow networks -which doesn't matter because the gif wont show the first frame until the entire gif is loaded anyway.
+// 14.520 - CreateStreamOnHGlobal
+// 15.834 - SHCreateStreamOnFile
+// 15.850 - SHCreateStreamOnFile
+// 14.914 - viv stream - 1MB file buffer
+// 14.914 - viv stream
 static DWORD WINAPI viv_load_image_proc(void *param)
 {
 	viv_reply_load_image_first_frame_t first_frame;
 	IStream *stream;
+	int ret;
+	DWORD tickstart;
 
+	tickstart = GetTickCount();
+	
 	CoInitializeEx(NULL, COINIT_APARTMENTTHREADED|COINIT_DISABLE_OLE1DDE);
 
 	first_frame.wide = 0;
@@ -7807,6 +7936,7 @@ static DWORD WINAPI viv_load_image_proc(void *param)
 	first_frame.frame_delays = 0;
 	first_frame.frame.hbitmap = 0;
 
+	ret = 0;
 	stream = 0;
 
 	debug_printf("load %S...\n",viv_load_image_filename);
@@ -7905,10 +8035,10 @@ static DWORD WINAPI viv_load_image_proc(void *param)
 		}
 	}
 
-	debug_printf("stream %p\n",stream);
-
 	if (stream)
 	{
+		debug_printf("stream %p\n",stream);
+		
 		if (!viv_load_image_terminate)
 		{
 			void *image;
@@ -8090,6 +8220,8 @@ static DWORD WINAPI viv_load_image_proc(void *param)
 														
 														viv_reply_add(VIV_REPLY_LOAD_IMAGE_FIRST_FRAME,sizeof(viv_reply_load_image_first_frame_t),&first_frame);
 													}
+													
+													ret = 1;
 												}
 											}
 											
@@ -8121,9 +8253,11 @@ static DWORD WINAPI viv_load_image_proc(void *param)
 		debug_printf("Failed to create stream from %S\n",viv_load_image_filename);
 	}
 
-	viv_reply_add(VIV_REPLY_LOAD_IMAGE_COMPLETE,0,0);
+	viv_reply_add(ret ? VIV_REPLY_LOAD_IMAGE_COMPLETE : VIV_REPLY_LOAD_IMAGE_FAILED,0,0);
 					
 	CoUninitialize();
+	
+	debug_printf("loaded in %f seconds\n",(double)(GetTickCount()-tickstart) * 0.001);
 
     return 0;
 }
@@ -9756,3 +9890,4 @@ static void viv_install_copy_file(const wchar_t *install_path,const wchar_t *tem
 		}
 	}	
 }
+

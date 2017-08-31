@@ -20,7 +20,7 @@
 extern "C" {
 #endif
 
-#define STRING_SIZE	(MAX_PATH)
+#define STRING_SIZE	(1024)
 
 uintptr_t string_length(const wchar_t *text);
 wchar_t *string_alloc(const wchar_t *s);
@@ -41,6 +41,7 @@ void string_get_path_part(wchar_t *wbuf,const wchar_t *s);
 void string_path_combine(wchar_t *wbuf,const wchar_t *path,const wchar_t *filename);
 void string_path_combine_utf8(wchar_t *wbuf,const wchar_t *path,const utf8_t *filename);
 void string_copy_utf8(wchar_t *buf,const utf8_t *s);
+void string_copy_utf8_double_null(wchar_t *buf,const utf8_t *s);
 void string_cat_utf8(wchar_t *buf,const utf8_t *s);
 void string_get_exe_path(wchar_t *wbuf);
 
