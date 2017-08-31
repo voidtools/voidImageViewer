@@ -1,3 +1,7 @@
+Thursday, 31 August 2017: Version 1.0.0.5b
+	fixed a bug with move to/copy to
+	fixed a bug with save as filters.
+
 Saturday, 19 August 2017: Version 1.0.0.4b
 	added background color selection
 	added close
