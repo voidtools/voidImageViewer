@@ -2,3 +2,5 @@
 A lightweight image viewer for Windows with GIF support.  
 Opens and displays BMP, GIF, ICO, BMP, JPG and TIF images as fast as possible.  
 Animate GIF files as accurately as possible.  
+
+http://www.voidtools.com/VoidImageViewer.Image.View.gif
