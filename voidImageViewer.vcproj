@@ -176,7 +176,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ComCtl32.Lib WS2_32.Lib ShLwApi.Lib Imm32.Lib Urlmon.lib"
+				AdditionalDependencies="ComCtl32.lib shlwapi.lib lib\x64\minicrt.lib"
 				OutputFile="$(OutDir)/voidImageViewer.exe"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="C:\Program Files (x86)\Microsoft Visual Studio 8\VC\PlatformSDK\Lib\AMD64"
@@ -191,7 +191,7 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
-				AdditionalManifestFiles="res/voidImageViewer.Manifest"
+				AdditionalManifestFiles="res/voidImageViewer.x64.Manifest"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -481,7 +481,7 @@
 				Name="VCLinkerTool"
 				IgnoreImportLibrary="false"
 				LinkLibraryDependencies="true"
-				AdditionalDependencies="ComCtl32.lib shlwapi.lib"
+				AdditionalDependencies="ComCtl32.lib shlwapi.lib lib\x64\minicrt.lib"
 				ShowProgress="0"
 				OutputFile="$(OutDir)/voidImageViewer.exe"
 				LinkIncremental="1"
@@ -1945,6 +1945,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\src\everything_ipc.h"
+				>
+			</File>
+			<File
 				RelativePath=".\src\ini.c"
 				>
 			</File>
@@ -1966,6 +1970,14 @@
 			</File>
 			<File
 				RelativePath=".\src\os.h"
+				>
+			</File>
+			<File
+				RelativePath=".\src\render_software.c"
+				>
+			</File>
+			<File
+				RelativePath=".\src\render_software.h"
 				>
 			</File>
 			<File
@@ -2020,6 +2032,7 @@
 				</FileConfiguration>
 				<FileConfiguration
 					Name="Debug|x64"
+					ExcludedFromBuild="true"
 					>
 					<Tool
 						Name="VCCustomBuildTool"

@@ -568,3 +568,70 @@ void string_get_exe_path(wchar_t *wbuf)
 	GetModuleFileNameW(0,exe_filename,STRING_SIZE);
 	string_get_path_part(wbuf,exe_filename);
 }
+
+// buf must have size STRING_SIZE + 1
+void string_copy_double_null(wchar_t *buf,wchar_t *s)
+{
+	wchar_t *d;
+	wchar_t *p;
+	
+	d = buf;
+	p = s;
+	
+	while(*p)
+	{
+		*d++ = *p++;
+	}
+
+	*d++ = 0;
+	*d = 0;	
+}
+
+// assumes buf is a filename only (no path)
+void string_remove_extension(wchar_t *buf)
+{
+	wchar_t *p;
+	wchar_t *last;
+	
+	last = 0;
+	
+	p = buf;
+	while(*p)
+	{
+		if (*p == '.')
+		{
+			last = p;
+		}
+		
+		p++;
+	}
+	
+	if (last)
+	{
+		*last = 0;
+	}
+}
+
+// does not include the dot.
+// returns an empty string if no extension.
+wchar_t *string_get_extension(const wchar_t *s)
+{
+	const wchar_t *p;
+	const wchar_t *last;
+	
+	last = L"";
+	
+	p = s;
+	while(*p)
+	{
+		if (*p == '.')
+		{
+			last = p + 1;
+		}
+		
+		p++;
+	}
+
+	return (wchar_t *)last;	
+}
+

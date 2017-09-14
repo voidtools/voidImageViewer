@@ -23,6 +23,7 @@
 // avoid crt linkage.
 int _fltused=0; 
 
+/*
 // don't use intrisics
 #pragma function(memcpy)
 #pragma function(memset)
@@ -135,5 +136,5 @@ void __cdecl WinMainCRTStartup()
 
     ExitProcess(mainret);
 }
-
+*/
 #endif // VERSION_X64

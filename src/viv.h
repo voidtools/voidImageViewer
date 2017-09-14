@@ -68,6 +68,8 @@ typedef unsigned char utf8_t;
 #include "utf8.h"
 #include "ini.h"
 
+#include "everything_ipc.h"
+
 #ifdef __cplusplus
 }
 #endif
