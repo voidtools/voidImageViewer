@@ -40,9 +40,9 @@ typedef struct os_GdiplusStartupInput_s
 
 void os_zero_memory(void *data,int size);
 void os_copy_memory(void *d,const void *s,int size);
+void os_move_memory(void *d,const void *s,int size);
 void os_qsort(void **base,uintptr_t count,int (*compare)(const void *a,const void *b));
 void os_make_rect_completely_visible(RECT *prect);
-void os_remove_all_menu_items(HMENU hmenu);
 void os_MonitorRectFromWindowRect(const RECT *window_rect,RECT *monitor_rect);
 int os_ComboBox_AddString(HWND hwnd,int id,const utf8_t *s);
 void os_SetDlgItemText(HWND hwnd,int id,const utf8_t *s);

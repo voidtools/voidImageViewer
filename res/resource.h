@@ -22,6 +22,9 @@
 #define IDI_ICON2                       124
 #define IDI_1TO1                        124
 #define IDI_BESTFIT                     126
+#define IDD_RENAME                      127
+#define IDD_JUMPTO                      128
+#define IDD_EVERYTHING                  129
 #define IDC_TAB1                        1003
 #define IDC_BMP                         1006
 #define IDC_GIF                         1007
@@ -55,6 +58,7 @@
 #define IDC_LIST1                       1031
 #define IDC_COMMANDS_LIST               1031
 #define IDC_EDIT_KEY_CURRENTLY_USED_BY_LIST 1031
+#define IDC_JUMPTO_LIST                 1031
 #define IDC_LIST2                       1032
 #define IDC_KEYS_LIST                   1032
 #define IDC_BUTTON3                     1033
@@ -71,15 +75,21 @@
 #define IDC_ABOUTEMAIL                  1041
 #define IDC_EDIT_KEY_EDIT               1041
 #define IDC_ABOUTWEBSITE                1042
+#define IDC_RENAME_EDIT                 1042
+#define IDC_OLD_EDIT                    1043
+#define IDC_RENAME_OLD_EDIT             1043
+#define IDC_JUMPTO_EDIT                 1044
+#define IDC_EDIT1                       1045
+#define IDC_EVERYTHING_EDIT             1046
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
-#define _APS_NEXT_RESOURCE_VALUE        127
+#define _APS_NEXT_RESOURCE_VALUE        130
 #define _APS_NEXT_COMMAND_VALUE         40048
-#define _APS_NEXT_CONTROL_VALUE         1042
+#define _APS_NEXT_CONTROL_VALUE         1047
 #define _APS_NEXT_SYMED_VALUE           109
 #endif
 #endif

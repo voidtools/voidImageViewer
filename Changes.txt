@@ -1,3 +1,11 @@
+Thursday, 14 September 2017: Version 1.0.0.6b
+	added /x /y /width /height /minimal /compact /shuffle /everything command line options.
+	added jump to list
+	added everything search
+	added shuffle
+	fixed -dc command line option
+	fixed a bug when opening void image viewer and getting a random filename
+	
 Thursday, 31 August 2017: Version 1.0.0.5b
 	fixed a bug with move to/copy to
 	fixed a bug with save as filters.

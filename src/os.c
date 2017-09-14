@@ -74,6 +74,11 @@ void os_copy_memory(void *d,const void *s,int size)
 	CopyMemory(d,s,size);
 }
 
+void os_move_memory(void *d,const void *s,int size)
+{
+	MoveMemory(d,s,size);
+}
+
 // make a rect fully visible
 // pushes the rect onto the screen,the same as menus.
 // does not allow monitor overlapping.
@@ -609,7 +614,7 @@ void os_init(void)
 		
 		os_logical_wide = GetDeviceCaps(hdc,LOGPIXELSX);
 		os_logical_high = GetDeviceCaps(hdc,LOGPIXELSY);
-		
+
 		ReleaseDC(0,hdc);
 	}	
 
@@ -907,12 +912,72 @@ static int CALLBACK _os_BrowseCallbackProc(HWND hwnd,UINT uMsg,LPARAM lParam,LPA
 	
 	return 0;
 }
+/*
 
+//    MIDL_INTERFACE("d57c7288-d4ad-4768-be02-9d969532d960")
 
+typedef struct IFileOpenDialogVtbl
+{
+    HRESULT (STDMETHODCALLTYPE *QueryInterface)(IFileOpenDialog *This,REFIID riid,void **ppvObject);
+    ULONG (STDMETHODCALLTYPE *AddRef)(IFileOpenDialog *This);
+    ULONG (STDMETHODCALLTYPE *Release)(IFileOpenDialog *This);
+    HRESULT (STDMETHODCALLTYPE *Show)(IFileOpenDialog * This,HWND hwndOwner);
+    HRESULT ( STDMETHODCALLTYPE *SetFileTypes)(IFileOpenDialog * This,UINT cFileTypes,const COMDLG_FILTERSPEC *rgFilterSpec);
+    HRESULT ( STDMETHODCALLTYPE *SetFileTypeIndex)(IFileOpenDialog * This,UINT iFileType);
+    
+    HRESULT ( STDMETHODCALLTYPE *GetFileTypeIndex)(IFileOpenDialog * This,UINT *piFileType);
+    
+    HRESULT ( STDMETHODCALLTYPE *Advise )( IFileOpenDialog * This,IFileDialogEvents *pfde,DWORD *pdwCookie);
+    
+    HRESULT ( STDMETHODCALLTYPE *Unadvise )( IFileOpenDialog * This,DWORD dwCookie);
+    
+    HRESULT ( STDMETHODCALLTYPE *SetOptions )( IFileOpenDialog * This,FILEOPENDIALOGOPTIONS fos);
+    
+    HRESULT ( STDMETHODCALLTYPE *GetOptions )( IFileOpenDialog * This,FILEOPENDIALOGOPTIONS *pfos);
+    
+    HRESULT ( STDMETHODCALLTYPE *SetDefaultFolder )( IFileOpenDialog * This,IShellItem *psi);
+    
+    HRESULT ( STDMETHODCALLTYPE *SetFolder )( IFileOpenDialog * This,IShellItem *psi);
+    
+    HRESULT ( STDMETHODCALLTYPE *GetFolder )( IFileOpenDialog * This,IShellItem **ppsi);
+    
+    HRESULT ( STDMETHODCALLTYPE *GetCurrentSelection )( IFileOpenDialog * This,IShellItem **ppsi);
+    
+    HRESULT ( STDMETHODCALLTYPE *SetFileName )( IFileOpenDialog * This,LPCWSTR pszName);
+    
+    HRESULT ( STDMETHODCALLTYPE *GetFileName )( IFileOpenDialog * This,LPWSTR *pszName);
+    
+    HRESULT ( STDMETHODCALLTYPE *SetTitle )( IFileOpenDialog * This,LPCWSTR pszTitle);
+    
+    HRESULT ( STDMETHODCALLTYPE *SetOkButtonLabel )( IFileOpenDialog * This,LPCWSTR pszText);
+    
+    HRESULT ( STDMETHODCALLTYPE *SetFileNameLabel )( IFileOpenDialog * This,LPCWSTR pszLabel);
+    
+    HRESULT ( STDMETHODCALLTYPE *GetResult )( IFileOpenDialog * This,IShellItem **ppsi);
+    
+    HRESULT ( STDMETHODCALLTYPE *AddPlace )( IFileOpenDialog * This,IShellItem *psi,FDAP fdap);
+    
+    HRESULT ( STDMETHODCALLTYPE *SetDefaultExtension )( IFileOpenDialog * This,LPCWSTR pszDefaultExtension);
+    
+    HRESULT ( STDMETHODCALLTYPE *Close )( IFileOpenDialog * This,HRESULT hr);
+    
+    HRESULT ( STDMETHODCALLTYPE *SetClientGuid )( IFileOpenDialog * This,REFGUID guid);
+    
+    HRESULT ( STDMETHODCALLTYPE *ClearClientData )( IFileOpenDialog * This);
+    
+    HRESULT ( STDMETHODCALLTYPE *SetFilter )( IFileOpenDialog * This,IShellItemFilter *pFilter);
+    
+    HRESULT ( STDMETHODCALLTYPE *GetResults )( IFileOpenDialog * This,IShellItemArray **ppenum);
+    
+    HRESULT ( STDMETHODCALLTYPE *GetSelectedItems )( IFileOpenDialog * This,IShellItemArray **ppsai);
+
+} IFileOpenDialogVtbl;
+    */
 //TODO: resolve shortcuts.. need to use IFileOpenDialog on vista and later to do this easily.
 // returns null cbuf if failure.
 int os_browse_for_folder(HWND parent,wchar_t *filename)
 {
+
 	BROWSEINFOW bi;
 	ITEMIDLIST *iil;
 	int ret;
