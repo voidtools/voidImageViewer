@@ -8,6 +8,7 @@
 // Generated from the TEXTINCLUDE 2 resource.
 //
 #include "afxres.h"
+
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
 
@@ -164,14 +165,15 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,130,208,50,14,WS_CLIPSIBLINGS | WS_CLIPCHILDREN
 END
 
-IDD_EVERYTHING DIALOGEX 0, 0, 186, 50
+IDD_EVERYTHING DIALOGEX 0, 0, 186, 63
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Search Everything"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    EDITTEXT        IDC_EVERYTHING_EDIT,7,7,172,14,ES_AUTOHSCROLL
-    DEFPUSHBUTTON   "OK",IDOK,74,29,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,129,29,50,14
+    EDITTEXT        IDC_EVERYTHING_EDIT,6,6,173,14,ES_AUTOHSCROLL
+    CONTROL         "Randomize",IDC_SEARCH_EVERYTHING_RANDOM,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,6,24,51,10
+    DEFPUSHBUTTON   "OK",IDOK,72,42,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,127,42,50,14
 END
 
 
@@ -189,6 +191,22 @@ IDI_NEXT                ICON                    "next.ico"
 IDI_PAUSE               ICON                    "pause.ico"
 IDI_1TO1                ICON                    "1to1-8bit.ico"
 IDI_BESTFIT             ICON                    "bestfit.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO 
+BEGIN
+    IDD_EVERYTHING, DIALOG
+    BEGIN
+        BOTTOMMARGIN, 50
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 
@@ -232,8 +250,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,0,6
- PRODUCTVERSION 1,0,0,6
+ FILEVERSION 1,0,0,7
+ PRODUCTVERSION 1,0,0,7
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -249,12 +267,12 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "FileDescription", "voidImageViewer"
-            VALUE "FileVersion", "1.0.0.6b"
+            VALUE "FileVersion", "1.0.0.7b"
             VALUE "InternalName", "voidImageViewer"
             VALUE "LegalCopyright", "Copyright (C) 2017 David Carpenter"
             VALUE "OriginalFilename", "voidImageViewer.exe"
             VALUE "ProductName", "voidImageViewer"
-            VALUE "ProductVersion", "1.0.0.6b"
+            VALUE "ProductVersion", "1.0.0.7b"
         END
     END
     BLOCK "VarFileInfo"
@@ -273,6 +291,7 @@ END
 //
 // Generated from the TEXTINCLUDE 3 resource.
 //
+
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED

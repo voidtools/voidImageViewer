@@ -43,6 +43,7 @@
 #define IDC_STARTMENU                   1020
 #define IDC_CHECK1                      1021
 #define IDC_APPDATA                     1021
+#define IDC_SEARCH_EVERYTHING_RANDOM    1021
 #define IDC_COMBO2                      1022
 #define IDC_BUTTON1                     1023
 #define IDC_ADD_KEY                     1023

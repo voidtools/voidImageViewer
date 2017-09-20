@@ -441,7 +441,7 @@ void string_printf(wchar_t *wbuf,char *format,...)
 	va_end(args);
 }
 
-wchar_t *string_format_number(wchar_t *buf,int number)
+wchar_t *string_format_number(wchar_t *buf,__int64 number)
 {
 	wchar_t backbuf[MAX_PATH];
 	wchar_t *n;
