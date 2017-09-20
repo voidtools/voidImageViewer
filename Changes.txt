@@ -1,9 +1,15 @@
+Wednesday, 20 September 2017: Version 1.0.0.7b
+	added randomized everything search option
+	added 1:1 scroll option
+	added rotate options
+	fixed a bug when navigating to the next image from the first image
+
 Thursday, 14 September 2017: Version 1.0.0.6b
 	added /x /y /width /height /minimal /compact /shuffle /everything command line options.
 	added jump to list
 	added everything search
 	added shuffle
-	fixed -dc command line option
+	fixed /dc command line option
 	fixed a bug when opening void image viewer and getting a random filename
 	
 Thursday, 31 August 2017: Version 1.0.0.5b
