@@ -17,20 +17,20 @@
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 // TODO: (*=done)
-// *added /x /y /width /height /minimal /compact command line options.
 // mipmaps for shrink resizing.. could generate mipmaps on load or as needed. -too slow. maybe do this on resize only. -find a way to do this efficiently
-// *fixed -dc command line option
-// *j - jump to list - replaces navigate menu.
-// *everything search
 // OpenGL renderer
 // Direct3D renderer
 // graphics::GetHalftonePalette for 256 color mode.
 // high dpi icons
 // control toolbar customization
 // install bmp/jpg only if the default value for HKEY_CLASSES_ROOT\.bmp is bmpfile or voidImageViewer.bmpfile -don't replace non default ones. default hard to determine for each version of Windows -avoiding for now.
-// rotate option?
 // string table for localization.
 // right click -> open with ...open with, or rather get a proper context menu. CDefFolderMenu_Create2
+// *rotate option -using verbs
+// *added /x /y /width /height /minimal /compact command line options.
+// *fixed /dc command line option
+// *j - jump to list - replaces navigate menu.
+// *everything search
 // *added f2 rename.
 // *current image is added to playlist when adding an image to the playlist and the playlist is empty.
 // *fix stream for gifs, don't load the entire image before loading the gif. _viv_istream_t hurts loading performance, will leave CreateStreamOnHGlobal for now.
@@ -97,6 +97,7 @@
 
 #define _VIV_WM_TIMER						(WM_USER)
 #define _VIV_WM_REPLY						(WM_USER+1)
+#define _VIV_WM_RETRY_RANDOM_EVERYTHING_SEARCH	(WM_USER+2)
 
 #define _VIV_KEYFLAG_CTRL					0x0100
 #define _VIV_KEYFLAG_SHIFT					0x0200
@@ -132,6 +133,15 @@ enum
 	_VIV_COPYDATA_COMMAND_LINE,
 	_VIV_COPYDATA_OPEN_EVERYTHING_SEARCH,
 	_VIV_COPYDATA_ADD_EVERYTHING_SEARCH,
+	_VIV_COPYDATA_RANDOM_EVERYTHING_SEARCH,
+};
+
+enum
+{
+	_VIV_DOING_NOTHING,
+	_VIV_DOING_SCROLL,
+	_VIV_DOING_MSCROLL,
+	_VIV_DOING_1TO1SCROLL,
 };
 
 enum
@@ -315,10 +325,27 @@ enum
 	_VIV_ID_NAV_SHUFFLE,
 	_VIV_ID_FILE_OPEN_EVERYTHING_SEARCH,
 	_VIV_ID_FILE_ADD_EVERYTHING_SEARCH,
+	_VIV_ID_EDIT_ROTATE_90,
+	_VIV_ID_EDIT_ROTATE_270,
 };
 
 #define _VIV_HIDE_CURSOR_DELAY		2000
 
+// a file descriptor or find data
+// to describe the image.
+/*
+typedef struct _viv_fd_s
+{
+	unsigned __int64 id; // unique playlist id.
+	unsigned __int64 date_modified; 
+	unsigned __int64 size;
+	unsigned __int64 date_created;
+	
+	// filename follows.
+	// utf8_t filename[...];
+	
+}_viv_fd_t;
+*/
 // a reply from the image load thread
 
 typedef struct _viv_reply_s
@@ -430,6 +457,7 @@ static void _viv_increase_rate(int dec);
 static void _viv_file_preview(void);
 static void _viv_file_print(void);
 static void _viv_file_set_desktop_wallpaper(void);
+static void _viv_edit_rotate(int counterclockwise);
 static void _viv_file_edit(void);
 static void _viv_open_file_location(void);
 static void _viv_properties(void);
@@ -543,7 +571,7 @@ static void _viv_nav_item_free_all(void);
 static void _viv_nav_item_add(WIN32_FIND_DATA *fd);
 static void _viv_add_current_path_to_playlist(void);
 static void _viv_search_everything(int add);
-static int _viv_send_everything_search(HWND parent,int add,const wchar_t *search);
+static int _viv_send_everything_search(HWND parent,int add,int randomize,const wchar_t *search);
 static INT_PTR CALLBACK _viv_search_everything_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 static int _viv_playlist_shuffle_index_from_fd(const WIN32_FIND_DATA *fd);
 static void _viv_do_initial_shuffle(void);
@@ -551,6 +579,9 @@ static _viv_playlist_t *_viv_playlist_from_fd(const WIN32_FIND_DATA *fd);
 static int _viv_compare_id(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b);
 static int _viv_compare_filenames(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b);
 static int _viv_compare_full_path_and_filenames(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b);
+static void _viv_update_1to1_scroll(LPARAM lParam);
+static HBITMAP _viv_rorate_hbitmap(HBITMAP hbitmap,int counterclockwise);
+static void _viv_send_random_everything_search(void);
 
 static HMODULE _viv_stobject_hmodule = 0; // module for setdesktopwallpaper verb.
 static int _viv_keep_centered = 1; // when zooming out, don't recenter the image. (keep cursor under the same pixel)
@@ -617,7 +648,7 @@ static _viv_frame_t *_viv_frames = 0; // the frames that make up an image, could
 static DWORD _viv_timer_tick = 0; // the current tick for the current frame.
 static int _viv_is_animation_timer = 0; // animation timer started?
 static DWORD _viv_animation_timer_tick_start = 0; // the current start tick
-static int _viv_doing = 0; // mouse action, such as drag to scroll image
+static int _viv_doing = _VIV_DOING_NOTHING; // mouse action, such as drag to scroll image
 static int _viv_doing_x;
 static int _viv_doing_y;
 static int _viv_mdoing_x;
@@ -659,7 +690,7 @@ static _viv_reply_t *_viv_reply_start = 0;
 static _viv_reply_t *_viv_reply_last = 0;
 static wchar_t *_viv_status_temp_text = 0;
 static int _viv_mouse_wheel_action = 0; // 0 = zoom, 1 = next/prev, 2=prev/next
-static int _viv_left_click_action = 0; // 0 = scroll, 1 = play/pause slideshow, 2 = play/pause animation, 3=zoom in, 4=next 
+static int _viv_left_click_action = 0; // 0 = scroll, 1 = play/pause slideshow, 2 = play/pause animation, 3=zoom in, 4=next, 5=1:1 scroll
 static int _viv_right_click_action = 0; // 0 = context menu, 1=zoom out, 2=prev, 
 static const utf8_t *_viv_options_page_names[] = {"General","View","Controls"};
 static int _viv_options_tab_ids[] = {IDC_TAB1,IDC_TAB2,IDC_TAB3};
@@ -685,6 +716,8 @@ static _viv_nav_item_t *__viv_nav_item_start = 0;
 static _viv_nav_item_t *_viv_nav_item_last = 0;
 static int _viv_nav_item_count = 0;
 static int _viv_shuffle = 0;
+static wchar_t *_viv_random = 0;
+static DWORD _viv_random_tot_results = 0xffffffff;
 static DWORD _viv_everything_request_flags = 0;
 
 static _viv_command_t _viv_commands[] = 
@@ -717,8 +750,11 @@ static _viv_command_t _viv_commands[] =
 	{"&Copy",MF_STRING,_VIV_MENU_EDIT,_VIV_ID_EDIT_COPY},
 	{"&Paste",MF_STRING|MF_OWNERDRAW,_VIV_MENU_EDIT,_VIV_ID_EDIT_PASTE},
 	{0,MF_SEPARATOR,_VIV_MENU_EDIT,0},
-	{"Copy to &folder...",MF_STRING,_VIV_MENU_EDIT,_VIV_ID_EDIT_COPY_TO},
-	{"Mo&ve to folder...",MF_STRING,_VIV_MENU_EDIT,_VIV_ID_EDIT_MOVE_TO},
+	{"Rotate &Cloc&kwise",MF_STRING,_VIV_MENU_EDIT,_VIV_ID_EDIT_ROTATE_90},
+	{"Rotate Cou&nterclockwise",MF_STRING,_VIV_MENU_EDIT,_VIV_ID_EDIT_ROTATE_270},
+	{0,MF_SEPARATOR,_VIV_MENU_EDIT,0},
+	{"Copy to &Folder...",MF_STRING,_VIV_MENU_EDIT,_VIV_ID_EDIT_COPY_TO},
+	{"Mo&ve to Folder...",MF_STRING,_VIV_MENU_EDIT,_VIV_ID_EDIT_MOVE_TO},
 
 	{"&View",MF_POPUP,_VIV_MENU_ROOT,_VIV_MENU_VIEW},
 	
@@ -731,11 +767,11 @@ static _viv_command_t _viv_commands[] =
 	{"&Compact",MF_STRING,_VIV_MENU_VIEW_PRESET,_VIV_ID_VIEW_PRESET_2},
 	{"&Normal",MF_STRING,_VIV_MENU_VIEW_PRESET,_VIV_ID_VIEW_PRESET_3},
 	{0,MF_SEPARATOR,_VIV_MENU_VIEW,0},
-	{"&Allow shrinking",MF_STRING,_VIV_MENU_VIEW,_VIV_ID_VIEW_ALLOW_SHRINKING},
-	{"&Keep aspect ratio",MF_STRING,_VIV_MENU_VIEW,_VIV_ID_VIEW_KEEP_ASPECT_RATIO},
+	{"&Allow Shrinking",MF_STRING,_VIV_MENU_VIEW,_VIV_ID_VIEW_ALLOW_SHRINKING},
+	{"&Keep Aspect Ratio",MF_STRING,_VIV_MENU_VIEW,_VIV_ID_VIEW_KEEP_ASPECT_RATIO},
 	{"&Fill Window",MF_STRING,_VIV_MENU_VIEW,_VIV_ID_VIEW_FILL_WINDOW},
 	{"1:1",MF_STRING,_VIV_MENU_VIEW,_VIV_ID_VIEW_1TO1},
-	{"&Best fit",MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW,_VIV_ID_VIEW_BESTFIT},
+	{"&Best Fit",MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW,_VIV_ID_VIEW_BESTFIT},
 	{"F&ullscreen",MF_STRING,_VIV_MENU_VIEW,_VIV_ID_VIEW_FULLSCREEN},
 	{"&Slideshow",MF_STRING,_VIV_MENU_VIEW,_VIV_ID_VIEW_SLIDESHOW},
 	{0,MF_SEPARATOR,_VIV_MENU_VIEW,0},
@@ -772,7 +808,7 @@ static _viv_command_t _viv_commands[] =
 	{0,MF_SEPARATOR,_VIV_MENU_VIEW,0},
 	{"On &Top",MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_ONTOP},
 	{"&Always",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_ONTOP,_VIV_ID_VIEW_ONTOP_ALWAYS},
-	{"&While playing slideshow or animating",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_ONTOP,_VIV_ID_VIEW_ONTOP_WHILE_PLAYING_OR_ANIMATING},
+	{"&While Playing Slideshow or Animating",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_ONTOP,_VIV_ID_VIEW_ONTOP_WHILE_PLAYING_OR_ANIMATING},
 	{"&Never",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_ONTOP,_VIV_ID_VIEW_ONTOP_NEVER},
 	{"&Options...",MF_STRING,_VIV_MENU_VIEW,_VIV_ID_VIEW_OPTIONS},
 	{"&Slideshow",MF_POPUP,_VIV_MENU_ROOT,_VIV_MENU_SLIDESHOW},
@@ -966,7 +1002,7 @@ WORD _viv_context_menu_items[] =
 	_VIV_ID_VIEW_FILL_WINDOW,
 	_VIV_ID_VIEW_1TO1,
 	_VIV_ID_VIEW_FULLSCREEN,
-	_VIV_ID_VIEW_SLIDESHOW,
+//	_VIV_ID_VIEW_SLIDESHOW,
 	0,
 	_VIV_MENU_NAVIGATE_SORT,
 	_VIV_ID_NAV_SORT_NAME,
@@ -980,10 +1016,13 @@ WORD _viv_context_menu_items[] =
 	_VIV_MENU_NAVIGATE_SORT,
 	0,
 	_VIV_ID_FILE_OPEN_FILE_LOCATION,
-	_VIV_ID_FILE_EDIT,
-	_VIV_ID_FILE_PREVIEW,
-	_VIV_ID_FILE_PRINT,
 	_VIV_ID_FILE_SET_DESKTOP_WALLPAPER,
+	_VIV_ID_FILE_EDIT,
+	_VIV_ID_FILE_PRINT,
+	_VIV_ID_FILE_PREVIEW,
+	0,
+	_VIV_ID_EDIT_ROTATE_90,
+	_VIV_ID_EDIT_ROTATE_270,
 	0,
 	_VIV_ID_EDIT_CUT,
 	_VIV_ID_EDIT_COPY,
@@ -1131,6 +1170,9 @@ static void _viv_open_from_filename(const wchar_t *filename)
 	
 	if (GetFileAttributesEx(full_path_and_filename,GetFileExInfoStandard,&fd))
 	{
+		fd.dwReserved0 = 0;
+		fd.dwReserved1 = 0;
+
 		if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 		{
 			// add subfolders and subsubfolders...
@@ -1866,6 +1908,13 @@ static void _viv_command(int command_id)
 				
 				if (GetOpenFileName(&ofn))
 				{
+					if (_viv_random)
+					{
+						mem_free(_viv_random);
+						
+						_viv_random = 0;
+					}
+					
 					if (command_id == _VIV_ID_FILE_OPEN_FILE)
 					{
 						_viv_playlist_clearall();
@@ -1900,6 +1949,13 @@ static void _viv_command(int command_id)
 				
 				if (os_browse_for_folder(_viv_hwnd,filename))
 				{
+					if (_viv_random)
+					{
+						mem_free(_viv_random);
+						
+						_viv_random = 0;
+					}
+					
 					if (command_id == _VIV_ID_FILE_OPEN_FOLDER)
 					{
 						_viv_playlist_clearall();
@@ -1949,6 +2005,14 @@ static void _viv_command(int command_id)
 
 		case _VIV_ID_FILE_SET_DESKTOP_WALLPAPER:
 			_viv_file_set_desktop_wallpaper();
+			break;
+			
+		case _VIV_ID_EDIT_ROTATE_270:
+			_viv_edit_rotate(1);
+			break;
+			
+		case _VIV_ID_EDIT_ROTATE_90:
+			_viv_edit_rotate(0);
 			break;
 			
 		case _VIV_ID_FILE_CLOSE:
@@ -2179,6 +2243,10 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 			}
 			return 0;
 			
+		case _VIV_WM_RETRY_RANDOM_EVERYTHING_SEARCH:
+			_viv_send_random_everything_search();
+			break;
+			
 		case _VIV_WM_REPLY:
 		{
 			_viv_reply_t *e;
@@ -2301,6 +2369,16 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 							}
 						}
 						
+						
+						if (_viv_doing == _VIV_DOING_1TO1SCROLL)
+						{
+							POINT pt;
+							GetCursorPos(&pt);
+							ScreenToClient(_viv_hwnd,&pt);
+							
+							_viv_update_1to1_scroll(POINTTOPOINTS(pt));
+						}
+
 						InvalidateRect(_viv_hwnd,NULL,FALSE);
 						
 						break;
@@ -2345,6 +2423,13 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 			wchar_t filename[STRING_SIZE];
 			DWORD count;
 			int is_shift;
+			
+			if (_viv_random)
+			{
+				mem_free(_viv_random);
+				
+				_viv_random = 0;
+			}
 			
 			is_shift = (GetKeyState(VK_SHIFT) < 0);
 			if (is_shift)
@@ -2516,12 +2601,13 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 			
 		case WM_LBUTTONDBLCLK:
 
-			// // 0 = scroll, 1 = play/pause slideshow, 2 = play/pause animation, 3=zoom in, 4=zoom out, 5=next, 6=prev, 
+			// 0 = scroll, 1 = play/pause slideshow, 2 = play/pause animation, 3=zoom in, 4=next, 5=1:1 scroll
 			switch(_viv_left_click_action)
 			{
 				case 0:
 				case 1:
 				case 2:
+				case 5:
 					_viv_toggle_fullscreen();
 					break;
 
@@ -2533,12 +2619,12 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 			
 		case WM_LBUTTONDOWN:
 		
-			// // 0 = scroll, 1 = play/pause slideshow, 2 = play/pause animation, 3=zoom in, 4=zoom out, 5=next, 6=prev, 
+			// 0 = scroll, 1 = play/pause slideshow, 2 = play/pause animation, 3=zoom in, 4=next, 5=1:1 scroll
 			switch(_viv_left_click_action)
 			{
 				case 0:
 				
-					if (!_viv_doing)
+					if (_viv_doing == _VIV_DOING_NOTHING)
 					{
 						if (!_viv_is_fullscreen)
 						{
@@ -2549,10 +2635,31 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 							}				
 						}
 
-						_viv_doing = 1;
+						_viv_doing = _VIV_DOING_SCROLL;
 						_viv_doing_x = GET_X_LPARAM(lParam);
 						_viv_doing_y = GET_Y_LPARAM(lParam);
 						SetCapture(hwnd);
+					}
+					
+					break;
+
+				case 5:
+				
+					if (_viv_doing == _VIV_DOING_NOTHING)
+					{
+						if (!_viv_is_fullscreen)
+						{
+							if (!_viv_is_show_caption)
+							{
+								SendMessage(hwnd,WM_NCLBUTTONDOWN,(WPARAM)HTCAPTION,lParam);
+								return 0;
+							}				
+						}
+										
+						_viv_doing = _VIV_DOING_1TO1SCROLL;
+						SetCapture(hwnd);
+												
+						_viv_update_1to1_scroll(lParam);
 					}
 					
 					break;
@@ -2592,10 +2699,10 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 			break;
 			
 		case WM_MBUTTONDOWN:
-			if (!_viv_doing)
+			if (_viv_doing == _VIV_DOING_NOTHING)
 			{
 				SetCapture(hwnd);
-				_viv_doing = 2;
+				_viv_doing = _VIV_DOING_MSCROLL;
 				_viv_doing_x = GET_X_LPARAM(lParam);
 				_viv_doing_y = GET_Y_LPARAM(lParam);
 				{
@@ -2693,7 +2800,17 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 								wchar_t text_wbuf[STRING_SIZE];
 								wchar_t key_text[STRING_SIZE];
 								
-								string_copy_utf8(text_wbuf,_viv_commands[command_index].name);
+								switch(_viv_commands[command_index].command_id)
+								{
+									case _VIV_ID_SLIDESHOW_PAUSE:
+										string_copy_utf8(text_wbuf,"Slideshow Play/Pause");
+										break;
+										
+									default:
+										string_copy_utf8(text_wbuf,_viv_commands[command_index].name);
+										break;
+										
+								}
 
 								if (_viv_key_list->start[command_index])
 								{
@@ -2727,7 +2844,16 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 								wchar_t text_wbuf[STRING_SIZE];
 								
 								// push submenu
-								string_copy_utf8(text_wbuf,_viv_commands[command_index].name);
+								switch(_viv_context_menu_items[i])
+								{
+									case _VIV_MENU_SLIDESHOW_RATE:
+										string_copy_utf8(text_wbuf,"Slideshow Rate");
+										break;
+								
+									default:
+										string_copy_utf8(text_wbuf,_viv_commands[command_index].name);
+										break;
+								}
 								
 								submenuid = _viv_context_menu_items[i];
 								submenu = CreatePopupMenu();
@@ -2785,44 +2911,58 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 				
 			_viv_show_cursor();
 
-			if (_viv_doing)
+			switch(_viv_doing)
 			{
-				int mx;
-				int my;
-				
-				if (_viv_doing == 2)
-				{
-					POINT pt;
-					GetCursorPos(&pt);
+				case _VIV_DOING_MSCROLL:
 
-					mx = _viv_mdoing_x - pt.x;
-					my = _viv_mdoing_y - pt.y;
-					
-					if ((mx) || (my))
 					{
-						SetCursorPos(_viv_mdoing_x,_viv_mdoing_y);
-					}
-				}
-				else
-				{
-					int x;
-					int y;
-					
-					x = GET_X_LPARAM(lParam); 
-					y = GET_Y_LPARAM(lParam); 
+						int mx;
+						int my;
+						POINT pt;
+						GetCursorPos(&pt);
 
-					mx = x - _viv_doing_x;
-					my = y - _viv_doing_y;
+						mx = _viv_mdoing_x - pt.x;
+						my = _viv_mdoing_y - pt.y;
+						
+						if ((mx) || (my))
+						{
+							SetCursorPos(_viv_mdoing_x,_viv_mdoing_y);
+						}
+					}
 					
-					_viv_doing_x = x;
-					_viv_doing_y = y;
-				}
-				
-				if ((mx) || (my))
-				{
-					_viv_view_scroll(mx,my);
-//					UpdateWindow(_viv_hwnd);
-				}				
+					break;
+			
+				case _VIV_DOING_SCROLL:
+
+					{
+						int mx;
+						int my;
+						int x;
+						int y;
+						
+						x = GET_X_LPARAM(lParam); 
+						y = GET_Y_LPARAM(lParam); 
+
+						mx = x - _viv_doing_x;
+						my = y - _viv_doing_y;
+						
+						_viv_doing_x = x;
+						_viv_doing_y = y;
+					
+						if ((mx) || (my))
+						{
+							_viv_view_scroll(mx,my);
+		//					UpdateWindow(_viv_hwnd);
+						}				
+					}
+					
+					break;
+
+				case _VIV_DOING_1TO1SCROLL:
+
+					_viv_update_1to1_scroll(lParam);
+					
+					break;					
 			}
 			
 			break;
@@ -3068,11 +3208,102 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 				}
 				
 				// Everything reply
+				case _VIV_COPYDATA_RANDOM_EVERYTHING_SEARCH:
+				{
+					EVERYTHING_IPC_ITEM2 *items;
+					
+					debug_printf("%d / %d results\n",((EVERYTHING_IPC_LIST2 *)cds->lpData)->numitems,((EVERYTHING_IPC_LIST2 *)cds->lpData)->totitems);
+					
+					items = (EVERYTHING_IPC_ITEM2 *)(((EVERYTHING_IPC_LIST2 *)cds->lpData) + 1);
+					
+					if (((EVERYTHING_IPC_LIST2 *)cds->lpData)->numitems)
+					{
+						if (items[0].flags & EVERYTHING_IPC_FOLDER)
+						{
+							// add this folder ?
+//							_viv_playlist_add_path(full_path_and_filename);
+						}
+						else
+						{
+							DWORD filename_len;
+							char *p;
+
+							// EVERYTHING_IPC_QUERY2_REQUEST_FULL_PATH_AND_NAME
+							p = ((char *)cds->lpData) + items[0].data_offset;
+							
+							filename_len = *(DWORD *)p;
+							if (filename_len < MAX_PATH)
+							{
+								WIN32_FIND_DATA fd;
+
+								p += sizeof(DWORD);
+								
+								os_zero_memory(&fd,sizeof(WIN32_FIND_DATA));
+								
+								os_copy_memory(fd.cFileName,(wchar_t *)p,filename_len * sizeof(wchar_t));
+								fd.cFileName[filename_len] = 0;
+								
+								if (_viv_is_valid_filename(&fd))
+								{
+									p += (filename_len + 1) * sizeof(wchar_t);
+									
+									// EVERYTHING_IPC_QUERY2_REQUEST_SIZE	
+									if (_viv_everything_request_flags & EVERYTHING_IPC_QUERY2_REQUEST_SIZE)
+									{
+										fd.nFileSizeLow = *(DWORD *)p;
+										p += sizeof(DWORD);
+										fd.nFileSizeHigh = *(DWORD *)p;
+										p += sizeof(DWORD);
+									}
+
+									// EVERYTHING_IPC_QUERY2_REQUEST_DATE_CREATED
+									if (_viv_everything_request_flags & EVERYTHING_IPC_QUERY2_REQUEST_DATE_CREATED)
+									{
+										fd.ftCreationTime.dwLowDateTime = *(DWORD *)p;
+										p += sizeof(DWORD);
+										fd.ftCreationTime.dwHighDateTime = *(DWORD *)p;
+										p += sizeof(DWORD);
+									}
+									
+									// EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED
+									if (_viv_everything_request_flags & EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED)
+									{
+										fd.ftLastWriteTime.dwLowDateTime = *(DWORD *)p;
+										p += sizeof(DWORD);
+										fd.ftLastWriteTime.dwHighDateTime = *(DWORD *)p;
+										p += sizeof(DWORD);
+									}
+									
+									_viv_open(&fd);
+								}
+							}
+						}
+					}
+					else
+					if (((EVERYTHING_IPC_LIST2 *)cds->lpData)->totitems)
+					{
+						// our random index was too high, try again.
+						_viv_random_tot_results = ((EVERYTHING_IPC_LIST2 *)cds->lpData)->totitems;
+
+						PostMessage(hwnd,_VIV_WM_RETRY_RANDOM_EVERYTHING_SEARCH,0,0);
+					}
+
+					break;
+				}
+
+				// Everything reply
 				case _VIV_COPYDATA_OPEN_EVERYTHING_SEARCH:
 				case _VIV_COPYDATA_ADD_EVERYTHING_SEARCH:
 				{
 					DWORD i;
 					EVERYTHING_IPC_ITEM2 *items;
+					
+					if (_viv_random)
+					{
+						mem_free(_viv_random);
+						
+						_viv_random = 0;
+					}
 					
 					if (cds->dwData == _VIV_COPYDATA_OPEN_EVERYTHING_SEARCH)
 					{
@@ -3083,7 +3314,7 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 						_viv_playlist_add_current_if_empty();
 					}
 					
-					debug_printf("%d results\n",((EVERYTHING_IPC_LIST2 *)cds->lpData)->numitems);
+					debug_printf("%d / %d results\n",((EVERYTHING_IPC_LIST2 *)cds->lpData)->numitems,((EVERYTHING_IPC_LIST2 *)cds->lpData)->totitems);
 					
 					items = (EVERYTHING_IPC_ITEM2 *)(((EVERYTHING_IPC_LIST2 *)cds->lpData) + 1);
 					
@@ -3121,27 +3352,27 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 									// EVERYTHING_IPC_QUERY2_REQUEST_SIZE	
 									if (_viv_everything_request_flags & EVERYTHING_IPC_QUERY2_REQUEST_SIZE)
 									{
-										fd.nFileSizeHigh = *(DWORD *)p;
-										p += sizeof(DWORD);
 										fd.nFileSizeLow = *(DWORD *)p;
+										p += sizeof(DWORD);
+										fd.nFileSizeHigh = *(DWORD *)p;
 										p += sizeof(DWORD);
 									}
 
 									// EVERYTHING_IPC_QUERY2_REQUEST_DATE_CREATED
 									if (_viv_everything_request_flags & EVERYTHING_IPC_QUERY2_REQUEST_DATE_CREATED)
 									{
-										fd.ftCreationTime.dwHighDateTime = *(DWORD *)p;
-										p += sizeof(DWORD);
 										fd.ftCreationTime.dwLowDateTime = *(DWORD *)p;
+										p += sizeof(DWORD);
+										fd.ftCreationTime.dwHighDateTime = *(DWORD *)p;
 										p += sizeof(DWORD);
 									}
 									
 									// EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED
 									if (_viv_everything_request_flags & EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED)
 									{
-										fd.ftLastWriteTime.dwHighDateTime = *(DWORD *)p;
-										p += sizeof(DWORD);
 										fd.ftLastWriteTime.dwLowDateTime = *(DWORD *)p;
+										p += sizeof(DWORD);
+										fd.ftLastWriteTime.dwHighDateTime = *(DWORD *)p;
 										p += sizeof(DWORD);
 									}
 									
@@ -3998,7 +4229,15 @@ static void _viv_process_command_line(wchar_t *cl)
 				p = _viv_get_word(p,buf);
 				p = _viv_skip_ws(p);
 				
-				_viv_send_everything_search(0,0,buf);
+				_viv_send_everything_search(0,0,0,buf);
+			}
+			else
+			if (string_icompare_lowercase_ascii(bufstart,"random") == 0)
+			{
+				p = _viv_get_word(p,buf);
+				p = _viv_skip_ws(p);
+				
+				_viv_send_everything_search(0,0,1,buf);
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"minimal") == 0)
@@ -4134,6 +4373,13 @@ static void _viv_process_command_line(wchar_t *cl)
 
 	if (file_count >= 1)
 	{
+		if (_viv_random)
+		{
+			mem_free(_viv_random);
+			
+			_viv_random = 0;
+		}
+		
 		_viv_playlist_clearall();
 		
 		// open the first image specified.
@@ -4395,6 +4641,11 @@ static void _viv_kill(void)
 	}
 	
 	_viv_nav_item_free_all();
+	
+	if (_viv_random)
+	{
+		mem_free(_viv_random);
+	}
 	
 	if (_viv_hmenu)
 	{
@@ -4841,237 +5092,247 @@ static int _viv_compare(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
 
 static void _viv_next(int prev,int reset_slideshow_timer)
 {
-	_viv_do_initial_shuffle();
-
-	if (*_viv_current_fd->cFileName)
+	if (_viv_random)
 	{
-		WIN32_FIND_DATA start_fd;
-		WIN32_FIND_DATA best_fd;
-		int got_start;
-		int got_best;
+		_viv_send_random_everything_search();
+	}
+	else
+	{
+		_viv_do_initial_shuffle();
 
-		got_best = 0;
-		got_start = 0;
-		
-		if (_viv_playlist_start)
+		if (*_viv_current_fd->cFileName)
 		{
-			_viv_playlist_t *d;
+			WIN32_FIND_DATA start_fd;
+			WIN32_FIND_DATA best_fd;
+			int got_start;
+			int got_best;
+
+			got_best = 0;
+			got_start = 0;
 			
-			d = _viv_playlist_start;
-			
-			if (_viv_shuffle)
+			if (_viv_playlist_start)
 			{
-				int index;
+				_viv_playlist_t *d;
 				
-				index = _viv_playlist_shuffle_index_from_fd(_viv_current_fd);
+				d = _viv_playlist_start;
 				
-debug_printf("cur %d %d\n",index,_viv_current_fd->dwReserved1);
-				
-				if (index != -1)
+				if (_viv_shuffle)
 				{
-					if (prev)
+					int index;
+					
+					index = _viv_playlist_shuffle_index_from_fd(_viv_current_fd);
+					
+	debug_printf("cur %d %d\n",index,_viv_current_fd->dwReserved1);
+					
+					if (index != -1)
 					{
-						index--;
-						if (index < 0)
+						if (prev)
 						{
-							index = _viv_playlist_count - 1;
+							index--;
+							if (index < 0)
+							{
+								index = _viv_playlist_count - 1;
+							}
+						}
+						else
+						{
+							index++;
+							if (index >= _viv_playlist_count)
+							{
+								index = 0;
+							}
 						}
 					}
 					else
 					{
-						index++;
-						if (index >= _viv_playlist_count)
+						if (prev)
+						{
+							index = _viv_playlist_count - 1;
+						}
+						else
 						{
 							index = 0;
 						}
 					}
+					
+					os_copy_memory(&best_fd,&_viv_playlist_shuffle_indexes[index]->fd,sizeof(WIN32_FIND_DATA));
+
+					got_best = 1;
 				}
 				else
 				{
-					if (prev)
+					_viv_playlist_t *current_d;
+					
+					current_d = _viv_playlist_from_fd(_viv_current_fd);
+					
+					while(d)
 					{
-						index = _viv_playlist_count - 1;
-					}
-					else
-					{
-						index = 0;
+						if (d != current_d)
+						{
+							int compare_ret;
+							
+							compare_ret = _viv_compare(&d->fd,_viv_current_fd);
+
+							if (compare_ret != 0)
+							{
+								if (prev)
+								{
+									if (compare_ret < 0)
+									{
+										if ((!got_best) || (_viv_compare(&d->fd,&best_fd) > 0))
+										{
+											os_copy_memory(&best_fd,&d->fd,sizeof(WIN32_FIND_DATA));
+											got_best = 1;
+										}
+									}
+								}
+								else
+								{
+									if (compare_ret > 0)
+									{
+										if ((!got_best) || (_viv_compare(&d->fd,&best_fd) < 0))
+										{
+											os_copy_memory(&best_fd,&d->fd,sizeof(WIN32_FIND_DATA));
+											got_best = 1;
+										}
+									}		
+								}
+							}
+							
+							// compare with start..
+							if (prev)
+							{
+								if ((!got_start) || (_viv_compare(&d->fd,&start_fd) > 0))
+								{
+									os_copy_memory(&start_fd,&d->fd,sizeof(WIN32_FIND_DATA));
+									
+									got_start = 1;
+								}
+							}
+							else
+							{
+								if ((!got_start) || (_viv_compare(&d->fd,&start_fd) < 0))
+								{
+									os_copy_memory(&start_fd,&d->fd,sizeof(WIN32_FIND_DATA));
+									got_start = 1;
+								}
+							}					
+						}
+					
+						d = d->next;
 					}
 				}
-				
-				os_copy_memory(&best_fd,&_viv_playlist_shuffle_indexes[index]->fd,sizeof(WIN32_FIND_DATA));
-
-				got_best = 1;
 			}
 			else
 			{
-				_viv_playlist_t *current_d;
+				WIN32_FIND_DATA fd;
+				HANDLE h;
+				wchar_t search_wbuf[STRING_SIZE];
+				wchar_t path_wbuf[STRING_SIZE];
 				
-				current_d = _viv_playlist_from_fd(_viv_current_fd);
+				string_get_path_part(path_wbuf,_viv_current_fd->cFileName);
 				
-				while(d)
+				string_copy(search_wbuf,path_wbuf);
+				string_cat_utf8(search_wbuf,(const utf8_t *)"\\*.*");
+				
+				h = FindFirstFile(search_wbuf,&fd);
+				if (h != INVALID_HANDLE_VALUE)
 				{
-					if (d != current_d)
+					for(;;)
 					{
-						int compare_ret;
-						
-						compare_ret = _viv_compare(&d->fd,_viv_current_fd);
-
-						if (compare_ret != 0)
+						if (_viv_is_valid_filename(&fd))
 						{
+							int compare_ret;
+							
+							fd.dwReserved0 = 0;
+							fd.dwReserved1 = 0;
+							
+							compare_ret = _viv_compare(&fd,_viv_current_fd);
+
+							if (compare_ret != 0)
+							{
+								if (prev)
+								{
+									if (compare_ret < 0)
+									{
+										if ((!got_best) || (_viv_compare(&fd,&best_fd) > 0))
+										{
+											string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
+											string_copy(fd.cFileName,search_wbuf);
+											os_copy_memory(&best_fd,&fd,sizeof(WIN32_FIND_DATA));
+											got_best = 1;
+										}
+									}
+								}
+								else
+								{
+									if (compare_ret > 0)
+									{
+										if ((!got_best) || (_viv_compare(&fd,&best_fd) < 0))
+										{
+											string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
+											string_copy(fd.cFileName,search_wbuf);
+											os_copy_memory(&best_fd,&fd,sizeof(WIN32_FIND_DATA));
+											got_best = 1;
+										}
+									}		
+								}
+							}
+							
+							// compare with start..
 							if (prev)
 							{
-								if (compare_ret < 0)
+								if ((!got_start) || (_viv_compare(&fd,&start_fd) > 0))
 								{
-									if ((!got_best) || (_viv_compare(&d->fd,&best_fd) > 0))
-									{
-										os_copy_memory(&best_fd,&d->fd,sizeof(WIN32_FIND_DATA));
-										got_best = 1;
-									}
+									string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
+									string_copy(fd.cFileName,search_wbuf);
+									os_copy_memory(&start_fd,&fd,sizeof(WIN32_FIND_DATA));
+									
+									got_start = 1;
 								}
 							}
 							else
 							{
-								if (compare_ret > 0)
+								if ((!got_start) || (_viv_compare(&fd,&start_fd) < 0))
 								{
-									if ((!got_best) || (_viv_compare(&d->fd,&best_fd) < 0))
-									{
-										os_copy_memory(&best_fd,&d->fd,sizeof(WIN32_FIND_DATA));
-										got_best = 1;
-									}
-								}		
-							}
-						}
-						
-						// compare with start..
-						if (prev)
-						{
-							if ((!got_start) || (_viv_compare(&d->fd,&start_fd) > 0))
-							{
-								os_copy_memory(&start_fd,&d->fd,sizeof(WIN32_FIND_DATA));
-								
-								got_start = 1;
-							}
-						}
-						else
-						{
-							if ((!got_start) || (_viv_compare(&d->fd,&start_fd) < 0))
-							{
-								os_copy_memory(&start_fd,&d->fd,sizeof(WIN32_FIND_DATA));
-								got_start = 1;
-							}
-						}					
-					}
-				
-					d = d->next;
-				}
-			}
-		}
-		else
-		{
-			WIN32_FIND_DATA fd;
-			HANDLE h;
-			wchar_t search_wbuf[STRING_SIZE];
-			wchar_t path_wbuf[STRING_SIZE];
-			
-			string_get_path_part(path_wbuf,_viv_current_fd->cFileName);
-			
-			string_copy(search_wbuf,path_wbuf);
-			string_cat_utf8(search_wbuf,(const utf8_t *)"\\*.*");
-			
-			h = FindFirstFile(search_wbuf,&fd);
-			if (h != INVALID_HANDLE_VALUE)
-			{
-				for(;;)
-				{
-					if (_viv_is_valid_filename(&fd))
-					{
-						int compare_ret;
-						
-						compare_ret = _viv_compare(&fd,_viv_current_fd);
-
-						if (compare_ret != 0)
-						{
-							if (prev)
-							{
-								if (compare_ret < 0)
-								{
-									if ((!got_best) || (_viv_compare(&fd,&best_fd) > 0))
-									{
-										string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-										string_copy(fd.cFileName,search_wbuf);
-										os_copy_memory(&best_fd,&fd,sizeof(WIN32_FIND_DATA));
-										got_best = 1;
-									}
+									string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
+									string_copy(fd.cFileName,search_wbuf);
+									os_copy_memory(&start_fd,&fd,sizeof(WIN32_FIND_DATA));
+									got_start = 1;
 								}
 							}
-							else
-							{
-								if (compare_ret > 0)
-								{
-									if ((!got_best) || (_viv_compare(&fd,&best_fd) < 0))
-									{
-										string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-										string_copy(fd.cFileName,search_wbuf);
-										os_copy_memory(&best_fd,&fd,sizeof(WIN32_FIND_DATA));
-										got_best = 1;
-									}
-								}		
-							}
 						}
 						
-						// compare with start..
-						if (prev)
-						{
-							if ((!got_start) || (_viv_compare(&fd,&start_fd) > 0))
-							{
-								string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-								string_copy(fd.cFileName,search_wbuf);
-								os_copy_memory(&start_fd,&fd,sizeof(WIN32_FIND_DATA));
-								
-								got_start = 1;
-							}
-						}
-						else
-						{
-							if ((!got_start) || (_viv_compare(&fd,&start_fd) < 0))
-							{
-								string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-								string_copy(fd.cFileName,search_wbuf);
-								os_copy_memory(&start_fd,&fd,sizeof(WIN32_FIND_DATA));
-								got_start = 1;
-							}
-						}
+						if (!FindNextFile(h,&fd)) break;
 					}
-					
-					if (!FindNextFile(h,&fd)) break;
+
+					FindClose(h);
 				}
-
-				FindClose(h);
 			}
-		}
 
-		if (got_best)
-		{
-			_viv_open(&best_fd);
-		}
-		else
-		if (got_start)
-		{
-			// don't open the same image again.
-			debug_printf("%S %S\n",start_fd.cFileName,_viv_current_fd->cFileName);
-			if (string_compare(start_fd.cFileName,_viv_current_fd->cFileName) != 0)
+			if (got_best)
 			{
-				_viv_open(&start_fd);
+				_viv_open(&best_fd);
+			}
+			else
+			if (got_start)
+			{
+				// don't open the same image again.
+				debug_printf("%S %S\n",start_fd.cFileName,_viv_current_fd->cFileName);
+				if (string_compare(start_fd.cFileName,_viv_current_fd->cFileName) != 0)
+				{
+					_viv_open(&start_fd);
+				}
+			}
+			else
+			{
+				_viv_blank();
 			}
 		}
 		else
 		{
-			_viv_blank();
+			_viv_home(0);
 		}
-	}
-	else
-	{
-		_viv_home(0);
 	}
 
 	// reset slideshow timer.
@@ -5087,123 +5348,133 @@ debug_printf("cur %d %d\n",index,_viv_current_fd->dwReserved1);
 
 static void _viv_home(int end)
 {
-	WIN32_FIND_DATA best_fd;
-	int got_best;
-	
-	got_best = 0;
-	
-	_viv_do_initial_shuffle();
-	
-	if (_viv_playlist_start)
+	if (_viv_random)
 	{
-		if (_viv_shuffle)
-		{
-			int index;
-			
-			if (end)
-			{
-				index = _viv_playlist_count - 1;
-			}
-			else
-			{
-				index = 0;
-			}
-			
-			os_copy_memory(&best_fd,&_viv_playlist_shuffle_indexes[index]->fd,sizeof(WIN32_FIND_DATA));
-
-			got_best = 1;
-		}
-		else	
-		{
-			_viv_playlist_t *d;
-			
-			d = _viv_playlist_start;
-			while(d)
-			{
-				if (end)
-				{
-					if ((!got_best) || (_viv_compare(&d->fd,&best_fd) > 0))
-					{
-						os_copy_memory(&best_fd,&d->fd,sizeof(WIN32_FIND_DATA));
-						got_best = 1;
-					}
-				}
-				else
-				{
-					if ((!got_best) || (_viv_compare(&d->fd,&best_fd) < 0))
-					{
-						os_copy_memory(&best_fd,&d->fd,sizeof(WIN32_FIND_DATA));
-						got_best = 1;
-					}		
-				}					
-			
-				d = d->next;
-			}
-		}
+		_viv_send_random_everything_search();
 	}
 	else
 	{
-		HANDLE h;
-		WIN32_FIND_DATA fd;
-		wchar_t search_wbuf[STRING_SIZE];
-		wchar_t path_wbuf[STRING_SIZE];
-	
-		if (*_viv_current_fd->cFileName)
-		{
-			string_get_path_part(path_wbuf,_viv_current_fd->cFileName);
-		}
-		else
-		{
-			GetCurrentDirectory(STRING_SIZE,path_wbuf);
-		}
+		WIN32_FIND_DATA best_fd;
+		int got_best;
 		
-		string_copy(search_wbuf,path_wbuf);
-		string_cat_utf8(search_wbuf,(const utf8_t *)"\\*.*");
-	
-		h = FindFirstFile(search_wbuf,&fd);
+		got_best = 0;
 		
-		if (h != INVALID_HANDLE_VALUE)
+		_viv_do_initial_shuffle();
+		
+		if (_viv_playlist_start)
 		{
-			for(;;)
+			if (_viv_shuffle)
 			{
-				if (_viv_is_valid_filename(&fd))
+				int index;
+				
+				if (end)
+				{
+					index = _viv_playlist_count - 1;
+				}
+				else
+				{
+					index = 0;
+				}
+				
+				os_copy_memory(&best_fd,&_viv_playlist_shuffle_indexes[index]->fd,sizeof(WIN32_FIND_DATA));
+
+				got_best = 1;
+			}
+			else	
+			{
+				_viv_playlist_t *d;
+				
+				d = _viv_playlist_start;
+				while(d)
 				{
 					if (end)
 					{
-						if ((!got_best) || (_viv_compare(&fd,&best_fd) > 0))
+						if ((!got_best) || (_viv_compare(&d->fd,&best_fd) > 0))
 						{
-							string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-							string_copy(fd.cFileName,search_wbuf);
-							os_copy_memory(&best_fd,&fd,sizeof(WIN32_FIND_DATA));
+							os_copy_memory(&best_fd,&d->fd,sizeof(WIN32_FIND_DATA));
 							got_best = 1;
 						}
 					}
 					else
 					{
-						if ((!got_best) || (_viv_compare(&fd,&best_fd) < 0))
+						if ((!got_best) || (_viv_compare(&d->fd,&best_fd) < 0))
 						{
-							string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-							string_copy(fd.cFileName,search_wbuf);
-							os_copy_memory(&best_fd,&fd,sizeof(WIN32_FIND_DATA));
+							os_copy_memory(&best_fd,&d->fd,sizeof(WIN32_FIND_DATA));
 							got_best = 1;
 						}		
-					}
-				}
+					}					
 				
-				if (!FindNextFile(h,&fd)) break;
+					d = d->next;
+				}
 			}
-
-			FindClose(h);
 		}
-	}
-	
-	if (got_best)
-	{	
-		_viv_open(&best_fd);
-	}
-	else
-	{
-		_viv_blank();
+		else
+		{
+			HANDLE h;
+			WIN32_FIND_DATA fd;
+			wchar_t search_wbuf[STRING_SIZE];
+			wchar_t path_wbuf[STRING_SIZE];
+		
+			if (*_viv_current_fd->cFileName)
+			{
+				string_get_path_part(path_wbuf,_viv_current_fd->cFileName);
+			}
+			else
+			{
+				GetCurrentDirectory(STRING_SIZE,path_wbuf);
+			}
+			
+			string_copy(search_wbuf,path_wbuf);
+			string_cat_utf8(search_wbuf,(const utf8_t *)"\\*.*");
+		
+			h = FindFirstFile(search_wbuf,&fd);
+			
+			if (h != INVALID_HANDLE_VALUE)
+			{
+				for(;;)
+				{
+					if (_viv_is_valid_filename(&fd))
+					{
+						fd.dwReserved0 = 0;
+						fd.dwReserved1 = 0;
+						
+						if (end)
+						{
+							if ((!got_best) || (_viv_compare(&fd,&best_fd) > 0))
+							{
+								string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
+								string_copy(fd.cFileName,search_wbuf);
+								os_copy_memory(&best_fd,&fd,sizeof(WIN32_FIND_DATA));
+								got_best = 1;
+							}
+						}
+						else
+						{
+							if ((!got_best) || (_viv_compare(&fd,&best_fd) < 0))
+							{
+								string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
+								string_copy(fd.cFileName,search_wbuf);
+								os_copy_memory(&best_fd,&fd,sizeof(WIN32_FIND_DATA));
+								got_best = 1;
+							}		
+						}
+					}
+					
+					if (!FindNextFile(h,&fd)) break;
+				}
+
+				FindClose(h);
+			}
+		}
+		
+		if (got_best)
+		{	
+			_viv_open(&best_fd);
+		}
+		else
+		{
+			_viv_blank();
+		}
 	}
 
 	// reset slideshow timer.
@@ -5288,6 +5559,24 @@ static int _viv_is_msg(MSG *msg)
 			if (msg->hwnd == _viv_hwnd)
 			{
 				int key_index;
+
+				// cancel action
+				if ((key_flags == 0) && (msg->wParam == VK_ESCAPE))
+				{
+					if (_viv_doing)
+					{
+						_viv_doing_cancel();
+					
+						return 1;
+					}
+
+					if (_viv_is_fullscreen)
+					{
+						_viv_toggle_fullscreen();
+					
+						return 1;
+					}
+				}
 				
 				// find the key.
 				for(key_index=0;key_index<_VIV_COMMAND_COUNT;key_index++)
@@ -5626,6 +5915,14 @@ static void _viv_get_render_size(int *prw,int *prh)
 		return;
 	}
 		
+	if ((_viv_1to1) || (_viv_doing == _VIV_DOING_1TO1SCROLL))
+	{
+		*prw = _viv_image_wide;
+		*prh = _viv_image_high;
+		
+		return;
+	}
+			
 	if (_viv_is_fullscreen)
 	{
 		fill_window = _viv_fullscreen_fill_window;
@@ -5737,12 +6034,6 @@ static void _viv_get_render_size(int *prw,int *prh)
 		rh = rh + (max_zoom_high - rh) * _viv_zoom_presets[_viv_zoom_pos];
 	}
 	
-	if (_viv_1to1)
-	{
-		rw = _viv_image_wide;
-		rh = _viv_image_high;
-	}
-	
 	*prw = rw;
 	*prh = rh;
 }
@@ -5841,6 +6132,9 @@ static void _viv_check_menus(HMENU hmenu)
 	EnableMenuItem(hmenu,_VIV_ID_FILE_PROPERTIES,is_image_enabled);
 	EnableMenuItem(hmenu,_VIV_ID_FILE_SET_DESKTOP_WALLPAPER,is_image_enabled);
 	EnableMenuItem(hmenu,_VIV_ID_FILE_RENAME,is_image_enabled);
+
+	EnableMenuItem(hmenu,_VIV_ID_EDIT_ROTATE_270,is_image_enabled);
+	EnableMenuItem(hmenu,_VIV_ID_EDIT_ROTATE_90,is_image_enabled);
 
 	CheckMenuItem(hmenu,_VIV_ID_VIEW_MENU,_viv_is_show_menu ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,_VIV_ID_VIEW_CONTROLS,_viv_is_show_controls ? MF_CHECKED : MF_UNCHECKED);
@@ -6324,6 +6618,50 @@ static void _viv_file_set_desktop_wallpaper(void)
 	}
 }
 
+static void _viv_edit_rotate(int counterclockwise)
+{
+	if (*_viv_current_fd->cFileName)
+	{
+		// FIXME: we need to wait for image to load.
+		if (_viv_frame_loaded_count == _viv_frame_count)
+		{
+			// this tends to fail if called too quickly after a previous call
+			// can't seem to catch the error ..
+			if (os_shell_execute(_viv_hwnd,_viv_current_fd->cFileName,1,counterclockwise ? "rotate270" : "rotate90",0))
+			{
+				int i;
+				int temp;
+
+				// rotate images in memory too
+				
+				for(i=0;i<_viv_frame_count;i++)
+				{
+					HBITMAP new_hbitmap;
+					
+					new_hbitmap = _viv_rorate_hbitmap(_viv_frames[i].hbitmap,counterclockwise);
+					
+					if (new_hbitmap)
+					{
+						DeleteObject(_viv_frames[i].hbitmap);
+						
+						_viv_frames[i].hbitmap = new_hbitmap;
+					}
+				}
+				
+				temp = _viv_image_wide;
+				_viv_image_wide = _viv_image_high;
+				_viv_image_high = temp;
+				
+				_viv_view_set(_viv_view_x,_viv_view_y,1);
+				
+				_viv_status_update();
+
+				InvalidateRect(_viv_hwnd,0,FALSE);
+			}
+		}
+	}
+}
+
 static void _viv_file_edit(void)
 {
 	if (*_viv_current_fd->cFileName)
@@ -6409,14 +6747,24 @@ static void _viv_doing_cancel(void)
 {
 	if (_viv_doing)
 	{
-		if (_viv_doing == 2)
+		int was_doing;
+		
+		was_doing = _viv_doing;
+		
+		_viv_doing = _VIV_DOING_NOTHING;
+		
+		if (was_doing == _VIV_DOING_MSCROLL)
 		{
 			ShowCursor(TRUE);
 		}
+
+		if (was_doing == _VIV_DOING_1TO1SCROLL)
+		{
+			_viv_view_set(_viv_doing_x,_viv_doing_y,1);
+			InvalidateRect(_viv_hwnd,0,FALSE);
+		}
 		
 		ReleaseCapture();
-		
-		_viv_doing = 0;
 	}
 }
 
@@ -6456,6 +6804,13 @@ static void _viv_blank(void)
 {
 	_viv_clear();
 
+	if (_viv_random)
+	{
+		mem_free(_viv_random);
+		
+		_viv_random = 0;
+	}
+	
 	_viv_current_fd->cFileName[0] = 0;
 
 	_viv_status_update();
@@ -6766,6 +7121,7 @@ static INT_PTR CALLBACK _viv_options_controls_proc(HWND hwnd,UINT msg,WPARAM wPa
 			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,(const utf8_t *)"Play/Pause Animation");
 			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,(const utf8_t *)"Zoom In");
 			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,(const utf8_t *)"Next Image");
+			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,(const utf8_t *)"1:1 Scroll");
 			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_LEFTCLICKACTION),_viv_left_click_action);
 			
 			os_ComboBox_AddString(hwnd,IDC_RIGHTCLICKACTION,(const utf8_t *)"Context Menu");
@@ -7848,7 +8204,7 @@ static _viv_playlist_t *_viv_playlist_add(const WIN32_FIND_DATA *fd)
 		{
 			int index;
 			
-			index = rand() % (_viv_playlist_count + 1);
+			index = ((rand() * RAND_MAX) + rand()) % (_viv_playlist_count + 1);
 
 			if (_viv_playlist_count != index)
 			{
@@ -7929,7 +8285,11 @@ static void _viv_playlist_add_filename(const wchar_t *filename)
 		else
 		{
 			string_copy(fd.cFileName,full_path_and_filename);
-			_viv_playlist_add(&fd);
+
+			if (_viv_is_valid_filename(&fd))
+			{
+				_viv_playlist_add(&fd);
+			}
 		}
 	}
 }
@@ -8965,6 +9325,39 @@ static void _viv_status_update(void)
 		{
 			string_copy_utf8(dimension_buf,(const utf8_t *)"");
 		}
+
+		if (*_viv_current_fd->cFileName)
+		{
+			LARGE_INTEGER size;
+			
+			size.HighPart = _viv_current_fd->nFileSizeHigh;
+			size.LowPart = _viv_current_fd->nFileSizeLow;
+			
+			if (size.QuadPart)
+			{
+				NUMBERFMT numberfmt;
+				
+				if (*dimension_buf)
+				{
+					string_cat_utf8(dimension_buf," ");
+				}
+				
+				string_cat_utf8(dimension_buf,"(");
+				string_format_number(widebuf,(size.QuadPart + 1023) / 1024);
+				
+				numberfmt.NumDigits = 0;
+				numberfmt.LeadingZero = 0;
+				numberfmt.Grouping = 3;
+				numberfmt.lpThousandSep = L",";
+				numberfmt.lpDecimalSep = L".";
+				numberfmt.NegativeOrder = 0;
+	    
+    			GetNumberFormat(LOCALE_USER_DEFAULT,0,widebuf,&numberfmt,highbuf,STRING_SIZE);
+				
+				string_cat(dimension_buf,highbuf);
+				string_cat_utf8(dimension_buf," KB)");
+			}
+		}
 		
 		if (_viv_frame_count > 1)
 		{
@@ -9395,8 +9788,8 @@ static void _viv_command_line_options(void)
 		"/fullscreen\tStart fullscreen.\n"
 		"/window\t\tStart windowed.\n"
 		"/ontop\t\tShow on top of other windows.\n"
-		"/minimal\t\tBorderless windowed.\n"
-		"/compact\t\tBordered windowed.\n"
+		"/minimal\t\tBorderless window.\n"
+		"/compact\t\tBordered window.\n"
 		"/x <x> /y <y> /width <width> /height <height>\n"
 		"\t\tSet the Window position.\n"
 		"/rate <rate>\tSet the slideshow rate in milliseconds.\n"
@@ -9407,7 +9800,7 @@ static void _viv_command_line_options(void)
 		"/dc\t\tSort by date created.\n"
 		"/ascending\tSort in ascending order.\n"
 		"/descending\tSort in descending order.\n"
-		"/everything <search>\tOpen files from an Everything search.\n"
+		"/everything <search> Open files from an Everything search.\n"
 		"/shuffle\t\tShuffle playlist.\n"
 		"/<bmp|gif|ico|jpeg|jpg|png|tif|tiff>\n"
 		"\t\tInstall association.\n"
@@ -9418,13 +9811,13 @@ static void _viv_command_line_options(void)
 		"/startmenu\tAdd Start menu shortcuts.\n"
 		"/nostartmenu\tRemove Start menu shortcuts.\n"
 		"/install <path>\tInstall to the specified path.\n"
-		"/install-options <...>\tRun with the specified options after installation.\n"
+		"/install-options <...> Run with the specified options after installation.\n"
 		"/uninstall <path>\tUninstall from the specified path.\n");
 		
 	string_copy_utf8(caption_wbuf,"void Image Viewer");
 
 	// MB_ICONQUESTION avoids the messagebeep.
-	MessageBox(0,
+	MessageBox(_viv_hwnd,
 		text_wbuf,
 		caption_wbuf,MB_OK|MB_ICONQUESTION);
 		
@@ -10420,7 +10813,11 @@ static void _viv_jumpto_on_search(HWND hwnd)
 		{
 			if ((!(*search_wbuf)) || (StrStrI(_viv_nav_items[i]->fd.cFileName,search_wbuf)))
 			{
-				ListBox_AddString(GetDlgItem(hwnd,IDC_JUMPTO_LIST),string_get_filename_part(_viv_nav_items[i]->fd.cFileName));
+				int lb_index;
+				
+				lb_index = ListBox_AddString(GetDlgItem(hwnd,IDC_JUMPTO_LIST),string_get_filename_part(_viv_nav_items[i]->fd.cFileName));
+				
+				ListBox_SetItemData(GetDlgItem(hwnd,IDC_JUMPTO_LIST),lb_index,i);
 			}
 		}
 	}
@@ -10432,13 +10829,20 @@ static void _viv_jumpto_on_search(HWND hwnd)
 
 static void _viv_jumpto_open_sel(HWND hwnd)
 {
-	int index;
+	int lb_index;
 	
-	index = ListBox_GetCurSel(GetDlgItem(hwnd,IDC_JUMPTO_LIST));
+	lb_index = ListBox_GetCurSel(GetDlgItem(hwnd,IDC_JUMPTO_LIST));
+
+	if (lb_index != LB_ERR)
+	{	
+		int index;
+		
+		index = ListBox_GetItemData(GetDlgItem(hwnd,IDC_JUMPTO_LIST),lb_index);
 	
-	if ((index >= 0) && (index < _viv_nav_item_count))
-	{
-		_viv_open(&_viv_nav_items[index]->fd);
+		if ((index >= 0) && (index < _viv_nav_item_count))
+		{
+			_viv_open(&_viv_nav_items[index]->fd);
+		}
 	}
 }
 
@@ -10646,9 +11050,14 @@ static INT_PTR CALLBACK _viv_search_everything_proc(HWND hwnd,UINT msg,WPARAM wP
 	{
 		case WM_INITDIALOG:
 		{
+			wchar_t caption_wbuf[STRING_SIZE];
+			
 			os_center_dialog(hwnd);
 			
 			SetWindowLongPtr(hwnd,GWLP_USERDATA,lParam);
+			
+			string_copy_utf8(caption_wbuf,lParam ? "Add Everything Search" : "Load Everything Search");
+			SetWindowText(hwnd,caption_wbuf);
 			
 			return TRUE;
 		}
@@ -10663,7 +11072,7 @@ static INT_PTR CALLBACK _viv_search_everything_proc(HWND hwnd,UINT msg,WPARAM wP
 					
 					GetDlgItemText(hwnd,IDC_EVERYTHING_EDIT,search_wbuf,STRING_SIZE);
 					
-					if (_viv_send_everything_search(hwnd,GetWindowLongPtr(hwnd,GWLP_USERDATA),search_wbuf))
+					if (_viv_send_everything_search(hwnd,GetWindowLongPtr(hwnd,GWLP_USERDATA),IsDlgButtonChecked(hwnd,IDC_SEARCH_EVERYTHING_RANDOM) == BST_CHECKED,search_wbuf))
 					{
 						EndDialog(hwnd,0);
 					}
@@ -10687,76 +11096,103 @@ static void _viv_search_everything(int add)
 	DialogBoxParam(os_hinstance,MAKEINTRESOURCE(IDD_EVERYTHING),_viv_hwnd,_viv_search_everything_proc,add);
 }
 
-static int _viv_send_everything_search(HWND hwnd,int add,const wchar_t *search)
+static int _viv_send_everything_search(HWND hwnd,int add,int randomize,const wchar_t *search)
 {
-	HWND everything_hwnd;
-	
-	everything_hwnd = FindWindowA(EVERYTHING_IPC_WNDCLASSA,0);
-	
-	if (everything_hwnd)
-	{
-		EVERYTHING_IPC_QUERY2 *q;
-		COPYDATASTRUCT cds;
-		DWORD size;
-		
-		size = sizeof(EVERYTHING_IPC_QUERY2) + (string_length(search) + 1) * sizeof(wchar_t);
-		
-		_viv_everything_request_flags = EVERYTHING_IPC_QUERY2_REQUEST_FULL_PATH_AND_NAME; 
-				
-		if (SendMessage(everything_hwnd,EVERYTHING_WM_IPC,EVERYTHING_IPC_IS_FILE_INFO_INDEXED,EVERYTHING_IPC_FILE_INFO_FILE_SIZE))
-		{
-			_viv_everything_request_flags |= EVERYTHING_IPC_QUERY2_REQUEST_SIZE | EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED; 
-		}
-		
-		if (SendMessage(everything_hwnd,EVERYTHING_WM_IPC,EVERYTHING_IPC_IS_FILE_INFO_INDEXED,EVERYTHING_IPC_FILE_INFO_DATE_MODIFIED))
-		{
-			_viv_everything_request_flags |= EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED; 
-		}
-		
-		if (SendMessage(everything_hwnd,EVERYTHING_WM_IPC,EVERYTHING_IPC_IS_FILE_INFO_INDEXED,EVERYTHING_IPC_FILE_INFO_DATE_CREATED))
-		{
-			_viv_everything_request_flags |= EVERYTHING_IPC_QUERY2_REQUEST_DATE_CREATED; 
-		}
-		
-		q = mem_alloc(size);
-		
-		q->reply_hwnd = (DWORD)_viv_hwnd;
-		q->reply_copydata_message = add ? _VIV_COPYDATA_ADD_EVERYTHING_SEARCH : _VIV_COPYDATA_OPEN_EVERYTHING_SEARCH;
-		q->search_flags = 0;
-		q->offset = 0;
-		q->max_results = EVERYTHING_IPC_ALLRESULTS;
-		q->request_flags = _viv_everything_request_flags;
-		
-		q->sort_type = EVERYTHING_IPC_SORT_NAME_ASCENDING;
-		os_copy_memory(q+1,search,(string_length(search) + 1) * sizeof(wchar_t));
-		
-		cds.dwData = EVERYTHING_IPC_COPYDATA_QUERY2;
-		cds.cbData = size;
-		cds.lpData = q;
-		
-		SendMessage(everything_hwnd,WM_COPYDATA,(WPARAM)_viv_hwnd,(LPARAM)&cds);
-		
-		mem_free(q);
+	if (randomize)
+	{	
+		// add is ignored in this case.
+		_viv_random = string_alloc(search);
+
+		_viv_random_tot_results = 0xffffffff;
+
+		_viv_playlist_clearall();
+									
+		_viv_home(0);
 		
 		return 1;
 	}
 	else
 	{
-		wchar_t *text_wbuf;
-		wchar_t caption_wbuf[STRING_SIZE];
+		HWND everything_hwnd;
 		
-		text_wbuf = string_alloc_utf8("Everything not available");
+		if (_viv_random)
+		{
+			mem_free(_viv_random);
 			
-		string_copy_utf8(caption_wbuf,"void Image Viewer");
+			_viv_random = 0;
+		}
+		
+		
+		everything_hwnd = FindWindowA(EVERYTHING_IPC_WNDCLASSA,0);
+		
+		if (everything_hwnd)
+		{
+			EVERYTHING_IPC_QUERY2 *q;
+			COPYDATASTRUCT cds;
+			DWORD size;
+			wchar_t new_search[STRING_SIZE];
+			
+			string_copy_utf8(new_search,"ext:bmp;gif;ico;jpeg;jpg;png;tif;tiff <");
+			string_cat(new_search,search);
+			string_cat_utf8(new_search,">");
 
-		// MB_ICONQUESTION avoids the messagebeep.
-		MessageBox(hwnd,
-			text_wbuf,
-			caption_wbuf,MB_OK|MB_ICONQUESTION);
+			size = (DWORD)(sizeof(EVERYTHING_IPC_QUERY2) + (string_length(new_search) + 1) * sizeof(wchar_t));
 			
-		mem_free(text_wbuf);
-		
-		return 0;
+			_viv_everything_request_flags = EVERYTHING_IPC_QUERY2_REQUEST_FULL_PATH_AND_NAME; 
+					
+			if (SendMessage(everything_hwnd,EVERYTHING_WM_IPC,EVERYTHING_IPC_IS_FILE_INFO_INDEXED,EVERYTHING_IPC_FILE_INFO_FILE_SIZE))
+			{
+				_viv_everything_request_flags |= EVERYTHING_IPC_QUERY2_REQUEST_SIZE | EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED; 
+			}
+			
+			if (SendMessage(everything_hwnd,EVERYTHING_WM_IPC,EVERYTHING_IPC_IS_FILE_INFO_INDEXED,EVERYTHING_IPC_FILE_INFO_DATE_MODIFIED))
+			{
+				_viv_everything_request_flags |= EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED; 
+			}
+			
+			if (SendMessage(everything_hwnd,EVERYTHING_WM_IPC,EVERYTHING_IPC_IS_FILE_INFO_INDEXED,EVERYTHING_IPC_FILE_INFO_DATE_CREATED))
+			{
+				_viv_everything_request_flags |= EVERYTHING_IPC_QUERY2_REQUEST_DATE_CREATED; 
+			}
+			
+			q = mem_alloc(size);
+			
+			q->reply_hwnd = (DWORD)_viv_hwnd;
+			q->reply_copydata_message = add ? _VIV_COPYDATA_ADD_EVERYTHING_SEARCH : _VIV_COPYDATA_OPEN_EVERYTHING_SEARCH;
+			q->search_flags = 0;
+			q->offset = 0;
+			q->max_results = EVERYTHING_IPC_ALLRESULTS;
+			q->request_flags = _viv_everything_request_flags;
+			
+			q->sort_type = EVERYTHING_IPC_SORT_NAME_ASCENDING;
+			os_copy_memory(q+1,new_search,(string_length(new_search) + 1) * sizeof(wchar_t));
+			
+			cds.dwData = EVERYTHING_IPC_COPYDATA_QUERY2;
+			cds.cbData = size;
+			cds.lpData = q;
+			
+			SendMessage(everything_hwnd,WM_COPYDATA,(WPARAM)_viv_hwnd,(LPARAM)&cds);
+			
+			mem_free(q);
+			
+			return 1;
+		}
+		else
+		{
+			wchar_t *text_wbuf;
+			wchar_t caption_wbuf[STRING_SIZE];
+			
+			text_wbuf = string_alloc_utf8("Everything not available");
+				
+			string_copy_utf8(caption_wbuf,"void Image Viewer");
+
+			// MB_ICONQUESTION avoids the messagebeep.
+			MessageBox(hwnd,text_wbuf,caption_wbuf,MB_OK|MB_ICONERROR);
+				
+			mem_free(text_wbuf);
+			
+			return 0;
+		}
 	}
 }
 
@@ -10862,3 +11298,241 @@ static void _viv_do_initial_shuffle(void)
 	}
 }
 
+static void _viv_update_1to1_scroll(LPARAM lParam)
+{
+	int cursor_x;
+	int cursor_y;
+	int rx;
+	int ry;
+	int rw;
+	int rh;
+	int old_rw;
+	int old_rh;
+	int old_cursor_px;
+	int old_cursor_py;
+	int wide;
+	int high;
+	RECT rect;
+	POINT pt;
+	__int64 new_cursor_x;
+	__int64 new_cursor_y;
+	int zoom_backup;
+	int backup_1to1;
+			
+	GetClientRect(_viv_hwnd,&rect);
+
+	wide = rect.right - rect.left;
+	high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_controls_high();
+	
+	pt.x = GET_X_LPARAM(lParam); 
+	pt.y = GET_Y_LPARAM(lParam);
+	
+	cursor_x = pt.x; 
+	cursor_y = pt.y;
+
+	zoom_backup = _viv_zoom_pos;
+	backup_1to1 = _viv_1to1;
+	_viv_zoom_pos = 0;
+	_viv_1to1 = 0;
+	_viv_doing = _VIV_DOING_NOTHING;
+	_viv_get_render_size(&old_rw,&old_rh);
+	_viv_doing = _VIV_DOING_1TO1SCROLL;
+	_viv_zoom_pos = zoom_backup;
+	_viv_1to1 = backup_1to1;
+
+	rx = (wide / 2) - (old_rw / 2);
+	ry = (high / 2) - (old_rh / 2);
+	
+	old_cursor_px = (cursor_x - rx);
+	old_cursor_py = (cursor_y - ry);
+
+	_viv_get_render_size(&rw,&rh);
+
+	if (old_rw)
+	{
+		new_cursor_x = ((__int64)old_cursor_px * (__int64)rw) / (__int64)old_rw;
+	}
+	else
+	{
+		new_cursor_x = 0;
+	}
+	
+	if (old_rh)
+	{
+		new_cursor_y = ((__int64)old_cursor_py * (__int64)rh) / (__int64)old_rh;
+	}
+	else
+	{
+		new_cursor_y = 0;
+	}
+
+	_viv_view_set((wide / 2) - (rw / 2) - cursor_x + new_cursor_x,(high / 2) - (rh / 2) - cursor_y + new_cursor_y,1);
+
+	InvalidateRect(_viv_hwnd,0,FALSE);
+}
+
+static HBITMAP _viv_rorate_hbitmap(HBITMAP hbitmap,int counterclockwise)
+{
+	BITMAP bitmap;
+	HBITMAP ret_hbitmap;
+	
+	ret_hbitmap = 0;
+	
+	if (GetObject(hbitmap,sizeof(BITMAP),&bitmap))
+	{
+		HDC screen_hdc;
+		
+		screen_hdc = GetDC(0);
+		if (screen_hdc)
+		{
+			HDC mem_hdc;
+			
+			mem_hdc = CreateCompatibleDC(screen_hdc);
+			if (mem_hdc)
+			{
+				ret_hbitmap = CreateCompatibleBitmap(screen_hdc,bitmap.bmHeight,bitmap.bmWidth);
+				if (ret_hbitmap)
+				{
+					int ret;
+					DWORD *old_pixels;
+					DWORD *new_pixels;
+					BITMAPINFOHEADER bi;
+					
+					ret = 0;
+					
+					os_zero_memory(&bi,sizeof(BITMAPINFOHEADER));
+					bi.biSize = sizeof(BITMAPINFOHEADER);
+					bi.biWidth = bitmap.bmWidth;
+					bi.biHeight = -bitmap.bmHeight;
+					bi.biPlanes = 1;
+					bi.biBitCount = 32;
+					bi.biCompression = BI_RGB;
+										
+					old_pixels = mem_alloc(bitmap.bmWidth * bitmap.bmHeight * sizeof(DWORD));
+					new_pixels = mem_alloc(bitmap.bmHeight * bitmap.bmWidth * sizeof(DWORD));
+				
+					if (GetDIBits(mem_hdc,hbitmap,0,bitmap.bmHeight,old_pixels,(BITMAPINFO *)&bi,DIB_RGB_COLORS))
+					{
+						int y;
+
+						if (counterclockwise)
+						{
+							for(y=0;y<bitmap.bmWidth;y++)
+							{
+								int x;
+								
+								for(x=0;x<bitmap.bmHeight;x++)
+								{
+									new_pixels[x + (y * bitmap.bmHeight)] = old_pixels[(bitmap.bmWidth-y-1) + (x * bitmap.bmWidth)];
+								}
+							}
+						}
+						else
+						{
+							for(y=0;y<bitmap.bmWidth;y++)
+							{
+								int x;
+								
+								for(x=0;x<bitmap.bmHeight;x++)
+								{
+									new_pixels[x + (y * bitmap.bmHeight)] = old_pixels[y + ((bitmap.bmHeight-x-1) * bitmap.bmWidth)];
+								}
+							}
+						}
+						
+						os_zero_memory(&bi,sizeof(BITMAPINFOHEADER));
+						bi.biSize = sizeof(BITMAPINFOHEADER);
+						bi.biWidth = bitmap.bmHeight;
+						bi.biHeight = -bitmap.bmWidth;
+						bi.biPlanes = 1;
+						bi.biBitCount = 32;
+						bi.biCompression = BI_RGB;
+						
+						if (SetDIBits(mem_hdc,ret_hbitmap,0,bitmap.bmWidth,new_pixels,(BITMAPINFO *)&bi,DIB_RGB_COLORS))
+						{
+							ret = 1;
+						}
+					}
+					
+					if (!ret)
+					{
+						DeleteObject(ret_hbitmap);
+						
+						ret_hbitmap = 0;	
+					}
+					
+					mem_free(new_pixels);
+					mem_free(old_pixels);
+				}
+				
+				DeleteDC(mem_hdc);
+			}
+			
+			ReleaseDC(0,screen_hdc);
+		}
+	}
+	
+	return ret_hbitmap;
+}
+
+static void _viv_send_random_everything_search(void)
+{
+	HWND everything_hwnd;
+	
+	everything_hwnd = FindWindowA(EVERYTHING_IPC_WNDCLASSA,0);
+	
+	if (everything_hwnd)
+	{
+		EVERYTHING_IPC_QUERY2 *q;
+		COPYDATASTRUCT cds;
+		DWORD size;
+		wchar_t new_search[STRING_SIZE];
+		
+		string_copy_utf8(new_search,"ext:bmp;gif;ico;jpeg;jpg;png;tif;tiff <");
+		string_cat(new_search,_viv_random);
+		string_cat_utf8(new_search,">");
+
+		size = (DWORD)(sizeof(EVERYTHING_IPC_QUERY2) + (string_length(new_search) + 1) * sizeof(wchar_t));
+		
+		_viv_everything_request_flags = EVERYTHING_IPC_QUERY2_REQUEST_FULL_PATH_AND_NAME; 
+				
+		if (SendMessage(everything_hwnd,EVERYTHING_WM_IPC,EVERYTHING_IPC_IS_FILE_INFO_INDEXED,EVERYTHING_IPC_FILE_INFO_FILE_SIZE))
+		{
+			_viv_everything_request_flags |= EVERYTHING_IPC_QUERY2_REQUEST_SIZE | EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED; 
+		}
+		
+		if (SendMessage(everything_hwnd,EVERYTHING_WM_IPC,EVERYTHING_IPC_IS_FILE_INFO_INDEXED,EVERYTHING_IPC_FILE_INFO_DATE_MODIFIED))
+		{
+			_viv_everything_request_flags |= EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED; 
+		}
+		
+		if (SendMessage(everything_hwnd,EVERYTHING_WM_IPC,EVERYTHING_IPC_IS_FILE_INFO_INDEXED,EVERYTHING_IPC_FILE_INFO_DATE_CREATED))
+		{
+			_viv_everything_request_flags |= EVERYTHING_IPC_QUERY2_REQUEST_DATE_CREATED; 
+		}
+		
+		q = mem_alloc(size);
+		
+		srand(GetTickCount());
+			
+		q->reply_hwnd = (DWORD)_viv_hwnd;
+		q->reply_copydata_message = _VIV_COPYDATA_RANDOM_EVERYTHING_SEARCH;
+		q->search_flags = 0;
+		q->offset = ((rand() * RAND_MAX) + rand()) % _viv_random_tot_results;
+		q->max_results = 1;
+		q->request_flags = _viv_everything_request_flags;
+		
+		debug_printf("rand index %d\n",q->offset);
+		
+		q->sort_type = EVERYTHING_IPC_SORT_NAME_ASCENDING;
+		os_copy_memory(q+1,new_search,(string_length(new_search) + 1) * sizeof(wchar_t));
+		
+		cds.dwData = EVERYTHING_IPC_COPYDATA_QUERY2;
+		cds.cbData = size;
+		cds.lpData = q;
+		
+		SendMessage(everything_hwnd,WM_COPYDATA,(WPARAM)_viv_hwnd,(LPARAM)&cds);
+		
+		mem_free(q);
+	}
+}

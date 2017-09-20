@@ -58,7 +58,7 @@ void os_make_sure_path_exists(const wchar_t *filename);
 int os_get_special_folder_path(wchar_t *wbuf,int nFolder);
 void os_create_shell_link(const wchar_t *exe_filename_wbuf,const wchar_t *lnk_wbuf);
 void os_center_dialog(HWND hwnd);
-void os_shell_execute(HWND hwnd,const wchar_t *filename,int wait,const char *verb,const wchar_t *params);
+int os_shell_execute(HWND hwnd,const wchar_t *filename,int wait,const char *verb,const wchar_t *params);
 int os_browse_for_folder(HWND parent,wchar_t *filename);
 
 extern HINSTANCE os_hinstance;

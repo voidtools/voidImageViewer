@@ -32,7 +32,7 @@ int string_istartwith_lowercase_ascii(const wchar_t *s1,const char *lowercase_as
 int string_icompare_lowercase_ascii(const wchar_t *s1,const char *lowercase_ascii_s2);
 int string_compare_ascii(const wchar_t *s1,const char *ascii_s2);
 int string_to_int(wchar_t *s);
-wchar_t *string_format_number(wchar_t *buf,int number);
+wchar_t *string_format_number(wchar_t *buf,__int64 number);
 int string_get_appdata_path(wchar_t *buf);
 void string_vprintf(wchar_t *wbuf,char *format,va_list argptr);
 void string_printf(wchar_t *wbuf,char *format,...);

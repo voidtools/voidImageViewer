@@ -850,9 +850,12 @@ void os_center_dialog(HWND hwnd)
 	SetWindowPos(hwnd,0,rect.left,rect.top,0,0,SWP_NOSIZE|SWP_NOZORDER);
 }
 
-void os_shell_execute(HWND hwnd,const wchar_t *filename,int wait,const char *verb,const wchar_t *params)
+int os_shell_execute(HWND hwnd,const wchar_t *filename,int wait,const char *verb,const wchar_t *params)
 {
 	__unaligned ITEMIDLIST *pidl;
+	int ret;
+	
+	ret = 0;
 	
 	pidl = os_ILCreateFromPath(filename);
 	if (pidl)
@@ -889,6 +892,8 @@ void os_shell_execute(HWND hwnd,const wchar_t *filename,int wait,const char *ver
 	
 		if (ShellExecuteEx(&sei))
 		{
+			ret = 1;
+			
 			if (wait)
 			{
 				WaitForSingleObject(sei.hProcess,INFINITE);
@@ -899,6 +904,8 @@ void os_shell_execute(HWND hwnd,const wchar_t *filename,int wait,const char *ver
 	
 		CoTaskMemFree(pidl);
 	}			
+	
+	return ret;
 }
 
 static int CALLBACK _os_BrowseCallbackProc(HWND hwnd,UINT uMsg,LPARAM lParam,LPARAM lpData)
