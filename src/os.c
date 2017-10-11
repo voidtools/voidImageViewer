@@ -15,15 +15,66 @@
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+//
+// Operating System calls
 
 #include "viv.h"
 
 #define _OS_QSORT_CUTOFF	8            /* testing shows that this is good value */
 #define _OS_QSORT_STKSIZ	((8*sizeof(void*)) - 2)
 
+typedef struct _os_COMDLG_FILTERSPEC_s 
+{
+	wchar_t *pszName;
+	wchar_t *pszSpec;
+	
+} _os_COMDLG_FILTERSPEC_t;
+	
+typedef struct _os_IFileOpenDialogVtbl
+{
+    HRESULT (STDMETHODCALLTYPE *QueryInterface)(struct _os_IFileOpenDialog_s *This,REFIID riid,void **ppvObject);
+    ULONG (STDMETHODCALLTYPE *AddRef)(struct _os_IFileOpenDialog_s *This);
+    ULONG (STDMETHODCALLTYPE *Release)(struct _os_IFileOpenDialog_s *This);
+    HRESULT (STDMETHODCALLTYPE *Show)(struct _os_IFileOpenDialog_s *This,HWND hwndOwner);
+    HRESULT (STDMETHODCALLTYPE *SetFileTypes)(struct _os_IFileOpenDialog_s *This,UINT cFileTypes,const _os_COMDLG_FILTERSPEC_t *rgFilterSpec);
+    HRESULT (STDMETHODCALLTYPE *SetFileTypeIndex)(struct _os_IFileOpenDialog_s *This,UINT iFileType);
+    HRESULT (STDMETHODCALLTYPE *GetFileTypeIndex)(struct _os_IFileOpenDialog_s *This,UINT *piFileType);
+    HRESULT (STDMETHODCALLTYPE *Advise)(struct _os_IFileOpenDialog_s *This,void *pfde,DWORD *pdwCookie);
+    HRESULT (STDMETHODCALLTYPE *Unadvise)(struct _os_IFileOpenDialog_s *This,DWORD dwCookie);
+    HRESULT (STDMETHODCALLTYPE *SetOptions)(struct _os_IFileOpenDialog_s *This,int fos);
+    HRESULT (STDMETHODCALLTYPE *GetOptions)(struct _os_IFileOpenDialog_s *This,int *pfos);
+    HRESULT (STDMETHODCALLTYPE *SetDefaultFolder)(struct _os_IFileOpenDialog_s *This,IShellItem *psi);
+    HRESULT (STDMETHODCALLTYPE *SetFolder)(struct _os_IFileOpenDialog_s *This,IShellItem *psi);
+    HRESULT (STDMETHODCALLTYPE *GetFolder)(struct _os_IFileOpenDialog_s *This,IShellItem **ppsi);
+    HRESULT (STDMETHODCALLTYPE *GetCurrentSelection)(struct _os_IFileOpenDialog_s *This,IShellItem **ppsi);
+    HRESULT (STDMETHODCALLTYPE *SetFileName)(struct _os_IFileOpenDialog_s *This,LPCWSTR pszName);
+    HRESULT (STDMETHODCALLTYPE *GetFileName)(struct _os_IFileOpenDialog_s *This,LPWSTR *pszName);
+    HRESULT (STDMETHODCALLTYPE *SetTitle)(struct _os_IFileOpenDialog_s *This,LPCWSTR pszTitle);
+    HRESULT (STDMETHODCALLTYPE *SetOkButtonLabel)(struct _os_IFileOpenDialog_s *This,LPCWSTR pszText);
+    HRESULT (STDMETHODCALLTYPE *SetFileNameLabel)(struct _os_IFileOpenDialog_s *This,LPCWSTR pszLabel);
+    HRESULT (STDMETHODCALLTYPE *GetResult)(struct _os_IFileOpenDialog_s *This,IShellItem **ppsi);
+    HRESULT (STDMETHODCALLTYPE *AddPlace)(struct _os_IFileOpenDialog_s *This,IShellItem *psi,int fdap);
+    HRESULT (STDMETHODCALLTYPE *SetDefaultExtension)(struct _os_IFileOpenDialog_s *This,LPCWSTR pszDefaultExtension);
+    HRESULT (STDMETHODCALLTYPE *Close)(struct _os_IFileOpenDialog_s *This,HRESULT hr);
+    HRESULT (STDMETHODCALLTYPE *SetClientGuid)(struct _os_IFileOpenDialog_s *This,REFGUID guid);
+    HRESULT (STDMETHODCALLTYPE *ClearClientData)(struct _os_IFileOpenDialog_s *This);
+    HRESULT (STDMETHODCALLTYPE *SetFilter)(struct _os_IFileOpenDialog_s *This,void *pFilter);
+    HRESULT (STDMETHODCALLTYPE *GetResults)(struct _os_IFileOpenDialog_s *This,void **ppenum);
+    HRESULT (STDMETHODCALLTYPE *GetSelectedItems)(struct _os_IFileOpenDialog_s *This,void **ppsai);
+
+}_os_IFileOpenDialogVtbl;
+
+typedef struct _os_IFileOpenDialog_s 
+{ 
+	struct _os_IFileOpenDialogVtbl *lpVtbl; 
+
+}_os_IFileOpenDialog_t;
+
 static void _os_qsort_indexes_shortsort(void **lo,void **hi,int (*comp)(const void *,const void *));
 static FARPROC __os_get_proc_address(HMODULE hmodule,const char *name);
 static int CALLBACK _os_BrowseCallbackProc(HWND hwnd,UINT uMsg,LPARAM lParam,LPARAM lpData);
+static IShellItem *_os_shellitem_from_filename(const wchar_t *filename);
+static IShellItem *_os_get_shellitem(const ITEMIDLIST *pidl);
 
 HINSTANCE os_hinstance = 0;
 DWORD os_major_version = 0; // 4 = 9x/nt, 5 = xp,2k,server2k3, 6 = vista
@@ -52,10 +103,14 @@ int (__stdcall *os_GdipDrawImageRectI)(void *graphics, void *image, INT x, INT y
 int (__stdcall *os_GdipDeleteGraphics)(void *graphics) = 0;
 BOOL (STDAPICALLTYPE *os_IsUserAnAdmin)(void) = 0;
 HRESULT (__stdcall *os_EnableThemeDialogTexture)(HWND hwnd, DWORD dwFlags) = 0;
-unsigned int (__cdecl *_os_controlfp)(unsigned int _NewValue,unsigned int _Mask) = 0;
+static unsigned int (__cdecl *_os_controlfp)(unsigned int _NewValue,unsigned int _Mask) = 0;
 BOOL (WINAPI *os_ChangeWindowMessageFilterEx)(HWND hWnd,UINT message,DWORD action,void *pChangeFilterStruct) = 0;
 int os_logical_wide = 96;
 int os_logical_high = 96;
+static const IID _os_IID_IShellItem = {0x43826d1e,0xe718,0x42ee,{0xbc,0x55,0xa1,0xe2,0x61,0xc3,0x7b,0xfe}};
+static const IID _os_IID_IFileOpenDialog = {0xd57c7288,0xd4ad,0x4768,{0xbe,0x02,0x9d,0x96,0x95,0x32,0xd9,0x60}};
+static const IID _os_CLSID_FileOpenDialog = {0xdc1c5a9c,0xe88a,0x4dde,{0xa5,0xa1,0x60,0xf8,0x2a,0x20,0xae,0xf7}};
+static HRESULT (WINAPI *_os_SHCreateItemFromIDList)(ITEMIDLIST *pidl,REFIID riid,void **ppv) = 0;
 
 static COLORREF *_os_custom_colors = 0;
 static HMODULE _os_shell32_hmodule = 0;
@@ -623,6 +678,7 @@ void os_init(void)
 	{
 		os_SHOpenFolderAndSelectItems = (void *)GetProcAddress(_os_shell32_hmodule,"SHOpenFolderAndSelectItems");
 		os_IsUserAnAdmin = (void *)GetProcAddress(_os_shell32_hmodule,"IsUserAnAdmin");
+		_os_SHCreateItemFromIDList = (void *)GetProcAddress(_os_shell32_hmodule,"SHCreateItemFromIDList");
 	}
 
 	_os_user32_hmodule = LoadLibraryA("user32.dll");
@@ -637,7 +693,7 @@ void os_init(void)
 		os_EnableThemeDialogTexture = (void *)GetProcAddress(_os_UxTheme_hmodule,"EnableThemeDialogTexture");
 	}
 	
-	// set floating point to int mode to truncate
+	// set "floating point to int mode" to truncate
 	_os_ucrtbase_hmodule = LoadLibraryA("ucrtbase.dll");
 	if (_os_ucrtbase_hmodule)
 	{
@@ -919,99 +975,135 @@ static int CALLBACK _os_BrowseCallbackProc(HWND hwnd,UINT uMsg,LPARAM lParam,LPA
 	
 	return 0;
 }
-/*
 
-//    MIDL_INTERFACE("d57c7288-d4ad-4768-be02-9d969532d960")
-
-typedef struct IFileOpenDialogVtbl
+// pidl MUST be absolute.
+// the advandage of using IShellItemImageFactory is
+// IShellItemImageFactory will use thumbs.db or windows thumbnail cache
+// where as IExtractImage does not.
+static IShellItem *_os_get_shellitem(const ITEMIDLIST *pidl)
 {
-    HRESULT (STDMETHODCALLTYPE *QueryInterface)(IFileOpenDialog *This,REFIID riid,void **ppvObject);
-    ULONG (STDMETHODCALLTYPE *AddRef)(IFileOpenDialog *This);
-    ULONG (STDMETHODCALLTYPE *Release)(IFileOpenDialog *This);
-    HRESULT (STDMETHODCALLTYPE *Show)(IFileOpenDialog * This,HWND hwndOwner);
-    HRESULT ( STDMETHODCALLTYPE *SetFileTypes)(IFileOpenDialog * This,UINT cFileTypes,const COMDLG_FILTERSPEC *rgFilterSpec);
-    HRESULT ( STDMETHODCALLTYPE *SetFileTypeIndex)(IFileOpenDialog * This,UINT iFileType);
-    
-    HRESULT ( STDMETHODCALLTYPE *GetFileTypeIndex)(IFileOpenDialog * This,UINT *piFileType);
-    
-    HRESULT ( STDMETHODCALLTYPE *Advise )( IFileOpenDialog * This,IFileDialogEvents *pfde,DWORD *pdwCookie);
-    
-    HRESULT ( STDMETHODCALLTYPE *Unadvise )( IFileOpenDialog * This,DWORD dwCookie);
-    
-    HRESULT ( STDMETHODCALLTYPE *SetOptions )( IFileOpenDialog * This,FILEOPENDIALOGOPTIONS fos);
-    
-    HRESULT ( STDMETHODCALLTYPE *GetOptions )( IFileOpenDialog * This,FILEOPENDIALOGOPTIONS *pfos);
-    
-    HRESULT ( STDMETHODCALLTYPE *SetDefaultFolder )( IFileOpenDialog * This,IShellItem *psi);
-    
-    HRESULT ( STDMETHODCALLTYPE *SetFolder )( IFileOpenDialog * This,IShellItem *psi);
-    
-    HRESULT ( STDMETHODCALLTYPE *GetFolder )( IFileOpenDialog * This,IShellItem **ppsi);
-    
-    HRESULT ( STDMETHODCALLTYPE *GetCurrentSelection )( IFileOpenDialog * This,IShellItem **ppsi);
-    
-    HRESULT ( STDMETHODCALLTYPE *SetFileName )( IFileOpenDialog * This,LPCWSTR pszName);
-    
-    HRESULT ( STDMETHODCALLTYPE *GetFileName )( IFileOpenDialog * This,LPWSTR *pszName);
-    
-    HRESULT ( STDMETHODCALLTYPE *SetTitle )( IFileOpenDialog * This,LPCWSTR pszTitle);
-    
-    HRESULT ( STDMETHODCALLTYPE *SetOkButtonLabel )( IFileOpenDialog * This,LPCWSTR pszText);
-    
-    HRESULT ( STDMETHODCALLTYPE *SetFileNameLabel )( IFileOpenDialog * This,LPCWSTR pszLabel);
-    
-    HRESULT ( STDMETHODCALLTYPE *GetResult )( IFileOpenDialog * This,IShellItem **ppsi);
-    
-    HRESULT ( STDMETHODCALLTYPE *AddPlace )( IFileOpenDialog * This,IShellItem *psi,FDAP fdap);
-    
-    HRESULT ( STDMETHODCALLTYPE *SetDefaultExtension )( IFileOpenDialog * This,LPCWSTR pszDefaultExtension);
-    
-    HRESULT ( STDMETHODCALLTYPE *Close )( IFileOpenDialog * This,HRESULT hr);
-    
-    HRESULT ( STDMETHODCALLTYPE *SetClientGuid )( IFileOpenDialog * This,REFGUID guid);
-    
-    HRESULT ( STDMETHODCALLTYPE *ClearClientData )( IFileOpenDialog * This);
-    
-    HRESULT ( STDMETHODCALLTYPE *SetFilter )( IFileOpenDialog * This,IShellItemFilter *pFilter);
-    
-    HRESULT ( STDMETHODCALLTYPE *GetResults )( IFileOpenDialog * This,IShellItemArray **ppenum);
-    
-    HRESULT ( STDMETHODCALLTYPE *GetSelectedItems )( IFileOpenDialog * This,IShellItemArray **ppsai);
+	IShellItem *ret;
+	
+	ret = 0;
+	
+	if (_os_SHCreateItemFromIDList)
+	{
+		IShellItem *si;
+		
+		if (SUCCEEDED(_os_SHCreateItemFromIDList((ITEMIDLIST *)pidl,&_os_IID_IShellItem,&si)))
+		{
+			ret = si;
+		}
+	}
+	
+	return ret;
+}
 
-} IFileOpenDialogVtbl;
-    */
+// get a shellitem interface from a filename.
+static IShellItem *_os_shellitem_from_filename(const wchar_t *filename)
+{
+	IShellFolder *psf;
+	IShellItem *ret;
+
+	ret = 0;
+
+	if (SUCCEEDED(SHGetDesktopFolder(&psf)))
+	{
+		ITEMIDLIST *pidl;
+	    
+		if (SUCCEEDED(psf->lpVtbl->ParseDisplayName(psf,NULL,0,(LPOLESTR)filename,NULL,&pidl,NULL)))
+		{
+			ret = _os_get_shellitem(pidl);
+			
+			// free pidl allocated by ParseDisplayName
+			CoTaskMemFree(pidl);		
+		}
+		
+		psf->lpVtbl->Release(psf);
+	}
+		
+	return ret;	
+}
+
 //TODO: resolve shortcuts.. need to use IFileOpenDialog on vista and later to do this easily.
 // returns null cbuf if failure.
 int os_browse_for_folder(HWND parent,wchar_t *filename)
 {
-
-	BROWSEINFOW bi;
-	ITEMIDLIST *iil;
-	int ret;
-	
-	// BIF_USENEWUI wont bring the initial selection into view.
-	// BIF_NOTRANSLATETARGETS we dont want symbolic links targets, we want the actual path.
-	os_zero_memory(&bi,sizeof(BROWSEINFOW));
-	bi.hwndOwner = parent;
-	bi.lpszTitle = 0;
-	bi.pszDisplayName = filename;
-	bi.ulFlags = BIF_USENEWUI | BIF_RETURNONLYFSDIRS | BIF_NOTRANSLATETARGETS;
-	bi.lpfn = _os_BrowseCallbackProc;
-	bi.lParam = (LPARAM)filename;
-
-	ret = 0;
-	
-	iil = (ITEMIDLIST *)SHBrowseForFolderW(&bi);
-
-	if (iil)
+	if (config_browse_file_open_dialog)
 	{
-		if (SHGetPathFromIDListW(iil,filename))
+		_os_IFileOpenDialog_t *file_open_dialog;
+		
+		if (SUCCEEDED(CoCreateInstance(&_os_CLSID_FileOpenDialog,NULL,CLSCTX_INPROC_SERVER,&_os_IID_IFileOpenDialog,&file_open_dialog)))
 		{
-			ret = 1;
-		}
+			int ret;
+			IShellItem *shell_item;
+			
+			ret = 0;
+			
+			file_open_dialog->lpVtbl->SetOptions(file_open_dialog,0x2028);
 
-		CoTaskMemFree(iil);
+			shell_item = _os_shellitem_from_filename(filename);
+			if (shell_item)
+			{
+				file_open_dialog->lpVtbl->SetFolder(file_open_dialog,shell_item);
+				
+				shell_item->lpVtbl->Release(shell_item);
+			}
+
+			if (SUCCEEDED(file_open_dialog->lpVtbl->Show(file_open_dialog,parent)))
+			{	
+				if (SUCCEEDED(file_open_dialog->lpVtbl->GetResult(file_open_dialog,&shell_item)))
+				{
+					LPOLESTR open_filename;
+					
+					if (SUCCEEDED(shell_item->lpVtbl->GetDisplayName(shell_item,SIGDN_FILESYSPATH,&open_filename)))
+					{
+						string_copy(filename,open_filename);
+						
+						ret = 1;
+					
+						CoTaskMemFree(open_filename);
+					}
+					
+					shell_item->lpVtbl->Release(shell_item);
+				}
+			}
+			
+			file_open_dialog->lpVtbl->Release(file_open_dialog);
+			
+			return ret;
+		}
 	}
 	
-	return ret;
+	{
+		BROWSEINFOW bi;
+		ITEMIDLIST *iil;
+		int ret;
+		
+		// BIF_USENEWUI wont bring the initial selection into view.
+		// BIF_NOTRANSLATETARGETS we dont want symbolic links targets, we want the actual path.
+		os_zero_memory(&bi,sizeof(BROWSEINFOW));
+		bi.hwndOwner = parent;
+		bi.lpszTitle = 0;
+		bi.pszDisplayName = filename;
+		bi.ulFlags = BIF_USENEWUI | BIF_RETURNONLYFSDIRS | BIF_NOTRANSLATETARGETS;
+		bi.lpfn = _os_BrowseCallbackProc;
+		bi.lParam = (LPARAM)filename;
+
+		ret = 0;
+		
+		iil = (ITEMIDLIST *)SHBrowseForFolderW(&bi);
+
+		if (iil)
+		{
+			if (SHGetPathFromIDListW(iil,filename))
+			{
+				ret = 1;
+			}
+
+			CoTaskMemFree(iil);
+		}
+
+		return ret;
+	}
 }

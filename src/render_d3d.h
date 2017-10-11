@@ -16,20 +16,14 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //
-// load and sort ini files
+// direct 3d 9 renderer
+// abandoned due to very poor rendering of 3d textures near and equal to 1:1
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct _ini_s ini_t;
-
-ini_t *ini_open(const wchar_t *filename,const utf8_t *ascii_section);
-void ini_get_int(ini_t *ini,const utf8_t *key,int *pint);
-const utf8_t *ini_get_string(ini_t *ini,const utf8_t *key);
-void ini_close(ini_t *ini);
 
 #ifdef __cplusplus
 }
 #endif
-

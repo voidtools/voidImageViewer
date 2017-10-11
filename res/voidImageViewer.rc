@@ -250,8 +250,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,0,7
- PRODUCTVERSION 1,0,0,7
+ FILEVERSION 1,0,0,8
+ PRODUCTVERSION 1,0,0,8
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -267,12 +267,12 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "FileDescription", "voidImageViewer"
-            VALUE "FileVersion", "1.0.0.7b"
+            VALUE "FileVersion", "1.0.0.8b"
             VALUE "InternalName", "voidImageViewer"
             VALUE "LegalCopyright", "Copyright (C) 2017 David Carpenter"
             VALUE "OriginalFilename", "voidImageViewer.exe"
             VALUE "ProductName", "voidImageViewer"
-            VALUE "ProductVersion", "1.0.0.7b"
+            VALUE "ProductVersion", "1.0.0.8b"
         END
     END
     BLOCK "VarFileInfo"
