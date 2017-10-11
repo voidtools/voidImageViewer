@@ -16,20 +16,30 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //
-// load and sort ini files
+// renderer abstraction
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct _ini_s ini_t;
+typedef struct render_s
+{
+	void *user_data;
+	
+	// GDIPlus will render the imgae onto this hbitmap
+	HBITMAP (*create_hbitmap)(render_t *renderer,int wide,int high)
+	
+	// convert this bitmap to a texture.
+	void *(*get_texture)(render_t *renderer,HBITMAP hbitmap);
+	void (*destroy_texture)(void *texture);
+		
+	void (*render)(render_t *renderer,void *texture,HWND hwnd,int x,int y,int wide,int high);
 
-ini_t *ini_open(const wchar_t *filename,const utf8_t *ascii_section);
-void ini_get_int(ini_t *ini,const utf8_t *key,int *pint);
-const utf8_t *ini_get_string(ini_t *ini,const utf8_t *key);
-void ini_close(ini_t *ini);
+	void (*init)(render_t *renderer);
+	void (*kill)(render_t *renderer);
+	
+}render_t;
 
 #ifdef __cplusplus
 }
 #endif
-

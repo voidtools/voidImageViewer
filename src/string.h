@@ -15,6 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+//
+// fixed sized wchar string functions
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,6 +49,9 @@ void string_get_exe_path(wchar_t *wbuf);
 void string_copy_double_null(wchar_t *buf,wchar_t *s);
 void string_remove_extension(wchar_t *buf);
 wchar_t *string_get_extension(const wchar_t *s);
+wchar_t *string_skip_ws(const wchar_t *p);
+wchar_t *string_get_word(wchar_t *p,wchar_t *buf);
+int string_get_appdata_voidimageviewer_path(wchar_t *wbuf);
 
 #ifdef __cplusplus
 }

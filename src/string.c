@@ -15,6 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+//
+// fixed sized wchar string functions
 
 #include "viv.h"
 
@@ -63,13 +65,14 @@ void string_copy(wchar_t *d,const wchar_t *s)
 {
 	uintptr_t size;
 	
-	size = STRING_SIZE;
-	
-	size--;
+	size = STRING_SIZE - 1;
 	
 	while(*s)
 	{
-		if (!size) break;
+		if (!size) 
+		{
+			break;
+		}
 		
 		*d++ = *s++;
 	}
@@ -299,6 +302,7 @@ void string_vprintf(wchar_t *wbuf,char *format,va_list argptr)
 					break;
 
 				case 'd':
+				case 'u':
 				{
 					int num;
 					wchar_t numbuf[64];
@@ -633,5 +637,72 @@ wchar_t *string_get_extension(const wchar_t *s)
 	}
 
 	return (wchar_t *)last;	
+}
+
+wchar_t *string_skip_ws(const wchar_t *p)
+{
+	while(*p)
+	{
+		if (!wchar_is_ws(*p))
+		{
+			break;
+		}
+		
+		p++;
+	}
+	
+	return (wchar_t *)p;
+}
+
+wchar_t *string_get_word(wchar_t *p,wchar_t *buf)
+{
+	wchar_t *d;
+	int is_quote;
+	
+	d = buf;
+	is_quote = 0;
+
+	while(*p)
+	{
+		if ((*p == '"') && (p[1] == '"'))
+		{
+			p += 2;
+			*d++ = '"';
+		}
+		else
+		if (*p == '"')
+		{
+			is_quote = !is_quote;
+			p++;
+		}
+		else
+		if ((!is_quote) && (wchar_is_ws(*p)))
+		{
+			break;
+		}
+		else
+		{
+			*d++ = *p;
+			p++;
+		}
+	}
+	
+	*d = 0;
+	
+	return p;
+}
+
+int string_get_appdata_voidimageviewer_path(wchar_t *wbuf)
+{
+	wchar_t appdata_wbuf[STRING_SIZE];
+	
+	if (string_get_appdata_path(appdata_wbuf))
+	{
+		string_path_combine_utf8(wbuf,appdata_wbuf,(const utf8_t *)"voidImageViewer");
+
+		return 1;
+	}
+	
+	return 0;
 }
 

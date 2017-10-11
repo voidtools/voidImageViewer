@@ -16,20 +16,14 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //
-// load and sort ini files
+// GDI renderer
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct _ini_s ini_t;
-
-ini_t *ini_open(const wchar_t *filename,const utf8_t *ascii_section);
-void ini_get_int(ini_t *ini,const utf8_t *key,int *pint);
-const utf8_t *ini_get_string(ini_t *ini,const utf8_t *key);
-void ini_close(ini_t *ini);
+void render_software_blit(HDC dest_hdc,int dest_x,int dest_y,int dest_wide,int dest_high,HBITMAP src_hbitmap,int src_x,int src_y,int src_wide,int src_high);
 
 #ifdef __cplusplus
 }
 #endif
-

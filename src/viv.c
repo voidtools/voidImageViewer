@@ -15,6 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+//
+// VoidImageViewer
 
 // TODO: (*=done)
 // mipmaps for shrink resizing.. could generate mipmaps on load or as needed. -too slow. maybe do this on resize only. -find a way to do this efficiently
@@ -26,6 +28,14 @@
 // install bmp/jpg only if the default value for HKEY_CLASSES_ROOT\.bmp is bmpfile or voidImageViewer.bmpfile -don't replace non default ones. default hard to determine for each version of Windows -avoiding for now.
 // string table for localization.
 // right click -> open with ...open with, or rather get a proper context menu. CDefFolderMenu_Create2
+// keep window aspect size option
+// generate a shuffle list of indexes for the Everything randomize option.
+// *added ctrl mousewheel action
+// *fixed an issue when only one image was in the playlist.
+// *fixed a leak when loading an image.
+// *fixed a crash when there was only one shuffled image.
+// *improved randomize seeding
+// *fixed a leak when loading an image while already loading an image.
 // *rotate option -using verbs
 // *added /x /y /width /height /minimal /compact command line options.
 // *fixed /dc command line option
@@ -90,20 +100,9 @@
 // *nav -> list of files
 // *hide cursor on fullscreen
 
-#define _VIV_SHRINK_BLIT_MODE_COLORONCOLOR	0
-#define _VIV_SHRINK_BLIT_MODE_HALFTONE		1
-#define _VIV_MAG_FILTER_COLORONCOLOR		0
-#define _VIV_MAG_FILTER_HALFTONE			1
-
 #define _VIV_WM_TIMER						(WM_USER)
 #define _VIV_WM_REPLY						(WM_USER+1)
 #define _VIV_WM_RETRY_RANDOM_EVERYTHING_SEARCH	(WM_USER+2)
-
-#define _VIV_KEYFLAG_CTRL					0x0100
-#define _VIV_KEYFLAG_SHIFT					0x0200
-#define _VIV_KEYFLAG_ALT					0x0400
-#define _VIV_KEYFLAG_VK_MASK				0x00ff
-#define _VIV_KEYFLAG_MOD_MASK				0xff00
 
 #define _VIV_ASSOCIATION_BMP				0x00000001
 #define _VIV_ASSOCIATION_GIF				0x00000002
@@ -154,15 +153,6 @@ enum
 
 enum
 {
-	_VIV_NAV_SORT_NAME=0,
-	_VIV_NAV_SORT_SIZE,
-	_VIV_NAV_SORT_DATE_MODIFIED,
-	_VIV_NAV_SORT_DATE_CREATED,
-	_VIV_NAV_SORT_FULL_PATH_AND_FILENAME,
-};
-
-enum
-{
 	_VIV_MENU_ROOT=0,
 	_VIV_MENU_FILE,
 	_VIV_MENU_EDIT,
@@ -180,153 +170,6 @@ enum
 	_VIV_MENU_NAVIGATE_PLAYLIST,
 	_VIV_MENU_HELP,
 	_VIV_MENU_COUNT,
-};
-
-enum
-{
-	_VIV_ID_EDIT_CUT = 1000,
-	_VIV_ID_EDIT_COPY,
-	_VIV_ID_EDIT_PASTE,
-	_VIV_ID_FILE_DELETE,
-	_VIV_ID_FILE_EDIT,
-	_VIV_ID_FILE_PREVIEW,
-	_VIV_ID_FILE_PRINT,
-	_VIV_ID_FILE_SET_DESKTOP_WALLPAPER,
-	_VIV_ID_FILE_CLOSE,
-	_VIV_ID_FILE_OPEN_FILE_LOCATION,
-	_VIV_ID_FILE_PROPERTIES,
-	_VIV_ID_EDIT_COPY_TO,
-	_VIV_ID_EDIT_MOVE_TO,
-	
-	_VIV_ID_VIEW_MENU,
-	_VIV_ID_VIEW_STATUS,
-	_VIV_ID_VIEW_CONTROLS,
-	_VIV_ID_VIEW_PRESET_1,
-	_VIV_ID_VIEW_PRESET_2,
-	_VIV_ID_VIEW_PRESET_3,
-	_VIV_ID_VIEW_ALLOW_SHRINKING,
-	_VIV_ID_VIEW_KEEP_ASPECT_RATIO,
-	_VIV_ID_VIEW_FILL_WINDOW,
-	_VIV_ID_VIEW_1TO1,
-	_VIV_ID_VIEW_BESTFIT,
-	_VIV_ID_VIEW_FULLSCREEN,
-	_VIV_ID_VIEW_SLIDESHOW,
-	_VIV_ID_VIEW_ONTOP_ALWAYS,
-	_VIV_ID_VIEW_ONTOP_WHILE_PLAYING_OR_ANIMATING,
-	_VIV_ID_VIEW_ONTOP_NEVER,
-	_VIV_ID_VIEW_OPTIONS,
-
-	_VIV_ID_VIEW_WINDOW_SIZE_50,
-	_VIV_ID_VIEW_WINDOW_SIZE_100,
-	_VIV_ID_VIEW_WINDOW_SIZE_200,
-	_VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT,
-
-	_VIV_ID_VIEW_PANSCAN_INCREASE_SIZE,
-	_VIV_ID_VIEW_PANSCAN_DECREASE_SIZE,
-	_VIV_ID_VIEW_PANSCAN_INCREASE_WIDTH,
-	_VIV_ID_VIEW_PANSCAN_DECREASE_WIDTH,
-	_VIV_ID_VIEW_PANSCAN_INCREASE_HEIGHT,
-	_VIV_ID_VIEW_PANSCAN_DECREASE_HEIGHT,
-	_VIV_ID_VIEW_PANSCAN_MOVE_UP,
-	_VIV_ID_VIEW_PANSCAN_MOVE_DOWN,
-	_VIV_ID_VIEW_PANSCAN_MOVE_LEFT,
-	_VIV_ID_VIEW_PANSCAN_MOVE_RIGHT,
-	_VIV_ID_VIEW_PANSCAN_MOVE_UP_LEFT,
-	_VIV_ID_VIEW_PANSCAN_MOVE_UP_RIGHT,
-	_VIV_ID_VIEW_PANSCAN_MOVE_DOWN_LEFT,
-	_VIV_ID_VIEW_PANSCAN_MOVE_DOWN_RIGHT,
-	_VIV_ID_VIEW_PANSCAN_MOVE_CENTER,
-	_VIV_ID_VIEW_PANSCAN_RESET,
-
-	_VIV_ID_VIEW_ZOOM_IN,
-	_VIV_ID_VIEW_ZOOM_OUT,
-	_VIV_ID_VIEW_ZOOM_RESET,
-
-	_VIV_ID_SLIDESHOW_PAUSE,
-	_VIV_ID_SLIDESHOW_PLAY_ONLY,
-	_VIV_ID_SLIDESHOW_PAUSE_ONLY,
-	_VIV_ID_SLIDESHOW_STOP,
-	_VIV_ID_SLIDESHOW_RATE_DEC,
-	_VIV_ID_SLIDESHOW_RATE_INC,
-	_VIV_ID_SLIDESHOW_RATE_250,
-	_VIV_ID_SLIDESHOW_RATE_500,
-	_VIV_ID_SLIDESHOW_RATE_1000,
-	_VIV_ID_SLIDESHOW_RATE_2000,
-	_VIV_ID_SLIDESHOW_RATE_3000,
-	_VIV_ID_SLIDESHOW_RATE_4000,
-	_VIV_ID_SLIDESHOW_RATE_5000,
-	_VIV_ID_SLIDESHOW_RATE_6000,
-	_VIV_ID_SLIDESHOW_RATE_7000,
-	_VIV_ID_SLIDESHOW_RATE_8000,
-	_VIV_ID_SLIDESHOW_RATE_9000,
-	_VIV_ID_SLIDESHOW_RATE_10000,
-	_VIV_ID_SLIDESHOW_RATE_20000,
-	_VIV_ID_SLIDESHOW_RATE_30000,
-	_VIV_ID_SLIDESHOW_RATE_40000,
-	_VIV_ID_SLIDESHOW_RATE_50000,
-	_VIV_ID_SLIDESHOW_RATE_60000,
-	_VIV_ID_SLIDESHOW_RATE_CUSTOM,
-
-	_VIV_ID_ANIMATION_PLAY_PAUSE,
-	_VIV_ID_ANIMATION_JUMP_FORWARD_MEDIUM,
-	_VIV_ID_ANIMATION_JUMP_BACKWARD_MEDIUM,
-	_VIV_ID_ANIMATION_JUMP_FORWARD_SHORT,
-	_VIV_ID_ANIMATION_JUMP_BACKWARD_SHORT,
-	_VIV_ID_ANIMATION_JUMP_FORWARD_LONG,
-	_VIV_ID_ANIMATION_JUMP_BACKWARD_LONG,
-	_VIV_ID_ANIMATION_FRAME_HOME,
-	_VIV_ID_ANIMATION_FRAME_END,
-	_VIV_ID_ANIMATION_FRAME_STEP,
-	_VIV_ID_ANIMATION_FRAME_PREV,
-	_VIV_ID_ANIMATION_RATE_DEC,
-	_VIV_ID_ANIMATION_RATE_INC,
-	_VIV_ID_ANIMATION_RATE_RESET,
-
-	_VIV_ID_NAV_PREV,
-	_VIV_ID_NAV_NEXT,
-	_VIV_ID_NAV_HOME,
-	_VIV_ID_NAV_END,
-	_VIV_ID_NAV_SORT_NAME,
-	_VIV_ID_NAV_SORT_SIZE,
-	_VIV_ID_NAV_SORT_DATE_MODIFIED,
-	_VIV_ID_NAV_SORT_DATE_CREATED,
-	_VIV_ID_NAV_SORT_FULL_PATH_AND_FILENAME,
-	_VIV_ID_NAV_SORT_ASCENDING,
-	_VIV_ID_NAV_SORT_DESCENDING,
-	
-	_VIV_ID_HELP_HELP,
-	_VIV_ID_HELP_COMMAND_LINE_OPTIONS,
-	_VIV_ID_HELP_WEBSITE,
-	_VIV_ID_HELP_DONATE,
-	_VIV_ID_HELP_ABOUT,
-	
-	_VIV_ID_FILE_EXIT,
-	
-	_VIV_ID_SLIDESHOW_TIMER,
-	_VIV_ID_HIDE_CURSOR_TIMER,
-	_VIV_ID_STATUS_TEMP_TEXT_TIMER,
-	_VIV_ID_ANIMATION_TIMER,
-
-	_VIV_ID_STATUS,
-	_VIV_ID_REBAR,
-	_VIV_ID_TOOLBAR,
-	
-	_VIV_ID_OPTIONS_GENERAL,
-	_VIV_ID_OPTIONS_VIEW,
-	_VIV_ID_OPTIONS_CONTROLS,
-
-	_VIV_ID_FILE_OPEN_FILE,
-	_VIV_ID_FILE_OPEN_FOLDER,
-	_VIV_ID_FILE_ADD_FILE,
-	_VIV_ID_FILE_ADD_FOLDER,
-	_VIV_ID_FILE_RENAME,
-	
-	_VIV_ID_NAV_JUMPTO,
-	_VIV_ID_NAV_SHUFFLE,
-	_VIV_ID_FILE_OPEN_EVERYTHING_SEARCH,
-	_VIV_ID_FILE_ADD_EVERYTHING_SEARCH,
-	_VIV_ID_EDIT_ROTATE_90,
-	_VIV_ID_EDIT_ROTATE_270,
 };
 
 #define _VIV_HIDE_CURSOR_DELAY		2000
@@ -356,15 +199,6 @@ typedef struct _viv_reply_s
 	// data follows
 	
 }_viv_reply_t;
-
-// a keyboard shortcut
-
-typedef struct _viv_key_s
-{
-	struct _viv_key_s *next;
-	WORD key;
-	
-}_viv_key_t;
 
 // a frame in the image.
 // there might be more than one.
@@ -420,14 +254,8 @@ static void _viv_on_size(void);
 static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 static LRESULT CALLBACK _viv_fullscreen_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 static void _viv_command(int command);
-static void _viv_load_settings(void);
-static int _viv_is_ws(wchar_t c);
-static wchar_t *_viv_skip_ws(wchar_t *p);
-static wchar_t *_viv_get_word(wchar_t *p,wchar_t *buf);
 static int _viv_process_install_command_line_options(wchar_t *cl);
 static void _viv_process_command_line(wchar_t *cl);
-static void _viv_save_settings_by_location(const wchar_t *path,int is_root);
-static void _viv_save_settings(int appdata);
 static int _viv_init(void);
 static void _viv_kill(void);
 static void _viv_exit(void);
@@ -447,9 +275,6 @@ static void _viv_copy(int cut);
 static int _viv_is_key_state(int control,int shift,int alt);
 static CLIPFORMAT _viv_get_CF_PREFERREDDROPEFFECT(void);
 static void _viv_pause(void);
-static void _viv_write_int(HANDLE h,const char *ascii_key,int value);
-static void _viv_write_string(HANDLE h,const char *ascii_key,const wchar_t *s);
-static void _viv_write_utf8(HANDLE h,const utf8_t *s);
 static int _viv_compare(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b);
 static void _viv_open(WIN32_FIND_DATA *fd);
 static void _viv_open_from_filename(const wchar_t *filename);
@@ -492,7 +317,6 @@ static void _viv_playlist_delete(const WIN32_FIND_DATA *fd);
 static void _viv_playlist_rename(const wchar_t *old_filename,const wchar_t *new_filename);
 static void _viv_timer_stop(void);
 static int _viv_is_window_maximized(HWND hwnd);
-static void _viv_load_settings_by_location(const wchar_t *path,int is_root);
 static INT_PTR CALLBACK _viv_custom_rate_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 static void _viv_update_frame(void);
@@ -528,7 +352,6 @@ static void _viv_update_color_button_bitmap(HWND hwnd);
 static void _viv_delete_color_button_bitmap(HWND hwnd);
 static int _viv_convert_menu_ini_name_ch(int ch);
 static utf8_t *_viv_cat_command_menu_ini_name_path(utf8_t *buf,int menu_index);
-static void _viv_menu_name_to_ini_name(utf8_t *buf,int command_index);
 static void _viv_get_menu_display_name(wchar_t *buf,const utf8_t *menu_name);
 static void _viv_get_command_name(wchar_t *wbuf,int command_index);
 static int _viv_command_index_from_command_id(int command_id);
@@ -538,9 +361,9 @@ static void _viv_cat_key_mod(wchar_t *wbuf,int vk,const utf8_t *default_keytext)
 static void _viv_get_key_text(wchar_t *wbuf,DWORD keyflags);
 static HMENU _viv_create_menu(void);
 static void _viv_key_add(struct _viv_key_list_s *key_list,int command_index,DWORD keyflags);
-static void _viv_key_clear_all(struct _viv_key_list_s *key_list,int command_index);
+static void _viv_key_clear(struct _viv_key_list_s *key_list,int command_index);
 static void _viv_key_list_copy(struct _viv_key_list_s *dst,const struct _viv_key_list_s *src);
-static void _viv_key_list_clear(struct _viv_key_list_s *list);
+static void _viv_key_clear_all(struct _viv_key_list_s *list);
 static void _viv_key_list_init(struct _viv_key_list_s *list);
 static void _viv_options_key_list_sel_change(HWND hwnd,int previous_key_index);
 static void _viv_options_remove_key(HWND hwnd);
@@ -553,7 +376,6 @@ static void _viv_edit_key_set_key(HWND hwnd,DWORD key_flags);
 static void _viv_key_remove(struct _viv_key_list_s *keylist,int command_index,DWORD keyflags);
 static void _viv_edit_key_remove_currently_used_by(struct _viv_key_list_s *keylist,DWORD keyflags);
 static void _viv_close_existing_process(void);
-static int _viv_get_appdata_voidimageviewer_path(wchar_t *wbuf);
 static void _viv_uninstall_delete_file(const wchar_t *path,const utf8_t *filename);
 static int _viv_is_start_menu_shortcuts(void);
 static void _viv_install_start_menu_shortcuts(void);
@@ -582,52 +404,31 @@ static int _viv_compare_full_path_and_filenames(const WIN32_FIND_DATA *a,const W
 static void _viv_update_1to1_scroll(LPARAM lParam);
 static HBITMAP _viv_rorate_hbitmap(HBITMAP hbitmap,int counterclockwise);
 static void _viv_send_random_everything_search(void);
+static void _viv_do_mousewheel_action(int action,int delta,int x,int y);
 
-static HMODULE _viv_stobject_hmodule = 0; // module for setdesktopwallpaper verb.
-static int _viv_keep_centered = 1; // when zooming out, don't recenter the image. (keep cursor under the same pixel)
-static _viv_playlist_t *_viv_playlist_start = 0; // a list of files that were dropped on us.
-static _viv_playlist_t *_viv_playlist_last = 0; // a list of files that were dropped on us.
+static HMODULE _viv_stobject_hmodule = 0;
+static _viv_playlist_t *_viv_playlist_start = 0;
+static _viv_playlist_t *_viv_playlist_last = 0;
 static int _viv_playlist_count = 0;
-static _viv_playlist_t **_viv_playlist_shuffle_indexes = 0; // the playlist list shuffled
-static int _viv_playlist_shuffle_allocated = 0; // number of indexes allocated
+static _viv_playlist_t **_viv_playlist_shuffle_indexes = 0;
+static int _viv_playlist_shuffle_allocated = 0;
 static LARGE_INTEGER _viv_playlist_id = {0};
-static HWND _viv_hwnd = 0; // the main hwnd
-static HWND _viv_status_hwnd = 0; // the status bar hwnd
-static HWND _viv_toolbar_hwnd = 0; // the toolbar hwnd
-static HWND _viv_rebar_hwnd = 0; // our rebar window
+static HWND _viv_hwnd = 0;
+static HWND _viv_status_hwnd = 0;
+static HWND _viv_toolbar_hwnd = 0;
+static HWND _viv_rebar_hwnd = 0;
 static HWND _viv_jumpto_hwnd = 0;
-static HIMAGELIST _viv_toolbar_image_list = 0; // the toolbar imagelist containing the button graphics.
-static HANDLE _viv_mutex = 0; // the MUTEX to allow on a single instance, if this mutex exists, we will exit immediately after passing our command line arguments to the existing instance.
-static int _viv_x = 0; // window position in screen coords
-static int _viv_y = 0; // window position in screen coords
-static int _viv_wide = 640; // window width (not client width)
-static int _viv_high = 480; // window height (not client width)
-static int _viv_ontop = 0; // 0 = never, 1 = always, 2 = while slideshow or animating.
-static int _viv_slideshow_rate = 5000; // rate of change in slideshow mode in milliseconds.
-static int _viv_slideshow_custom_rate = 3; // custom slideshow rate (see type below)
-static int _viv_slideshow_custom_rate_type = 1; // 0 = milliseconds, 1 = seconds, 2 = minutes
+static HIMAGELIST _viv_toolbar_image_list = 0;
+static HANDLE _viv_mutex = 0;
 //static float _viv_animation_rates[] = {0.085899f,0.107374f,0.134218f,0.167772f,0.209715f,0.262144f,0.327680f,0.409600f,0.512000f,0.640000f,0.800000f,1.000000f,1.250000f,1.562500f,1.953125f,2.441406f,3.051758f,3.814697f,4.768372f,5.960464f,7.450581f,9.313226f}; // natural curve.
 static float _viv_animation_rates[] = {0.125000f,0.142857f,0.166667f,0.200000f,0.250000f,0.333333f,0.500000f,0.571429f,0.666667f,0.800000f,1.000000f,1.250000f,1.500000f,1.750000f,2.000000f,3.000000f,4.000000f,5.000000f,6.000000f,7.000000f,8.000000f}; // fixed animation rates
 #define _VIV_ANIMATION_RATE_MAX	(sizeof(_viv_animation_rates) / sizeof(float))
 #define _VIV_ANIMATION_RATE_ONE	10
 static int _viv_animation_rate_pos = _VIV_ANIMATION_RATE_ONE;
 static int _viv_animation_play = 1; // play or pause animations
-static int _viv_allow_shrinking = 1; // prevent resizing an image below 100%
-static int _viv_shrink_blit_mode = _VIV_SHRINK_BLIT_MODE_HALFTONE; // shrink filter
-static int _viv_mag_filter = _VIV_MAG_FILTER_COLORONCOLOR; // magnify filter
-static int _viv_nav_sort = _VIV_NAV_SORT_DATE_MODIFIED; // current navigation sort.
-static int _viv_nav_sort_ascending = 0; // sort navigation ascending or descending.
-static int _viv_keep_aspect_ratio = 1; // stretch images with the original aspect ratio.
-static int _viv_fill_window = 0; // stretch the image to fill the window
-static int _viv_fullscreen_fill_window = 1; // same as fill_window, except this setting is used when we are fullscreen
 static int _viv_1to1 = 0; // temporarily show the image with 100% scaling
 static int _viv_have_old_zoom = 0; // restore this zoom level after leaving 1:1 mode.
 static int _viv_old_zoom_pos = 0; // restore this zoom level after leaving 1:1 mode.
-static int _viv_auto_zoom = 0; // automatically resize the window to fit the newly loaded image
-static int _viv_auto_zoom_type = 1; // 0 = 50%, 1 = 100%, 2 = 200%
-static int _viv_frame_minus = 0; // show frame counter or remaining frames in status bar
-static int _viv_multiple_instances = 0; // all multiple instances or use a single instance.
-static int _viv_appdata = 0; // store settings in %APPDATA%\voidimageviewer or in the same location as voidimageviewer.exe
 WIN32_FIND_DATA *_viv_current_fd; // the current image find data including the full path and filename.
 static int _viv_view_x = 0; // the current image offset in pixels
 static int _viv_view_y = 0; // the current image offset in pixels
@@ -648,7 +449,7 @@ static _viv_frame_t *_viv_frames = 0; // the frames that make up an image, could
 static DWORD _viv_timer_tick = 0; // the current tick for the current frame.
 static int _viv_is_animation_timer = 0; // animation timer started?
 static DWORD _viv_animation_timer_tick_start = 0; // the current start tick
-static int _viv_doing = _VIV_DOING_NOTHING; // mouse action, such as drag to scroll image
+static int _viv_doing = _VIV_DOING_NOTHING; // current mouse action, such as drag to scroll image
 static int _viv_doing_x;
 static int _viv_doing_y;
 static int _viv_mdoing_x;
@@ -657,28 +458,24 @@ static int _viv_fullscreen_is_maxed = 0;
 static int _viv_is_fullscreen = 0;
 static RECT _viv_fullscreen_rect;
 static int _viv_is_show_menu = 1;
-static int _viv_is_show_status = 1;
-static int _viv_is_show_controls = 1;
 static int _viv_is_show_caption = 1;
 static int _viv_is_show_thickframe = 1;
 static int _viv_is_slideshow = 0;
-static int _viv_allow_sleep = 1;
 static int _viv_is_hide_cursor_timer = 0;
 static CLIPFORMAT _viv_CF_PREFERREDDROPEFFECT = 0; // copy or move? clipboard operation
-static int _viv_predefined_rates[] = {250,500,1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,20000,30000,40000,50000,60000};
-#define _VIV_PREDEFINED_RATE_COUNT (sizeof(_viv_predefined_rates) / sizeof(int))
+static int _viv_slideshow_rate_presets[] = {250,500,1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,20000,30000,40000,50000,60000};
+#define _VIV_SLIDESHOW_RATE_PRESET_COUNT (sizeof(_viv_slideshow_rate_presets) / sizeof(int))
 static int _viv_cursor_shown = 1;
 static int _viv_hide_cursor_x = -1;
 static int _viv_hide_cursor_y = -1;
 static int _viv_in_popup_menu = 0;
 static GUID _viv_FrameDimensionTime = {0x6aedbd6d,0x3fb5,0x418a,{0x83,0xa6,0x7f,0x45,0x22,0x9d,0xc8,0x72}};
-static int _viv_loop_animations_once = 1;
 static HMENU _viv_hmenu = 0;
 static int _viv_dst_pos_x = 500;
 static int _viv_dst_pos_y = 500;
-static float _viv_dst_zoom_values[] = {0.197145f,0.20108f,0.20511f,0.20921f,0.21339f,0.21766f,0.22201f,0.22645f,0.23098f,0.23560f,0.24031f,0.24512f,0.25002f,0.25502f,0.26012f,0.26533f,0.27063f,0.27605f,0.28157f,0.28720f,0.29294f,0.29880f,0.30478f,0.31087f,0.31709f,0.32343f,0.32990f,0.33650f,0.34323f,0.35009f,0.35710f,0.36424f,0.37152f,0.37895f,0.38653f,0.39426f,0.40215f,0.41019f,0.41840f,0.42676f,0.43530f,0.44401f,0.45289f,0.46194f,0.47118f,0.48061f,0.49022f,0.50002f,0.51002f,0.52022f,0.53063f,0.54124f,0.55207f,0.56311f,0.57437f,0.58586f,0.59758f,0.60953f,0.62172f,0.63415f,0.64683f,0.65977f,0.67297f,0.68643f,0.70016f,0.71416f,0.72844f,0.74301f,0.75787f,0.77303f,0.78849f,0.80426f,0.82034f,0.83675f,0.85349f,0.87056f,0.88797f,0.90573f,0.92384f,0.94232f,0.96116f,0.98039f,1.00000f,1.02000f,1.04040f,1.06120f,1.08243f,1.10408f,1.12616f,1.14868f,1.17165f,1.19509f,1.21899f,1.24337f,1.26824f,1.29360f,1.31947f,1.34586f,1.37278f,1.40024f,1.42824f,1.45681f,1.48594f,1.51566f,1.54597f,1.57689f,1.60843f,1.64060f,1.67341f,1.70688f,1.74102f,1.77584f,1.81136f,1.84758f,1.88453f,1.92223f,1.96067f,1.99988f,2.03988f,2.08068f,2.12229f,2.16474f,2.20803f,2.25219f,2.29724f,2.34318f,2.39005f,2.43785f,2.48660f,2.53634f,2.58706f,2.63880f,2.69158f,2.74541f,2.80032f,2.85633f,2.91345f,2.97172f,3.03116f};
+#define _VIV_DST_ZOOM_MAX	139
+static float _viv_dst_zoom_values[139];
 #define _VIV_DST_ZOOM_ONE	82
-#define _VIV_DST_ZOOM_MAX	(sizeof(_viv_dst_zoom_values) / sizeof(float))
 static int _viv_dst_zoom_x_pos = _VIV_DST_ZOOM_ONE;
 static int _viv_dst_zoom_y_pos = _VIV_DST_ZOOM_ONE;
 static CRITICAL_SECTION _viv_cs;
@@ -689,33 +486,19 @@ static volatile int _viv_load_image_terminate = 0;
 static _viv_reply_t *_viv_reply_start = 0;
 static _viv_reply_t *_viv_reply_last = 0;
 static wchar_t *_viv_status_temp_text = 0;
-static int _viv_mouse_wheel_action = 0; // 0 = zoom, 1 = next/prev, 2=prev/next
-static int _viv_left_click_action = 0; // 0 = scroll, 1 = play/pause slideshow, 2 = play/pause animation, 3=zoom in, 4=next, 5=1:1 scroll
-static int _viv_right_click_action = 0; // 0 = context menu, 1=zoom out, 2=prev, 
 static const utf8_t *_viv_options_page_names[] = {"General","View","Controls"};
 static int _viv_options_tab_ids[] = {IDC_TAB1,IDC_TAB2,IDC_TAB3};
 static int _viv_options_dialog_ids[] = {IDD_GENERAL,IDD_VIEW,IDD_CONTROLS};
 #define _VIV_OPTIONS_PAGE_COUNT	(sizeof(_viv_options_dialog_ids) / sizeof(int))
-static int _viv_options_page_ids[] = {_VIV_ID_OPTIONS_GENERAL,_VIV_ID_OPTIONS_VIEW,_VIV_ID_OPTIONS_CONTROLS};
+static int _viv_options_page_ids[] = {VIV_ID_OPTIONS_GENERAL,VIV_ID_OPTIONS_VIEW,VIV_ID_OPTIONS_CONTROLS};
 static DLGPROC _viv_options_page_procs[] = {_viv_options_general_proc,_viv_options_view_proc,_viv_options_controls_proc};
 static HFONT _viv_about_hfont = 0;
-static int _viv_windowed_background_color_r = 255;
-static int _viv_windowed_background_color_g = 255;
-static int _viv_windowed_background_color_b = 255;
-static int _viv_fullscreen_background_color_r = 0;
-static int _viv_fullscreen_background_color_g = 0;
-static int _viv_fullscreen_background_color_b = 0;
-static int _viv_options_last_page = 0;
-static int _viv_short_jump = 500;
-static int _viv_medium_jump = 1000;
-static int _viv_long_jump = 2000;
 static wchar_t *_viv_last_open_file = 0;
 static wchar_t *_viv_last_open_folder = 0;
 static _viv_nav_item_t **_viv_nav_items = 0;
 static _viv_nav_item_t *__viv_nav_item_start = 0;
 static _viv_nav_item_t *_viv_nav_item_last = 0;
 static int _viv_nav_item_count = 0;
-static int _viv_shuffle = 0;
 static wchar_t *_viv_random = 0;
 static DWORD _viv_random_tot_results = 0xffffffff;
 static DWORD _viv_everything_request_flags = 0;
@@ -724,319 +507,319 @@ static _viv_command_t _viv_commands[] =
 {
 	{"&File",MF_POPUP,_VIV_MENU_ROOT,_VIV_MENU_FILE},
 
-	{"&Open File...",MF_STRING,_VIV_MENU_FILE,_VIV_ID_FILE_OPEN_FILE},
-	{"Open &Folder...",MF_STRING,_VIV_MENU_FILE,_VIV_ID_FILE_OPEN_FOLDER},
-	{"Open Everything &Search...",MF_STRING|MF_OWNERDRAW,_VIV_MENU_FILE,_VIV_ID_FILE_OPEN_EVERYTHING_SEARCH},
-	{"&Add File...",MF_STRING|MF_OWNERDRAW,_VIV_MENU_FILE,_VIV_ID_FILE_ADD_FILE},
-	{"Add Folder...",MF_STRING|MF_OWNERDRAW,_VIV_MENU_FILE,_VIV_ID_FILE_ADD_FOLDER},
-	{"Add Everything Search...",MF_STRING|MF_OWNERDRAW,_VIV_MENU_FILE,_VIV_ID_FILE_ADD_EVERYTHING_SEARCH},
+	{"&Open File...",MF_STRING,_VIV_MENU_FILE,VIV_ID_FILE_OPEN_FILE},
+	{"Open &Folder...",MF_STRING,_VIV_MENU_FILE,VIV_ID_FILE_OPEN_FOLDER},
+	{"Open Everything &Search...",MF_STRING|MF_OWNERDRAW,_VIV_MENU_FILE,VIV_ID_FILE_OPEN_EVERYTHING_SEARCH},
+	{"&Add File...",MF_STRING|MF_OWNERDRAW,_VIV_MENU_FILE,VIV_ID_FILE_ADD_FILE},
+	{"Add Folder...",MF_STRING|MF_OWNERDRAW,_VIV_MENU_FILE,VIV_ID_FILE_ADD_FOLDER},
+	{"Add Everything Search...",MF_STRING|MF_OWNERDRAW,_VIV_MENU_FILE,VIV_ID_FILE_ADD_EVERYTHING_SEARCH},
 	{0,MF_SEPARATOR,_VIV_MENU_FILE,0},
-	{"Open F&ile Location...",MF_STRING,_VIV_MENU_FILE,_VIV_ID_FILE_OPEN_FILE_LOCATION},
-	{"&Edit...",MF_STRING,_VIV_MENU_FILE,_VIV_ID_FILE_EDIT},
-	{"Pre&view...",MF_STRING,_VIV_MENU_FILE,_VIV_ID_FILE_PREVIEW},
-	{"&Print...",MF_STRING,_VIV_MENU_FILE,_VIV_ID_FILE_PRINT},
-	{"Set &Desktop Wallpaper",MF_STRING,_VIV_MENU_FILE,_VIV_ID_FILE_SET_DESKTOP_WALLPAPER},
-	{"&Close",MF_STRING,_VIV_MENU_FILE,_VIV_ID_FILE_CLOSE},
+	{"Open F&ile Location...",MF_STRING,_VIV_MENU_FILE,VIV_ID_FILE_OPEN_FILE_LOCATION},
+	{"&Edit...",MF_STRING,_VIV_MENU_FILE,VIV_ID_FILE_EDIT},
+	{"Pre&view...",MF_STRING,_VIV_MENU_FILE,VIV_ID_FILE_PREVIEW},
+	{"&Print...",MF_STRING,_VIV_MENU_FILE,VIV_ID_FILE_PRINT},
+	{"Set &Desktop Wallpaper",MF_STRING,_VIV_MENU_FILE,VIV_ID_FILE_SET_DESKTOP_WALLPAPER},
+	{"&Close",MF_STRING,_VIV_MENU_FILE,VIV_ID_FILE_CLOSE},
 	{0,MF_SEPARATOR,_VIV_MENU_FILE,0},
-	{"&Delete",MF_STRING,_VIV_MENU_FILE,_VIV_ID_FILE_DELETE},
-	{"&Rename",MF_STRING,_VIV_MENU_FILE,_VIV_ID_FILE_RENAME},
-	{"P&roperties",MF_STRING,_VIV_MENU_FILE,_VIV_ID_FILE_PROPERTIES},
+	{"&Delete",MF_STRING,_VIV_MENU_FILE,VIV_ID_FILE_DELETE},
+	{"&Rename",MF_STRING,_VIV_MENU_FILE,VIV_ID_FILE_RENAME},
+	{"P&roperties",MF_STRING,_VIV_MENU_FILE,VIV_ID_FILE_PROPERTIES},
 	{0,MF_SEPARATOR,_VIV_MENU_FILE,0},
-	{"E&xit",MF_STRING,_VIV_MENU_FILE,_VIV_ID_FILE_EXIT},
+	{"E&xit",MF_STRING,_VIV_MENU_FILE,VIV_ID_FILE_EXIT},
 	
 	{"&Edit",MF_POPUP,_VIV_MENU_ROOT,_VIV_MENU_EDIT},
 
-	{"Cu&t",MF_STRING,_VIV_MENU_EDIT,_VIV_ID_EDIT_CUT},
-	{"&Copy",MF_STRING,_VIV_MENU_EDIT,_VIV_ID_EDIT_COPY},
-	{"&Paste",MF_STRING|MF_OWNERDRAW,_VIV_MENU_EDIT,_VIV_ID_EDIT_PASTE},
+	{"Cu&t",MF_STRING,_VIV_MENU_EDIT,VIV_ID_EDIT_CUT},
+	{"&Copy",MF_STRING,_VIV_MENU_EDIT,VIV_ID_EDIT_COPY},
+	{"&Paste",MF_STRING|MF_OWNERDRAW,_VIV_MENU_EDIT,VIV_ID_EDIT_PASTE},
 	{0,MF_SEPARATOR,_VIV_MENU_EDIT,0},
-	{"Rotate &Cloc&kwise",MF_STRING,_VIV_MENU_EDIT,_VIV_ID_EDIT_ROTATE_90},
-	{"Rotate Cou&nterclockwise",MF_STRING,_VIV_MENU_EDIT,_VIV_ID_EDIT_ROTATE_270},
+	{"Rotate &Cloc&kwise",MF_STRING,_VIV_MENU_EDIT,VIV_ID_EDIT_ROTATE_90},
+	{"Rotate Cou&nterclockwise",MF_STRING,_VIV_MENU_EDIT,VIV_ID_EDIT_ROTATE_270},
 	{0,MF_SEPARATOR,_VIV_MENU_EDIT,0},
-	{"Copy to &Folder...",MF_STRING,_VIV_MENU_EDIT,_VIV_ID_EDIT_COPY_TO},
-	{"Mo&ve to Folder...",MF_STRING,_VIV_MENU_EDIT,_VIV_ID_EDIT_MOVE_TO},
+	{"Copy to &Folder...",MF_STRING,_VIV_MENU_EDIT,VIV_ID_EDIT_COPY_TO},
+	{"Mo&ve to Folder...",MF_STRING,_VIV_MENU_EDIT,VIV_ID_EDIT_MOVE_TO},
 
 	{"&View",MF_POPUP,_VIV_MENU_ROOT,_VIV_MENU_VIEW},
 	
-	{"&Menu",MF_STRING,_VIV_MENU_VIEW,_VIV_ID_VIEW_MENU},
-	{"Status &Bar",MF_STRING,_VIV_MENU_VIEW,_VIV_ID_VIEW_STATUS},
-	{"&Controls",MF_STRING,_VIV_MENU_VIEW,_VIV_ID_VIEW_CONTROLS},
+	{"&Menu",MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_MENU},
+	{"Status &Bar",MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_STATUS},
+	{"&Controls",MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_CONTROLS},
 	{0,MF_SEPARATOR,_VIV_MENU_VIEW,0},
 	{"&Preset",MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_PRESET},
-	{"&Minimal",MF_STRING,_VIV_MENU_VIEW_PRESET,_VIV_ID_VIEW_PRESET_1},
-	{"&Compact",MF_STRING,_VIV_MENU_VIEW_PRESET,_VIV_ID_VIEW_PRESET_2},
-	{"&Normal",MF_STRING,_VIV_MENU_VIEW_PRESET,_VIV_ID_VIEW_PRESET_3},
+	{"&Minimal",MF_STRING,_VIV_MENU_VIEW_PRESET,VIV_ID_VIEW_PRESET_1},
+	{"&Compact",MF_STRING,_VIV_MENU_VIEW_PRESET,VIV_ID_VIEW_PRESET_2},
+	{"&Normal",MF_STRING,_VIV_MENU_VIEW_PRESET,VIV_ID_VIEW_PRESET_3},
 	{0,MF_SEPARATOR,_VIV_MENU_VIEW,0},
-	{"&Allow Shrinking",MF_STRING,_VIV_MENU_VIEW,_VIV_ID_VIEW_ALLOW_SHRINKING},
-	{"&Keep Aspect Ratio",MF_STRING,_VIV_MENU_VIEW,_VIV_ID_VIEW_KEEP_ASPECT_RATIO},
-	{"&Fill Window",MF_STRING,_VIV_MENU_VIEW,_VIV_ID_VIEW_FILL_WINDOW},
-	{"1:1",MF_STRING,_VIV_MENU_VIEW,_VIV_ID_VIEW_1TO1},
-	{"&Best Fit",MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW,_VIV_ID_VIEW_BESTFIT},
-	{"F&ullscreen",MF_STRING,_VIV_MENU_VIEW,_VIV_ID_VIEW_FULLSCREEN},
-	{"&Slideshow",MF_STRING,_VIV_MENU_VIEW,_VIV_ID_VIEW_SLIDESHOW},
+	{"&Allow Shrinking",MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_ALLOW_SHRINKING},
+	{"&Keep Aspect Ratio",MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_KEEP_ASPECT_RATIO},
+	{"&Fill Window",MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_FILL_WINDOW},
+	{"1:1",MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_1TO1},
+	{"&Best Fit",MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW,VIV_ID_VIEW_BESTFIT},
+	{"F&ullscreen",MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_FULLSCREEN},
+	{"&Slideshow",MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_SLIDESHOW},
 	{0,MF_SEPARATOR,_VIV_MENU_VIEW,0},
 	{"&Window Size",MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_WINDOW_SIZE},
-	{"50%",MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,_VIV_ID_VIEW_WINDOW_SIZE_50},
-	{"100%",MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,_VIV_ID_VIEW_WINDOW_SIZE_100},
-	{"200%",MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,_VIV_ID_VIEW_WINDOW_SIZE_200},
-	{"&Auto Fit",MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,_VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT},
+	{"50%",MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,VIV_ID_VIEW_WINDOW_SIZE_50},
+	{"100%",MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,VIV_ID_VIEW_WINDOW_SIZE_100},
+	{"200%",MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,VIV_ID_VIEW_WINDOW_SIZE_200},
+	{"&Auto Fit",MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT},
 	{0,MF_SEPARATOR,_VIV_MENU_VIEW,0},
 	{"Pa&n && Scan",MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_PANSCAN},
-	{"&Increase Size",MF_STRING,_VIV_MENU_VIEW_PANSCAN,_VIV_ID_VIEW_PANSCAN_INCREASE_SIZE},
-	{"&Decrease Size",MF_STRING,_VIV_MENU_VIEW_PANSCAN,_VIV_ID_VIEW_PANSCAN_DECREASE_SIZE},
-	{"I&ncrease Width",MF_STRING,_VIV_MENU_VIEW_PANSCAN,_VIV_ID_VIEW_PANSCAN_INCREASE_WIDTH},
-	{"D&ecrease Width",MF_STRING,_VIV_MENU_VIEW_PANSCAN,_VIV_ID_VIEW_PANSCAN_DECREASE_WIDTH},
-	{"In&crease Height",MF_STRING,_VIV_MENU_VIEW_PANSCAN,_VIV_ID_VIEW_PANSCAN_INCREASE_HEIGHT},
-	{"De&cre&ase Height",MF_STRING,_VIV_MENU_VIEW_PANSCAN,_VIV_ID_VIEW_PANSCAN_DECREASE_HEIGHT},
+	{"&Increase Size",MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_INCREASE_SIZE},
+	{"&Decrease Size",MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_DECREASE_SIZE},
+	{"I&ncrease Width",MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_INCREASE_WIDTH},
+	{"D&ecrease Width",MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_DECREASE_WIDTH},
+	{"In&crease Height",MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_INCREASE_HEIGHT},
+	{"De&cre&ase Height",MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_DECREASE_HEIGHT},
 	{0,MF_SEPARATOR,_VIV_MENU_VIEW_PANSCAN,0},
-	{"Move &Up",MF_STRING,_VIV_MENU_VIEW_PANSCAN,_VIV_ID_VIEW_PANSCAN_MOVE_UP},
-	{"Move &Down",MF_STRING,_VIV_MENU_VIEW_PANSCAN,_VIV_ID_VIEW_PANSCAN_MOVE_DOWN},
-	{"Move &Left",MF_STRING,_VIV_MENU_VIEW_PANSCAN,_VIV_ID_VIEW_PANSCAN_MOVE_LEFT},
-	{"Move &Right",MF_STRING,_VIV_MENU_VIEW_PANSCAN,_VIV_ID_VIEW_PANSCAN_MOVE_RIGHT},
-	{"Move Up Left",MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW_PANSCAN,_VIV_ID_VIEW_PANSCAN_MOVE_UP_LEFT},
-	{"Move Up Right",MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW_PANSCAN,_VIV_ID_VIEW_PANSCAN_MOVE_UP_RIGHT},
-	{"Move Down Left",MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW_PANSCAN,_VIV_ID_VIEW_PANSCAN_MOVE_DOWN_LEFT},
-	{"Move Down Right",MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW_PANSCAN,_VIV_ID_VIEW_PANSCAN_MOVE_DOWN_RIGHT},
-	{"Move Cen&ter",MF_STRING,_VIV_MENU_VIEW_PANSCAN,_VIV_ID_VIEW_PANSCAN_MOVE_CENTER},
+	{"Move &Up",MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_UP},
+	{"Move &Down",MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_DOWN},
+	{"Move &Left",MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_LEFT},
+	{"Move &Right",MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_RIGHT},
+	{"Move Up Left",MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_UP_LEFT},
+	{"Move Up Right",MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_UP_RIGHT},
+	{"Move Down Left",MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_DOWN_LEFT},
+	{"Move Down Right",MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_DOWN_RIGHT},
+	{"Move Cen&ter",MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_CENTER},
 	{0,MF_SEPARATOR,_VIV_MENU_VIEW_PANSCAN,0},
-	{"Re&set",MF_STRING,_VIV_MENU_VIEW_PANSCAN,_VIV_ID_VIEW_PANSCAN_RESET},
+	{"Re&set",MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_RESET},
 	{0,MF_SEPARATOR,_VIV_MENU_VIEW,0},
 	{"&Zoom",MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_ZOOM},
-	{"Zoom &In",MF_STRING,_VIV_MENU_VIEW_ZOOM,_VIV_ID_VIEW_ZOOM_IN},
-	{"Zoom &Out",MF_STRING,_VIV_MENU_VIEW_ZOOM,_VIV_ID_VIEW_ZOOM_OUT},
-	{"&Reset",MF_STRING,_VIV_MENU_VIEW_ZOOM,_VIV_ID_VIEW_ZOOM_RESET},
+	{"Zoom &In",MF_STRING,_VIV_MENU_VIEW_ZOOM,VIV_ID_VIEW_ZOOM_IN},
+	{"Zoom &Out",MF_STRING,_VIV_MENU_VIEW_ZOOM,VIV_ID_VIEW_ZOOM_OUT},
+	{"&Reset",MF_STRING,_VIV_MENU_VIEW_ZOOM,VIV_ID_VIEW_ZOOM_RESET},
 	{0,MF_SEPARATOR,_VIV_MENU_VIEW,0},
 	{"On &Top",MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_ONTOP},
-	{"&Always",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_ONTOP,_VIV_ID_VIEW_ONTOP_ALWAYS},
-	{"&While Playing Slideshow or Animating",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_ONTOP,_VIV_ID_VIEW_ONTOP_WHILE_PLAYING_OR_ANIMATING},
-	{"&Never",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_ONTOP,_VIV_ID_VIEW_ONTOP_NEVER},
-	{"&Options...",MF_STRING,_VIV_MENU_VIEW,_VIV_ID_VIEW_OPTIONS},
+	{"&Always",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_ONTOP,VIV_ID_VIEW_ONTOP_ALWAYS},
+	{"&While Playing Slideshow or Animating",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_ONTOP,VIV_ID_VIEW_ONTOP_WHILE_PLAYING_OR_ANIMATING},
+	{"&Never",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_ONTOP,VIV_ID_VIEW_ONTOP_NEVER},
+	{"&Options...",MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_OPTIONS},
 	{"&Slideshow",MF_POPUP,_VIV_MENU_ROOT,_VIV_MENU_SLIDESHOW},
-	{"&Play/Pause",MF_STRING,_VIV_MENU_SLIDESHOW,_VIV_ID_SLIDESHOW_PAUSE},
+	{"&Play/Pause",MF_STRING,_VIV_MENU_SLIDESHOW,VIV_ID_SLIDESHOW_PAUSE},
 	{0,MF_SEPARATOR,_VIV_MENU_SLIDESHOW,0},
 	{"&Rate",MF_POPUP,_VIV_MENU_SLIDESHOW,_VIV_MENU_SLIDESHOW_RATE},
-	{"&Decrease Rate",MF_STRING,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_DEC},
-	{"&Increase Rate",MF_STRING,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_INC},
+	{"&Decrease Rate",MF_STRING,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_DEC},
+	{"&Increase Rate",MF_STRING,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_INC},
 	{0,MF_SEPARATOR,_VIV_MENU_SLIDESHOW_RATE,0},
-	{"250 Milliseconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_250},
-	{"500 Milliseconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_500},
-	{"&1 Second",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_1000},
-	{"&2 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_2000},
-	{"&3 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_3000},
-	{"&4 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_4000},
-	{"&5 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_5000},
-	{"&6 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_6000},
-	{"&7 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_7000},
-	{"&8 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_8000},
-	{"&9 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_9000},
-	{"1&0 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_10000},
-	{"20 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_20000},
-	{"30 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_30000},
-	{"40 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_40000},
-	{"50 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_50000},
-	{"1 Minute",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_60000},
-	{"Custom...",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,_VIV_ID_SLIDESHOW_RATE_CUSTOM},
+	{"250 Milliseconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_250},
+	{"500 Milliseconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_500},
+	{"&1 Second",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_1000},
+	{"&2 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_2000},
+	{"&3 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_3000},
+	{"&4 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_4000},
+	{"&5 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_5000},
+	{"&6 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_6000},
+	{"&7 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_7000},
+	{"&8 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_8000},
+	{"&9 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_9000},
+	{"1&0 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_10000},
+	{"20 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_20000},
+	{"30 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_30000},
+	{"40 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_40000},
+	{"50 Seconds",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_50000},
+	{"1 Minute",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_60000},
+	{"Custom...",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_SLIDESHOW_RATE,VIV_ID_SLIDESHOW_RATE_CUSTOM},
 
 	{"&Animation",MF_POPUP,_VIV_MENU_ROOT,_VIV_MENU_ANIMATION},
-	{"&Play/Pause",MF_STRING,_VIV_MENU_ANIMATION,_VIV_ID_ANIMATION_PLAY_PAUSE},
+	{"&Play/Pause",MF_STRING,_VIV_MENU_ANIMATION,VIV_ID_ANIMATION_PLAY_PAUSE},
 	{0,MF_SEPARATOR,_VIV_MENU_ANIMATION,0},
-	{"Jump &Forward",MF_STRING,_VIV_MENU_ANIMATION,_VIV_ID_ANIMATION_JUMP_FORWARD_MEDIUM},
-	{"Jump &Backward",MF_STRING,_VIV_MENU_ANIMATION,_VIV_ID_ANIMATION_JUMP_BACKWARD_MEDIUM},
-	{"Short Jump &Forward",MF_STRING|MF_OWNERDRAW,_VIV_MENU_ANIMATION,_VIV_ID_ANIMATION_JUMP_FORWARD_SHORT},
-	{"Short Jump &Backward",MF_STRING|MF_OWNERDRAW,_VIV_MENU_ANIMATION,_VIV_ID_ANIMATION_JUMP_BACKWARD_SHORT},
-	{"Long Jump &Forward",MF_STRING|MF_OWNERDRAW,_VIV_MENU_ANIMATION,_VIV_ID_ANIMATION_JUMP_FORWARD_LONG},
-	{"Long Jump &Backward",MF_STRING|MF_OWNERDRAW,_VIV_MENU_ANIMATION,_VIV_ID_ANIMATION_JUMP_BACKWARD_LONG},
+	{"Jump &Forward",MF_STRING,_VIV_MENU_ANIMATION,VIV_ID_ANIMATION_JUMP_FORWARD_MEDIUM},
+	{"Jump &Backward",MF_STRING,_VIV_MENU_ANIMATION,VIV_ID_ANIMATION_JUMP_BACKWARD_MEDIUM},
+	{"Short Jump &Forward",MF_STRING|MF_OWNERDRAW,_VIV_MENU_ANIMATION,VIV_ID_ANIMATION_JUMP_FORWARD_SHORT},
+	{"Short Jump &Backward",MF_STRING|MF_OWNERDRAW,_VIV_MENU_ANIMATION,VIV_ID_ANIMATION_JUMP_BACKWARD_SHORT},
+	{"Long Jump &Forward",MF_STRING|MF_OWNERDRAW,_VIV_MENU_ANIMATION,VIV_ID_ANIMATION_JUMP_FORWARD_LONG},
+	{"Long Jump &Backward",MF_STRING|MF_OWNERDRAW,_VIV_MENU_ANIMATION,VIV_ID_ANIMATION_JUMP_BACKWARD_LONG},
 	{0,MF_SEPARATOR,_VIV_MENU_ANIMATION,0},
-	{"F&rame Step",MF_STRING,_VIV_MENU_ANIMATION,_VIV_ID_ANIMATION_FRAME_STEP},
-	{"Pre&vious Frame",MF_STRING,_VIV_MENU_ANIMATION,_VIV_ID_ANIMATION_FRAME_PREV},
-	{"F&irst Frame",MF_STRING,_VIV_MENU_ANIMATION,_VIV_ID_ANIMATION_FRAME_HOME},
-	{"&Last Frame",MF_STRING,_VIV_MENU_ANIMATION,_VIV_ID_ANIMATION_FRAME_END},
+	{"F&rame Step",MF_STRING,_VIV_MENU_ANIMATION,VIV_ID_ANIMATION_FRAME_STEP},
+	{"Pre&vious Frame",MF_STRING,_VIV_MENU_ANIMATION,VIV_ID_ANIMATION_FRAME_PREV},
+	{"F&irst Frame",MF_STRING,_VIV_MENU_ANIMATION,VIV_ID_ANIMATION_FRAME_HOME},
+	{"&Last Frame",MF_STRING,_VIV_MENU_ANIMATION,VIV_ID_ANIMATION_FRAME_END},
 	{0,MF_SEPARATOR,_VIV_MENU_ANIMATION,0},
-	{"&Decrease Rate",MF_STRING,_VIV_MENU_ANIMATION,_VIV_ID_ANIMATION_RATE_DEC},
-	{"&Increase Rate",MF_STRING,_VIV_MENU_ANIMATION,_VIV_ID_ANIMATION_RATE_INC},
-	{"R&eset Rate",MF_STRING,_VIV_MENU_ANIMATION,_VIV_ID_ANIMATION_RATE_RESET},
+	{"&Decrease Rate",MF_STRING,_VIV_MENU_ANIMATION,VIV_ID_ANIMATION_RATE_DEC},
+	{"&Increase Rate",MF_STRING,_VIV_MENU_ANIMATION,VIV_ID_ANIMATION_RATE_INC},
+	{"R&eset Rate",MF_STRING,_VIV_MENU_ANIMATION,VIV_ID_ANIMATION_RATE_RESET},
 	
 	{"&Navigate",MF_POPUP,_VIV_MENU_ROOT,_VIV_MENU_NAVIGATE},
-	{"&Next",MF_STRING,_VIV_MENU_NAVIGATE,_VIV_ID_NAV_NEXT},
-	{"P&revious",MF_STRING,_VIV_MENU_NAVIGATE,_VIV_ID_NAV_PREV},
-	{"&Home",MF_STRING,_VIV_MENU_NAVIGATE,_VIV_ID_NAV_HOME},
-	{"&End",MF_STRING,_VIV_MENU_NAVIGATE,_VIV_ID_NAV_END},
+	{"&Next",MF_STRING,_VIV_MENU_NAVIGATE,VIV_ID_NAV_NEXT},
+	{"P&revious",MF_STRING,_VIV_MENU_NAVIGATE,VIV_ID_NAV_PREV},
+	{"&Home",MF_STRING,_VIV_MENU_NAVIGATE,VIV_ID_NAV_HOME},
+	{"&End",MF_STRING,_VIV_MENU_NAVIGATE,VIV_ID_NAV_END},
 	{0,MF_SEPARATOR,_VIV_MENU_NAVIGATE,0},
 	{"S&ort",MF_POPUP,_VIV_MENU_NAVIGATE,_VIV_MENU_NAVIGATE_SORT},
-	{"&Name",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,_VIV_ID_NAV_SORT_NAME},
-	{"Full &Path and Filename",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,_VIV_ID_NAV_SORT_FULL_PATH_AND_FILENAME},
-	{"&Size",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,_VIV_ID_NAV_SORT_SIZE},
-	{"Date &Modified",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,_VIV_ID_NAV_SORT_DATE_MODIFIED},
-	{"Date &Created",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,_VIV_ID_NAV_SORT_DATE_CREATED},
+	{"&Name",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,VIV_ID_NAV_SORT_NAME},
+	{"Full &Path and Filename",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,VIV_ID_NAV_SORT_FULL_PATH_AND_FILENAME},
+	{"&Size",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,VIV_ID_NAV_SORT_SIZE},
+	{"Date &Modified",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,VIV_ID_NAV_SORT_DATE_MODIFIED},
+	{"Date &Created",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,VIV_ID_NAV_SORT_DATE_CREATED},
 	{0,MF_SEPARATOR,_VIV_MENU_NAVIGATE_SORT,0},
-	{"&Ascending",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,_VIV_ID_NAV_SORT_ASCENDING},
-	{"&Descending",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,_VIV_ID_NAV_SORT_DESCENDING},
-	{"&Shuffle",MF_STRING,_VIV_MENU_NAVIGATE,_VIV_ID_NAV_SHUFFLE},
+	{"&Ascending",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,VIV_ID_NAV_SORT_ASCENDING},
+	{"&Descending",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,VIV_ID_NAV_SORT_DESCENDING},
+	{"&Shuffle",MF_STRING,_VIV_MENU_NAVIGATE,VIV_ID_NAV_SHUFFLE},
 	{0,MF_SEPARATOR,_VIV_MENU_NAVIGATE,0},
-	{"&Jump To...",MF_STRING,_VIV_MENU_NAVIGATE,_VIV_ID_NAV_JUMPTO},
+	{"&Jump To...",MF_STRING,_VIV_MENU_NAVIGATE,VIV_ID_NAV_JUMPTO},
 
 	{"&Help",MF_POPUP,_VIV_MENU_ROOT,_VIV_MENU_HELP},
-	{"&Help",MF_STRING,_VIV_MENU_HELP,_VIV_ID_HELP_HELP},
-	{"&Command Line Options",MF_STRING,_VIV_MENU_HELP,_VIV_ID_HELP_COMMAND_LINE_OPTIONS},
+	{"&Help",MF_STRING,_VIV_MENU_HELP,VIV_ID_HELP_HELP},
+	{"&Command Line Options",MF_STRING,_VIV_MENU_HELP,VIV_ID_HELP_COMMAND_LINE_OPTIONS},
 	{0,MF_SEPARATOR,_VIV_MENU_HELP,0},
-	{"Home &Page",MF_STRING,_VIV_MENU_HELP,_VIV_ID_HELP_WEBSITE},
-	{"&Donate",MF_STRING,_VIV_MENU_HELP,_VIV_ID_HELP_DONATE},
+	{"Home &Page",MF_STRING,_VIV_MENU_HELP,VIV_ID_HELP_WEBSITE},
+	{"&Donate",MF_STRING,_VIV_MENU_HELP,VIV_ID_HELP_DONATE},
 	{0,MF_SEPARATOR,_VIV_MENU_HELP,0},
-	{"&About",MF_STRING,_VIV_MENU_HELP,_VIV_ID_HELP_ABOUT},
+	{"&About",MF_STRING,_VIV_MENU_HELP,VIV_ID_HELP_ABOUT},
 };
 
 #define _VIV_COMMAND_COUNT	(sizeof(_viv_commands) / sizeof(_viv_command_t))
 
 _viv_default_key_t _viv_default_keys[] =
 {
-	{_VIV_ID_FILE_OPEN_FILE,_VIV_KEYFLAG_CTRL | 'O'},
-	{_VIV_ID_FILE_OPEN_FOLDER,_VIV_KEYFLAG_CTRL | 'B'},
-	{_VIV_ID_FILE_OPEN_EVERYTHING_SEARCH,_VIV_KEYFLAG_CTRL | 'E'},
-	{_VIV_ID_FILE_ADD_FILE,_VIV_KEYFLAG_CTRL | _VIV_KEYFLAG_SHIFT | 'O'},
-	{_VIV_ID_FILE_ADD_FOLDER,_VIV_KEYFLAG_CTRL | _VIV_KEYFLAG_SHIFT | 'B'},
-	{_VIV_ID_FILE_ADD_EVERYTHING_SEARCH,_VIV_KEYFLAG_CTRL | _VIV_KEYFLAG_SHIFT | 'E'},
-	{_VIV_ID_FILE_OPEN_FILE_LOCATION,_VIV_KEYFLAG_CTRL | VK_RETURN},
-	{_VIV_ID_FILE_EDIT,_VIV_KEYFLAG_CTRL | 'E'},
-	{_VIV_ID_FILE_PRINT,_VIV_KEYFLAG_CTRL | 'P'},
-//	{_VIV_ID_FILE_SET_DESKTOP_WALLPAPER,_VIV_KEYFLAG_CTRL | 'D'}, // this needs a confirmation dialog
-	{_VIV_ID_FILE_CLOSE,_VIV_KEYFLAG_CTRL | 'W'},
-	{_VIV_ID_FILE_DELETE,VK_DELETE},
-	{_VIV_ID_FILE_RENAME,VK_F2},
-	{_VIV_ID_FILE_EXIT,_VIV_KEYFLAG_CTRL | 'Q'},
-	{_VIV_ID_EDIT_CUT,_VIV_KEYFLAG_CTRL | 'X'},
-	{_VIV_ID_EDIT_COPY,_VIV_KEYFLAG_CTRL | 'C'},
-	{_VIV_ID_EDIT_PASTE,_VIV_KEYFLAG_CTRL | 'V'},
-	{_VIV_ID_VIEW_PRESET_1,'1'},
-	{_VIV_ID_VIEW_PRESET_2,'2'},
-	{_VIV_ID_VIEW_PRESET_3,'3'},
-	{_VIV_ID_VIEW_1TO1,_VIV_KEYFLAG_CTRL | _VIV_KEYFLAG_ALT | '0'},
-	{_VIV_ID_VIEW_FULLSCREEN,_VIV_KEYFLAG_ALT | VK_RETURN},
-	{_VIV_ID_VIEW_SLIDESHOW,VK_F11},
-	{_VIV_ID_VIEW_WINDOW_SIZE_50,_VIV_KEYFLAG_ALT | '1'},
-	{_VIV_ID_VIEW_WINDOW_SIZE_100,_VIV_KEYFLAG_ALT | '2'},
-	{_VIV_ID_VIEW_WINDOW_SIZE_200,_VIV_KEYFLAG_ALT | '3'},
-	{_VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT,_VIV_KEYFLAG_ALT | '4'},
-	{_VIV_ID_VIEW_PANSCAN_INCREASE_SIZE,VK_NUMPAD9},
-	{_VIV_ID_VIEW_PANSCAN_DECREASE_SIZE,VK_NUMPAD1},
-	{_VIV_ID_VIEW_PANSCAN_INCREASE_WIDTH,VK_NUMPAD6},
-	{_VIV_ID_VIEW_PANSCAN_DECREASE_WIDTH,VK_NUMPAD4},
-	{_VIV_ID_VIEW_PANSCAN_INCREASE_HEIGHT,VK_NUMPAD8},
-	{_VIV_ID_VIEW_PANSCAN_DECREASE_HEIGHT,VK_NUMPAD2},
-	{_VIV_ID_VIEW_PANSCAN_MOVE_UP,_VIV_KEYFLAG_CTRL | VK_NUMPAD8},
-	{_VIV_ID_VIEW_PANSCAN_MOVE_DOWN,_VIV_KEYFLAG_CTRL | VK_NUMPAD2},
-	{_VIV_ID_VIEW_PANSCAN_MOVE_LEFT,_VIV_KEYFLAG_CTRL | VK_NUMPAD4},
-	{_VIV_ID_VIEW_PANSCAN_MOVE_RIGHT,_VIV_KEYFLAG_CTRL | VK_NUMPAD6},
-	{_VIV_ID_VIEW_PANSCAN_MOVE_UP_LEFT,_VIV_KEYFLAG_CTRL | VK_NUMPAD7},
-	{_VIV_ID_VIEW_PANSCAN_MOVE_UP_RIGHT,_VIV_KEYFLAG_CTRL | VK_NUMPAD9},
-	{_VIV_ID_VIEW_PANSCAN_MOVE_DOWN_LEFT,_VIV_KEYFLAG_CTRL | VK_NUMPAD1},
-	{_VIV_ID_VIEW_PANSCAN_MOVE_DOWN_RIGHT,_VIV_KEYFLAG_CTRL | VK_NUMPAD3},
-	{_VIV_ID_VIEW_PANSCAN_MOVE_CENTER,_VIV_KEYFLAG_CTRL | VK_NUMPAD5},
-	{_VIV_ID_VIEW_PANSCAN_RESET,VK_NUMPAD5},
-	{_VIV_ID_VIEW_ZOOM_IN,VK_OEM_PLUS},
-	{_VIV_ID_VIEW_ZOOM_IN,VK_ADD},
-	{_VIV_ID_VIEW_ZOOM_OUT,VK_OEM_MINUS},
-	{_VIV_ID_VIEW_ZOOM_OUT,VK_SUBTRACT},
-	{_VIV_ID_VIEW_ZOOM_RESET,_VIV_KEYFLAG_CTRL | '0'},
-	{_VIV_ID_VIEW_ONTOP_ALWAYS,_VIV_KEYFLAG_CTRL | 'T'},
-	{_VIV_ID_VIEW_OPTIONS,'O'},
-	{_VIV_ID_SLIDESHOW_PAUSE,VK_SPACE},
-	{_VIV_ID_SLIDESHOW_RATE_DEC,VK_DOWN},
-	{_VIV_ID_SLIDESHOW_RATE_INC,VK_UP},
-	{_VIV_ID_ANIMATION_PLAY_PAUSE,_VIV_KEYFLAG_CTRL | VK_SPACE},
-	{_VIV_ID_ANIMATION_JUMP_FORWARD_MEDIUM,_VIV_KEYFLAG_SHIFT | VK_RIGHT},
-	{_VIV_ID_ANIMATION_JUMP_BACKWARD_MEDIUM,_VIV_KEYFLAG_SHIFT | VK_LEFT},
-	{_VIV_ID_ANIMATION_FRAME_STEP,_VIV_KEYFLAG_CTRL | VK_RIGHT},
-	{_VIV_ID_ANIMATION_FRAME_PREV,_VIV_KEYFLAG_CTRL | VK_LEFT},
-	{_VIV_ID_ANIMATION_FRAME_HOME,_VIV_KEYFLAG_CTRL | VK_HOME},
-	{_VIV_ID_ANIMATION_FRAME_END,_VIV_KEYFLAG_CTRL | VK_END},
-	{_VIV_ID_ANIMATION_RATE_DEC,_VIV_KEYFLAG_CTRL | VK_DOWN},
-	{_VIV_ID_ANIMATION_RATE_INC,_VIV_KEYFLAG_CTRL | VK_UP},
-	{_VIV_ID_ANIMATION_RATE_RESET,_VIV_KEYFLAG_CTRL | 'R'},
-	{_VIV_ID_NAV_NEXT,VK_RIGHT},
-	{_VIV_ID_NAV_NEXT,VK_NEXT},
-	{_VIV_ID_NAV_PREV,VK_LEFT},
-	{_VIV_ID_NAV_PREV,VK_PRIOR},
-	{_VIV_ID_NAV_HOME,VK_HOME},
-	{_VIV_ID_NAV_END,VK_END},
-	{_VIV_ID_NAV_JUMPTO,'J'},
-	{_VIV_ID_HELP_HELP,VK_F1},
-	{_VIV_ID_HELP_ABOUT,_VIV_KEYFLAG_CTRL | VK_F1},
+	{VIV_ID_FILE_OPEN_FILE,CONFIG_KEYFLAG_CTRL | 'O'},
+	{VIV_ID_FILE_OPEN_FOLDER,CONFIG_KEYFLAG_CTRL | 'B'},
+	{VIV_ID_FILE_OPEN_EVERYTHING_SEARCH,CONFIG_KEYFLAG_CTRL | 'E'},
+	{VIV_ID_FILE_ADD_FILE,CONFIG_KEYFLAG_CTRL | CONFIG_KEYFLAG_SHIFT | 'O'},
+	{VIV_ID_FILE_ADD_FOLDER,CONFIG_KEYFLAG_CTRL | CONFIG_KEYFLAG_SHIFT | 'B'},
+	{VIV_ID_FILE_ADD_EVERYTHING_SEARCH,CONFIG_KEYFLAG_CTRL | CONFIG_KEYFLAG_SHIFT | 'E'},
+	{VIV_ID_FILE_OPEN_FILE_LOCATION,CONFIG_KEYFLAG_CTRL | VK_RETURN},
+//	{VIV_ID_FILE_EDIT,CONFIG_KEYFLAG_CTRL | 'E'},
+	{VIV_ID_FILE_PRINT,CONFIG_KEYFLAG_CTRL | 'P'},
+//	{VIV_ID_FILE_SET_DESKTOP_WALLPAPER,CONFIG_KEYFLAG_CTRL | 'D'}, // this needs a confirmation dialog
+	{VIV_ID_FILE_CLOSE,CONFIG_KEYFLAG_CTRL | 'W'},
+	{VIV_ID_FILE_DELETE,VK_DELETE},
+	{VIV_ID_FILE_RENAME,VK_F2},
+	{VIV_ID_FILE_EXIT,CONFIG_KEYFLAG_CTRL | 'Q'},
+	{VIV_ID_EDIT_CUT,CONFIG_KEYFLAG_CTRL | 'X'},
+	{VIV_ID_EDIT_COPY,CONFIG_KEYFLAG_CTRL | 'C'},
+	{VIV_ID_EDIT_PASTE,CONFIG_KEYFLAG_CTRL | 'V'},
+	{VIV_ID_VIEW_PRESET_1,'1'},
+	{VIV_ID_VIEW_PRESET_2,'2'},
+	{VIV_ID_VIEW_PRESET_3,'3'},
+	{VIV_ID_VIEW_1TO1,CONFIG_KEYFLAG_CTRL | CONFIG_KEYFLAG_ALT | '0'},
+	{VIV_ID_VIEW_FULLSCREEN,CONFIG_KEYFLAG_ALT | VK_RETURN},
+	{VIV_ID_VIEW_SLIDESHOW,VK_F11},
+	{VIV_ID_VIEW_WINDOW_SIZE_50,CONFIG_KEYFLAG_ALT | '1'},
+	{VIV_ID_VIEW_WINDOW_SIZE_100,CONFIG_KEYFLAG_ALT | '2'},
+	{VIV_ID_VIEW_WINDOW_SIZE_200,CONFIG_KEYFLAG_ALT | '3'},
+	{VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT,CONFIG_KEYFLAG_ALT | '4'},
+	{VIV_ID_VIEW_PANSCAN_INCREASE_SIZE,VK_NUMPAD9},
+	{VIV_ID_VIEW_PANSCAN_DECREASE_SIZE,VK_NUMPAD1},
+	{VIV_ID_VIEW_PANSCAN_INCREASE_WIDTH,VK_NUMPAD6},
+	{VIV_ID_VIEW_PANSCAN_DECREASE_WIDTH,VK_NUMPAD4},
+	{VIV_ID_VIEW_PANSCAN_INCREASE_HEIGHT,VK_NUMPAD8},
+	{VIV_ID_VIEW_PANSCAN_DECREASE_HEIGHT,VK_NUMPAD2},
+	{VIV_ID_VIEW_PANSCAN_MOVE_UP,CONFIG_KEYFLAG_CTRL | VK_NUMPAD8},
+	{VIV_ID_VIEW_PANSCAN_MOVE_DOWN,CONFIG_KEYFLAG_CTRL | VK_NUMPAD2},
+	{VIV_ID_VIEW_PANSCAN_MOVE_LEFT,CONFIG_KEYFLAG_CTRL | VK_NUMPAD4},
+	{VIV_ID_VIEW_PANSCAN_MOVE_RIGHT,CONFIG_KEYFLAG_CTRL | VK_NUMPAD6},
+	{VIV_ID_VIEW_PANSCAN_MOVE_UP_LEFT,CONFIG_KEYFLAG_CTRL | VK_NUMPAD7},
+	{VIV_ID_VIEW_PANSCAN_MOVE_UP_RIGHT,CONFIG_KEYFLAG_CTRL | VK_NUMPAD9},
+	{VIV_ID_VIEW_PANSCAN_MOVE_DOWN_LEFT,CONFIG_KEYFLAG_CTRL | VK_NUMPAD1},
+	{VIV_ID_VIEW_PANSCAN_MOVE_DOWN_RIGHT,CONFIG_KEYFLAG_CTRL | VK_NUMPAD3},
+	{VIV_ID_VIEW_PANSCAN_MOVE_CENTER,CONFIG_KEYFLAG_CTRL | VK_NUMPAD5},
+	{VIV_ID_VIEW_PANSCAN_RESET,VK_NUMPAD5},
+	{VIV_ID_VIEW_ZOOM_IN,VK_OEM_PLUS},
+	{VIV_ID_VIEW_ZOOM_IN,VK_ADD},
+	{VIV_ID_VIEW_ZOOM_OUT,VK_OEM_MINUS},
+	{VIV_ID_VIEW_ZOOM_OUT,VK_SUBTRACT},
+	{VIV_ID_VIEW_ZOOM_RESET,CONFIG_KEYFLAG_CTRL | '0'},
+	{VIV_ID_VIEW_ONTOP_ALWAYS,CONFIG_KEYFLAG_CTRL | 'T'},
+	{VIV_ID_VIEW_OPTIONS,'O'},
+	{VIV_ID_SLIDESHOW_PAUSE,VK_SPACE},
+	{VIV_ID_SLIDESHOW_RATE_DEC,VK_DOWN},
+	{VIV_ID_SLIDESHOW_RATE_INC,VK_UP},
+	{VIV_ID_ANIMATION_PLAY_PAUSE,CONFIG_KEYFLAG_CTRL | VK_SPACE},
+	{VIV_ID_ANIMATION_JUMP_FORWARD_MEDIUM,CONFIG_KEYFLAG_SHIFT | VK_RIGHT},
+	{VIV_ID_ANIMATION_JUMP_BACKWARD_MEDIUM,CONFIG_KEYFLAG_SHIFT | VK_LEFT},
+	{VIV_ID_ANIMATION_FRAME_STEP,CONFIG_KEYFLAG_CTRL | VK_RIGHT},
+	{VIV_ID_ANIMATION_FRAME_PREV,CONFIG_KEYFLAG_CTRL | VK_LEFT},
+	{VIV_ID_ANIMATION_FRAME_HOME,CONFIG_KEYFLAG_CTRL | VK_HOME},
+	{VIV_ID_ANIMATION_FRAME_END,CONFIG_KEYFLAG_CTRL | VK_END},
+	{VIV_ID_ANIMATION_RATE_DEC,CONFIG_KEYFLAG_CTRL | VK_DOWN},
+	{VIV_ID_ANIMATION_RATE_INC,CONFIG_KEYFLAG_CTRL | VK_UP},
+	{VIV_ID_ANIMATION_RATE_RESET,CONFIG_KEYFLAG_CTRL | 'R'},
+	{VIV_ID_NAV_NEXT,VK_RIGHT},
+	{VIV_ID_NAV_NEXT,VK_NEXT},
+	{VIV_ID_NAV_PREV,VK_LEFT},
+	{VIV_ID_NAV_PREV,VK_PRIOR},
+	{VIV_ID_NAV_HOME,VK_HOME},
+	{VIV_ID_NAV_END,VK_END},
+	{VIV_ID_NAV_JUMPTO,'J'},
+	{VIV_ID_HELP_HELP,VK_F1},
+	{VIV_ID_HELP_ABOUT,CONFIG_KEYFLAG_CTRL | VK_F1},
 };
 
 #define _VIV_DEFAULT_KEY_COUNT (sizeof(_viv_default_keys) / sizeof(_viv_default_key_t))
 
 WORD _viv_context_menu_items[] = 
 {
-	_VIV_ID_NAV_NEXT,
-	_VIV_ID_NAV_PREV,
+	VIV_ID_NAV_NEXT,
+	VIV_ID_NAV_PREV,
 	0,
-	_VIV_ID_SLIDESHOW_PAUSE,
+	VIV_ID_SLIDESHOW_PAUSE,
 	_VIV_MENU_SLIDESHOW_RATE,
-	_VIV_ID_SLIDESHOW_RATE_DEC,
-	_VIV_ID_SLIDESHOW_RATE_INC,
+	VIV_ID_SLIDESHOW_RATE_DEC,
+	VIV_ID_SLIDESHOW_RATE_INC,
 	0,
-	_VIV_ID_SLIDESHOW_RATE_250,
-	_VIV_ID_SLIDESHOW_RATE_500,
-	_VIV_ID_SLIDESHOW_RATE_1000,
-	_VIV_ID_SLIDESHOW_RATE_2000,
-	_VIV_ID_SLIDESHOW_RATE_3000,
-	_VIV_ID_SLIDESHOW_RATE_4000,
-	_VIV_ID_SLIDESHOW_RATE_5000,
-	_VIV_ID_SLIDESHOW_RATE_6000,
-	_VIV_ID_SLIDESHOW_RATE_7000,
-	_VIV_ID_SLIDESHOW_RATE_8000,
-	_VIV_ID_SLIDESHOW_RATE_9000,
-	_VIV_ID_SLIDESHOW_RATE_10000,
-	_VIV_ID_SLIDESHOW_RATE_20000,
-	_VIV_ID_SLIDESHOW_RATE_30000,
-	_VIV_ID_SLIDESHOW_RATE_40000,
-	_VIV_ID_SLIDESHOW_RATE_50000,
-	_VIV_ID_SLIDESHOW_RATE_60000,
-	_VIV_ID_SLIDESHOW_RATE_CUSTOM,
+	VIV_ID_SLIDESHOW_RATE_250,
+	VIV_ID_SLIDESHOW_RATE_500,
+	VIV_ID_SLIDESHOW_RATE_1000,
+	VIV_ID_SLIDESHOW_RATE_2000,
+	VIV_ID_SLIDESHOW_RATE_3000,
+	VIV_ID_SLIDESHOW_RATE_4000,
+	VIV_ID_SLIDESHOW_RATE_5000,
+	VIV_ID_SLIDESHOW_RATE_6000,
+	VIV_ID_SLIDESHOW_RATE_7000,
+	VIV_ID_SLIDESHOW_RATE_8000,
+	VIV_ID_SLIDESHOW_RATE_9000,
+	VIV_ID_SLIDESHOW_RATE_10000,
+	VIV_ID_SLIDESHOW_RATE_20000,
+	VIV_ID_SLIDESHOW_RATE_30000,
+	VIV_ID_SLIDESHOW_RATE_40000,
+	VIV_ID_SLIDESHOW_RATE_50000,
+	VIV_ID_SLIDESHOW_RATE_60000,
+	VIV_ID_SLIDESHOW_RATE_CUSTOM,
 	_VIV_MENU_SLIDESHOW_RATE,
 	0,
-	_VIV_ID_VIEW_MENU,
+	VIV_ID_VIEW_MENU,
 	0,
-	_VIV_ID_VIEW_ALLOW_SHRINKING,
-	_VIV_ID_VIEW_KEEP_ASPECT_RATIO,
-	_VIV_ID_VIEW_FILL_WINDOW,
-	_VIV_ID_VIEW_1TO1,
-	_VIV_ID_VIEW_FULLSCREEN,
-//	_VIV_ID_VIEW_SLIDESHOW,
+	VIV_ID_VIEW_ALLOW_SHRINKING,
+	VIV_ID_VIEW_KEEP_ASPECT_RATIO,
+	VIV_ID_VIEW_FILL_WINDOW,
+	VIV_ID_VIEW_1TO1,
+	VIV_ID_VIEW_FULLSCREEN,
+//	VIV_ID_VIEW_SLIDESHOW,
 	0,
 	_VIV_MENU_NAVIGATE_SORT,
-	_VIV_ID_NAV_SORT_NAME,
-	_VIV_ID_NAV_SORT_FULL_PATH_AND_FILENAME,
-	_VIV_ID_NAV_SORT_SIZE,
-	_VIV_ID_NAV_SORT_DATE_MODIFIED,
-	_VIV_ID_NAV_SORT_DATE_CREATED,
+	VIV_ID_NAV_SORT_NAME,
+	VIV_ID_NAV_SORT_FULL_PATH_AND_FILENAME,
+	VIV_ID_NAV_SORT_SIZE,
+	VIV_ID_NAV_SORT_DATE_MODIFIED,
+	VIV_ID_NAV_SORT_DATE_CREATED,
 	0,
-	_VIV_ID_NAV_SORT_ASCENDING,
-	_VIV_ID_NAV_SORT_DESCENDING,
+	VIV_ID_NAV_SORT_ASCENDING,
+	VIV_ID_NAV_SORT_DESCENDING,
 	_VIV_MENU_NAVIGATE_SORT,
 	0,
-	_VIV_ID_FILE_OPEN_FILE_LOCATION,
-	_VIV_ID_FILE_SET_DESKTOP_WALLPAPER,
-	_VIV_ID_FILE_EDIT,
-	_VIV_ID_FILE_PRINT,
-	_VIV_ID_FILE_PREVIEW,
+	VIV_ID_FILE_OPEN_FILE_LOCATION,
+	VIV_ID_FILE_SET_DESKTOP_WALLPAPER,
+	VIV_ID_FILE_EDIT,
+	VIV_ID_FILE_PRINT,
+	VIV_ID_FILE_PREVIEW,
 	0,
-	_VIV_ID_EDIT_ROTATE_90,
-	_VIV_ID_EDIT_ROTATE_270,
+	VIV_ID_EDIT_ROTATE_90,
+	VIV_ID_EDIT_ROTATE_270,
 	0,
-	_VIV_ID_EDIT_CUT,
-	_VIV_ID_EDIT_COPY,
-	_VIV_ID_FILE_DELETE,
+	VIV_ID_EDIT_CUT,
+	VIV_ID_EDIT_COPY,
+	VIV_ID_FILE_DELETE,
 	0,
-	_VIV_ID_FILE_PROPERTIES,
+	VIV_ID_FILE_PROPERTIES,
 };
 
 #define _VIV_CONEXT_MENU_ITEM_COUNT	(sizeof(_viv_context_menu_items) / sizeof(WORD))
 
 typedef struct _viv_key_list_s
 {
-	_viv_key_t *start[_VIV_COMMAND_COUNT];
-	_viv_key_t *last[_VIV_COMMAND_COUNT];
+	config_key_t *start[_VIV_COMMAND_COUNT];
+	config_key_t *last[_VIV_COMMAND_COUNT];
 	
 }_viv_key_list_t;
 
@@ -1245,6 +1028,11 @@ static void _viv_open(WIN32_FIND_DATA *fd)
 		
 		_viv_load_image_terminate = 0;
 		
+		if (_viv_load_image_filename)
+		{
+			mem_free(_viv_load_image_filename);
+		}
+		
 		_viv_load_image_filename = string_alloc(fd->cFileName);
 		
 		_viv_load_image_thread = CreateThread(NULL,0,_viv_load_image_proc,0,0,&thread_id);
@@ -1277,8 +1065,8 @@ static void _viv_on_size(void)
 				
 				GetWindowRect(_viv_hwnd,&window_rect);
 				
-				_viv_wide = window_rect.right - window_rect.left;
-				_viv_high = window_rect.bottom - window_rect.top;
+				config_wide = window_rect.right - window_rect.left;
+				config_high = window_rect.bottom - window_rect.top;
 			}
 		}
 	}
@@ -1319,65 +1107,65 @@ static void _viv_command(int command_id)
 	// Parse the menu selections:
 	switch (command_id)
 	{
-		case _VIV_ID_VIEW_ZOOM_IN:
+		case VIV_ID_VIEW_ZOOM_IN:
 			_viv_zoom_in(0,0,0,0);
 			break;
 
-		case _VIV_ID_VIEW_ZOOM_OUT:
+		case VIV_ID_VIEW_ZOOM_OUT:
 			_viv_zoom_in(1,0,0,0);
 			break;
 
-		case _VIV_ID_VIEW_ZOOM_RESET:
+		case VIV_ID_VIEW_ZOOM_RESET:
 			_viv_1to1 = 0;
 			_viv_zoom_pos = 0;
 			_viv_view_set(_viv_view_x,_viv_view_y,1);
 			InvalidateRect(_viv_hwnd,0,FALSE);
 			break;
 	
-		case _VIV_ID_HELP_HELP:
+		case VIV_ID_HELP_HELP:
 			ShellExecuteA(_viv_hwnd,NULL,"http://www.voidtools.com/support/voidimageviewer/",NULL,NULL,SW_SHOWNORMAL);
 			break;
 			
-		case _VIV_ID_HELP_COMMAND_LINE_OPTIONS:
+		case VIV_ID_HELP_COMMAND_LINE_OPTIONS:
 			_viv_command_line_options();
 			break;
 			
-		case _VIV_ID_HELP_DONATE:
+		case VIV_ID_HELP_DONATE:
 			ShellExecuteA(_viv_hwnd,NULL,"http://www.voidtools.com/donate/",NULL,NULL,SW_SHOWNORMAL);
 			break;
 			
-		case _VIV_ID_HELP_ABOUT:
+		case VIV_ID_HELP_ABOUT:
 			DialogBox(os_hinstance,MAKEINTRESOURCE(IDD_ABOUT),_viv_hwnd,_viv_about_proc);
 			break;
 			
-		case _VIV_ID_HELP_WEBSITE:
+		case VIV_ID_HELP_WEBSITE:
 			ShellExecuteA(_viv_hwnd,NULL,"http://www.voidtools.com/",NULL,NULL,SW_SHOWNORMAL);
 			break;
 			
-		case _VIV_ID_FILE_EXIT:
+		case VIV_ID_FILE_EXIT:
 			_viv_exit();
 			break;
 		
-		case _VIV_ID_NAV_PREV:
+		case VIV_ID_NAV_PREV:
 			_viv_next(1,1);
 			break;
 		
-		case _VIV_ID_NAV_NEXT:
+		case VIV_ID_NAV_NEXT:
 			_viv_next(0,1);
 			break;
 		
-		case _VIV_ID_NAV_HOME:
+		case VIV_ID_NAV_HOME:
 			_viv_home(0);
 			break;
 		
-		case _VIV_ID_NAV_END:
+		case VIV_ID_NAV_END:
 			_viv_home(1);
 			break;
 			
-		case _VIV_ID_NAV_SHUFFLE:
-			_viv_shuffle = !_viv_shuffle;
+		case VIV_ID_NAV_SHUFFLE:
+			config_shuffle = !config_shuffle;
 			
-			if (!_viv_shuffle)
+			if (!config_shuffle)
 			{
 				// create a new shuffle list.
 				if (_viv_playlist_shuffle_indexes)
@@ -1390,127 +1178,127 @@ static void _viv_command(int command_id)
 			}
 			break;
 		
-		case _VIV_ID_NAV_SORT_NAME:
-		case _VIV_ID_NAV_SORT_SIZE:
-		case _VIV_ID_NAV_SORT_DATE_MODIFIED:
-		case _VIV_ID_NAV_SORT_DATE_CREATED:
-		case _VIV_ID_NAV_SORT_FULL_PATH_AND_FILENAME:
+		case VIV_ID_NAV_SORT_NAME:
+		case VIV_ID_NAV_SORT_SIZE:
+		case VIV_ID_NAV_SORT_DATE_MODIFIED:
+		case VIV_ID_NAV_SORT_DATE_CREATED:
+		case VIV_ID_NAV_SORT_FULL_PATH_AND_FILENAME:
 
-			if (_viv_nav_sort == command_id - _VIV_ID_NAV_SORT_NAME)
+			if (config_nav_sort == command_id - VIV_ID_NAV_SORT_NAME)
 			{
-				_viv_nav_sort_ascending = !_viv_nav_sort_ascending;
+				config_nav_sort_ascending = !config_nav_sort_ascending;
 			}
 			else
 			{
 				switch(command_id)
 				{
-					case _VIV_ID_NAV_SORT_NAME:
-						_viv_nav_sort = _VIV_NAV_SORT_NAME;
-						_viv_nav_sort_ascending = 1;
+					case VIV_ID_NAV_SORT_NAME:
+						config_nav_sort = CONFIG_NAV_SORT_NAME;
+						config_nav_sort_ascending = 1;
 						break;
 
-					case _VIV_ID_NAV_SORT_FULL_PATH_AND_FILENAME:
-						_viv_nav_sort = _VIV_NAV_SORT_FULL_PATH_AND_FILENAME;
-						_viv_nav_sort_ascending = 1;
+					case VIV_ID_NAV_SORT_FULL_PATH_AND_FILENAME:
+						config_nav_sort = CONFIG_NAV_SORT_FULL_PATH_AND_FILENAME;
+						config_nav_sort_ascending = 1;
 						break;
 						
-					case _VIV_ID_NAV_SORT_DATE_MODIFIED:
-						_viv_nav_sort = _VIV_NAV_SORT_DATE_MODIFIED;
-						_viv_nav_sort_ascending = 0;
+					case VIV_ID_NAV_SORT_DATE_MODIFIED:
+						config_nav_sort = CONFIG_NAV_SORT_DATE_MODIFIED;
+						config_nav_sort_ascending = 0;
 						break;
 						
-					case _VIV_ID_NAV_SORT_DATE_CREATED:
-						_viv_nav_sort = _VIV_NAV_SORT_DATE_CREATED;
-						_viv_nav_sort_ascending = 0;
+					case VIV_ID_NAV_SORT_DATE_CREATED:
+						config_nav_sort = CONFIG_NAV_SORT_DATE_CREATED;
+						config_nav_sort_ascending = 0;
 						break;
 						
-					case _VIV_ID_NAV_SORT_SIZE:
-						_viv_nav_sort = _VIV_NAV_SORT_SIZE;
-						_viv_nav_sort_ascending = 0;
+					case VIV_ID_NAV_SORT_SIZE:
+						config_nav_sort = CONFIG_NAV_SORT_SIZE;
+						config_nav_sort_ascending = 0;
 						break;
 				}
 			}
 			
 			break;
 		
-		case _VIV_ID_NAV_SORT_ASCENDING:
-			_viv_nav_sort_ascending = 1;
+		case VIV_ID_NAV_SORT_ASCENDING:
+			config_nav_sort_ascending = 1;
 			break;
 			
-		case _VIV_ID_NAV_SORT_DESCENDING:
-			_viv_nav_sort_ascending = 0;
+		case VIV_ID_NAV_SORT_DESCENDING:
+			config_nav_sort_ascending = 0;
 			break;
 		
-		case _VIV_ID_SLIDESHOW_PLAY_ONLY:
+		case VIV_ID_SLIDESHOW_PLAY_ONLY:
 			if (!_viv_is_slideshow)
 			{
 				_viv_pause();
 			}
 			break;
 
-		case _VIV_ID_SLIDESHOW_PAUSE_ONLY:
+		case VIV_ID_SLIDESHOW_PAUSE_ONLY:
 			if (_viv_is_slideshow)
 			{
 				_viv_pause();
 			}
 			break;
 		
-		case _VIV_ID_SLIDESHOW_STOP:
+		case VIV_ID_SLIDESHOW_STOP:
 			if (_viv_is_slideshow)
 			{
 				_viv_pause();
 			}
 			break;
 
-		case _VIV_ID_SLIDESHOW_PAUSE:
+		case VIV_ID_SLIDESHOW_PAUSE:
 			_viv_pause();
 			break;
 			
-		case _VIV_ID_SLIDESHOW_RATE_DEC:
+		case VIV_ID_SLIDESHOW_RATE_DEC:
 			_viv_increase_rate(1);
 			break;
 			
-		case _VIV_ID_SLIDESHOW_RATE_INC:
+		case VIV_ID_SLIDESHOW_RATE_INC:
 			_viv_increase_rate(0);
 			break;
 
-		case _VIV_ID_ANIMATION_PLAY_PAUSE:
+		case VIV_ID_ANIMATION_PLAY_PAUSE:
 			_viv_animation_pause();
 			break;
 
-		case _VIV_ID_ANIMATION_JUMP_FORWARD_MEDIUM:
-			_viv_frame_skip(_viv_medium_jump);
+		case VIV_ID_ANIMATION_JUMP_FORWARD_MEDIUM:
+			_viv_frame_skip(config_medium_jump);
 			break;
 
-		case _VIV_ID_ANIMATION_JUMP_BACKWARD_MEDIUM:
-			_viv_frame_skip(-_viv_medium_jump);
+		case VIV_ID_ANIMATION_JUMP_BACKWARD_MEDIUM:
+			_viv_frame_skip(-config_medium_jump);
 			break;
 
-		case _VIV_ID_ANIMATION_JUMP_FORWARD_SHORT:
-			_viv_frame_skip(_viv_short_jump);
+		case VIV_ID_ANIMATION_JUMP_FORWARD_SHORT:
+			_viv_frame_skip(config_short_jump);
 			break;
 
-		case _VIV_ID_ANIMATION_JUMP_BACKWARD_SHORT:
-			_viv_frame_skip(-_viv_short_jump);
+		case VIV_ID_ANIMATION_JUMP_BACKWARD_SHORT:
+			_viv_frame_skip(-config_short_jump);
 			break;
 
-		case _VIV_ID_ANIMATION_JUMP_FORWARD_LONG:
-			_viv_frame_skip(_viv_long_jump);
+		case VIV_ID_ANIMATION_JUMP_FORWARD_LONG:
+			_viv_frame_skip(config_long_jump);
 			break;
 
-		case _VIV_ID_ANIMATION_JUMP_BACKWARD_LONG:
-			_viv_frame_skip(-_viv_long_jump);
+		case VIV_ID_ANIMATION_JUMP_BACKWARD_LONG:
+			_viv_frame_skip(-config_long_jump);
 			break;
 
-		case _VIV_ID_ANIMATION_FRAME_STEP:
+		case VIV_ID_ANIMATION_FRAME_STEP:
 			_viv_frame_step();
 			break;
 
-		case _VIV_ID_ANIMATION_FRAME_PREV:
+		case VIV_ID_ANIMATION_FRAME_PREV:
 			_viv_frame_prev();
 			break;
 
-		case _VIV_ID_ANIMATION_FRAME_HOME:
+		case VIV_ID_ANIMATION_FRAME_HOME:
 			_viv_frame_looped = 0;
 			
 			if (_viv_animation_play)
@@ -1521,6 +1309,8 @@ static void _viv_command(int command_id)
 			if (_viv_frame_count > 1)			
 			{
 				_viv_frame_position = 0;
+				_viv_animation_timer_tick_start = GetTickCount();
+				_viv_timer_tick = 0;
 
 				_viv_status_update();
 					
@@ -1530,7 +1320,7 @@ static void _viv_command(int command_id)
 			
 			break;
 
-		case _VIV_ID_ANIMATION_FRAME_END:
+		case VIV_ID_ANIMATION_FRAME_END:
 
 			_viv_frame_looped = 0;
 			
@@ -1542,6 +1332,8 @@ static void _viv_command(int command_id)
 			if (_viv_frame_count > 1)
 			{
 				_viv_frame_position = _viv_frame_loaded_count - 1;
+				_viv_animation_timer_tick_start = GetTickCount();
+				_viv_timer_tick = 0;
 
 				_viv_status_update();
 					
@@ -1551,138 +1343,138 @@ static void _viv_command(int command_id)
 			
 			break;
 
-		case _VIV_ID_ANIMATION_RATE_DEC:
+		case VIV_ID_ANIMATION_RATE_DEC:
 			_viv_increase_animation_rate(1);
 			break;
 			
-		case _VIV_ID_ANIMATION_RATE_INC:
+		case VIV_ID_ANIMATION_RATE_INC:
 			_viv_increase_animation_rate(0);
 			break;
 
-		case _VIV_ID_ANIMATION_RATE_RESET:
+		case VIV_ID_ANIMATION_RATE_RESET:
 			_viv_reset_animation_rate();
 			break;
 
-		case _VIV_ID_SLIDESHOW_RATE_250: _viv_set_rate(250); break;
-		case _VIV_ID_SLIDESHOW_RATE_500: _viv_set_rate(500); break;
-		case _VIV_ID_SLIDESHOW_RATE_1000: _viv_set_rate(1000); break;
-		case _VIV_ID_SLIDESHOW_RATE_2000: _viv_set_rate(2000); break;
-		case _VIV_ID_SLIDESHOW_RATE_3000: _viv_set_rate(3000); break;
-		case _VIV_ID_SLIDESHOW_RATE_4000: _viv_set_rate(4000); break;
-		case _VIV_ID_SLIDESHOW_RATE_5000: _viv_set_rate(5000); break;
-		case _VIV_ID_SLIDESHOW_RATE_6000: _viv_set_rate(6000); break;
-		case _VIV_ID_SLIDESHOW_RATE_7000: _viv_set_rate(7000); break;
-		case _VIV_ID_SLIDESHOW_RATE_8000: _viv_set_rate(8000); break;
-		case _VIV_ID_SLIDESHOW_RATE_9000: _viv_set_rate(9000); break;
-		case _VIV_ID_SLIDESHOW_RATE_10000: _viv_set_rate(10000); break;
-		case _VIV_ID_SLIDESHOW_RATE_20000: _viv_set_rate(20000); break;
-		case _VIV_ID_SLIDESHOW_RATE_30000: _viv_set_rate(30000); break;
-		case _VIV_ID_SLIDESHOW_RATE_40000: _viv_set_rate(40000); break;
-		case _VIV_ID_SLIDESHOW_RATE_50000: _viv_set_rate(50000); break;
-		case _VIV_ID_SLIDESHOW_RATE_60000: _viv_set_rate(60000); break;
-		case _VIV_ID_SLIDESHOW_RATE_CUSTOM: _viv_set_custom_rate(); break;
+		case VIV_ID_SLIDESHOW_RATE_250: _viv_set_rate(250); break;
+		case VIV_ID_SLIDESHOW_RATE_500: _viv_set_rate(500); break;
+		case VIV_ID_SLIDESHOW_RATE_1000: _viv_set_rate(1000); break;
+		case VIV_ID_SLIDESHOW_RATE_2000: _viv_set_rate(2000); break;
+		case VIV_ID_SLIDESHOW_RATE_3000: _viv_set_rate(3000); break;
+		case VIV_ID_SLIDESHOW_RATE_4000: _viv_set_rate(4000); break;
+		case VIV_ID_SLIDESHOW_RATE_5000: _viv_set_rate(5000); break;
+		case VIV_ID_SLIDESHOW_RATE_6000: _viv_set_rate(6000); break;
+		case VIV_ID_SLIDESHOW_RATE_7000: _viv_set_rate(7000); break;
+		case VIV_ID_SLIDESHOW_RATE_8000: _viv_set_rate(8000); break;
+		case VIV_ID_SLIDESHOW_RATE_9000: _viv_set_rate(9000); break;
+		case VIV_ID_SLIDESHOW_RATE_10000: _viv_set_rate(10000); break;
+		case VIV_ID_SLIDESHOW_RATE_20000: _viv_set_rate(20000); break;
+		case VIV_ID_SLIDESHOW_RATE_30000: _viv_set_rate(30000); break;
+		case VIV_ID_SLIDESHOW_RATE_40000: _viv_set_rate(40000); break;
+		case VIV_ID_SLIDESHOW_RATE_50000: _viv_set_rate(50000); break;
+		case VIV_ID_SLIDESHOW_RATE_60000: _viv_set_rate(60000); break;
+		case VIV_ID_SLIDESHOW_RATE_CUSTOM: _viv_set_custom_rate(); break;
 			
-		case _VIV_ID_VIEW_MENU:
+		case VIV_ID_VIEW_MENU:
 			_viv_is_show_menu = !_viv_is_show_menu;
 			_viv_update_frame();
 			break;
 			
-		case _VIV_ID_VIEW_STATUS:
-			_viv_is_show_status = !_viv_is_show_status;
+		case VIV_ID_VIEW_STATUS:
+			config_is_show_status = !config_is_show_status;
 			_viv_update_frame();
 			break;
 			
-		case _VIV_ID_VIEW_CONTROLS:
-			_viv_is_show_controls = !_viv_is_show_controls;
+		case VIV_ID_VIEW_CONTROLS:
+			config_is_show_controls = !config_is_show_controls;
 			_viv_update_frame();
 			break;
 			
-		case _VIV_ID_VIEW_PRESET_1:
+		case VIV_ID_VIEW_PRESET_1:
 			_viv_is_show_menu = 0;
-			_viv_is_show_status = 0;
-			_viv_is_show_controls = 0;
+			config_is_show_status = 0;
+			config_is_show_controls = 0;
 			_viv_is_show_caption = 0;
 			_viv_is_show_thickframe = 0;
 			_viv_update_frame();
 			break;
 
-		case _VIV_ID_VIEW_PRESET_2:
+		case VIV_ID_VIEW_PRESET_2:
 			_viv_is_show_menu = 0;
-			_viv_is_show_status = 0;
-			_viv_is_show_controls = 0;
+			config_is_show_status = 0;
+			config_is_show_controls = 0;
 			_viv_is_show_caption = 0;
 			_viv_is_show_thickframe = 1;
 			_viv_update_frame();
 			break;
 
-		case _VIV_ID_VIEW_PRESET_3:
+		case VIV_ID_VIEW_PRESET_3:
 			_viv_is_show_menu = 1;
-			_viv_is_show_status = 1;
-			_viv_is_show_controls = 1;
+			config_is_show_status = 1;
+			config_is_show_controls = 1;
 			_viv_is_show_caption = 1;
 			_viv_is_show_thickframe = 1;
 			_viv_update_frame();
 			break;
 			
-		case _VIV_ID_VIEW_ALLOW_SHRINKING:
+		case VIV_ID_VIEW_ALLOW_SHRINKING:
 			_viv_1to1 = 0;
-			_viv_allow_shrinking = !_viv_allow_shrinking;
+			config_allow_shrinking = !config_allow_shrinking;
 			
 			_viv_on_size();
 			InvalidateRect(_viv_hwnd,0,FALSE);
 
 			break;
 			
-		case _VIV_ID_VIEW_KEEP_ASPECT_RATIO:
+		case VIV_ID_VIEW_KEEP_ASPECT_RATIO:
 			_viv_1to1 = 0;
-			_viv_keep_aspect_ratio = !_viv_keep_aspect_ratio;
+			config_keep_aspect_ratio = !config_keep_aspect_ratio;
 			
 			_viv_on_size();
 			InvalidateRect(_viv_hwnd,0,FALSE);
 			break;
 			
-		case _VIV_ID_VIEW_FILL_WINDOW:
+		case VIV_ID_VIEW_FILL_WINDOW:
 		
 			_viv_1to1 = 0;
 			if (_viv_is_fullscreen)
 			{
-				_viv_fullscreen_fill_window = !_viv_fullscreen_fill_window;
+				config_fullscreen_fill_window = !config_fullscreen_fill_window;
 			}
 			else
 			{
-				_viv_fill_window = !_viv_fill_window;
+				config_fill_window = !config_fill_window;
 			}
 			
 			_viv_on_size();
 			InvalidateRect(_viv_hwnd,0,FALSE);
 			break;
 		
-		case _VIV_ID_VIEW_FULLSCREEN:
+		case VIV_ID_VIEW_FULLSCREEN:
 
 			_viv_toggle_fullscreen();
 			break;		
 			
-		case _VIV_ID_VIEW_1TO1:
+		case VIV_ID_VIEW_1TO1:
 			_viv_view_1to1();
 			break;		
 			
-		case _VIV_ID_VIEW_BESTFIT:
+		case VIV_ID_VIEW_BESTFIT:
 			_viv_zoom_pos = 0;
 			_viv_1to1 = 0;
 			_viv_view_set(0,0,1);
 			InvalidateRect(_viv_hwnd,0,FALSE);
 			break;
 			
-		case _VIV_ID_VIEW_SLIDESHOW:
+		case VIV_ID_VIEW_SLIDESHOW:
 
 			_viv_slideshow();
 						
 			break;
 			
-		case _VIV_ID_VIEW_WINDOW_SIZE_50:
-		case _VIV_ID_VIEW_WINDOW_SIZE_100:
-		case _VIV_ID_VIEW_WINDOW_SIZE_200:
-		case _VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT:
+		case VIV_ID_VIEW_WINDOW_SIZE_50:
+		case VIV_ID_VIEW_WINDOW_SIZE_100:
+		case VIV_ID_VIEW_WINDOW_SIZE_200:
+		case VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT:
 			if (_viv_is_fullscreen)
 			{
 				_viv_toggle_fullscreen();
@@ -1713,22 +1505,22 @@ static void _viv_command(int command_id)
 				
 				switch(command_id)
 				{
-					case _VIV_ID_VIEW_WINDOW_SIZE_50:
+					case VIV_ID_VIEW_WINDOW_SIZE_50:
 						rect.right = _viv_image_wide / 2;
 						rect.bottom = _viv_image_high / 2;
 						break;
 						
-					case _VIV_ID_VIEW_WINDOW_SIZE_100:
+					case VIV_ID_VIEW_WINDOW_SIZE_100:
 						rect.right = _viv_image_wide;
 						rect.bottom = _viv_image_high;
 						break;
 						
-					case _VIV_ID_VIEW_WINDOW_SIZE_200:
+					case VIV_ID_VIEW_WINDOW_SIZE_200:
 						rect.right = _viv_image_wide * 2;
 						rect.bottom = _viv_image_high * 2;
 						break;
 						
-					case _VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT:
+					case VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT:
 					{
 						HMONITOR hmonitor;
 						MONITORINFO mi;
@@ -1777,109 +1569,109 @@ static void _viv_command(int command_id)
 			}			
 			break;
 			
-		case _VIV_ID_VIEW_PANSCAN_INCREASE_SIZE:
+		case VIV_ID_VIEW_PANSCAN_INCREASE_SIZE:
 			_viv_dst_zoom_set(_viv_dst_zoom_x_pos + 1,_viv_dst_zoom_y_pos + 1);
 			break;
 			
-		case _VIV_ID_VIEW_PANSCAN_DECREASE_SIZE:
+		case VIV_ID_VIEW_PANSCAN_DECREASE_SIZE:
 			_viv_dst_zoom_set(_viv_dst_zoom_x_pos - 1,_viv_dst_zoom_y_pos - 1);
 			break;
 			
-		case _VIV_ID_VIEW_PANSCAN_INCREASE_WIDTH:
+		case VIV_ID_VIEW_PANSCAN_INCREASE_WIDTH:
 			_viv_dst_zoom_set(_viv_dst_zoom_x_pos + 1,_viv_dst_zoom_y_pos);
 			break;
 			
-		case _VIV_ID_VIEW_PANSCAN_DECREASE_WIDTH:
+		case VIV_ID_VIEW_PANSCAN_DECREASE_WIDTH:
 			_viv_dst_zoom_set(_viv_dst_zoom_x_pos - 1,_viv_dst_zoom_y_pos);
 			break;
 			
-		case _VIV_ID_VIEW_PANSCAN_INCREASE_HEIGHT:
+		case VIV_ID_VIEW_PANSCAN_INCREASE_HEIGHT:
 			_viv_dst_zoom_set(_viv_dst_zoom_x_pos,_viv_dst_zoom_y_pos + 1);
 			break;
 			
-		case _VIV_ID_VIEW_PANSCAN_DECREASE_HEIGHT:
+		case VIV_ID_VIEW_PANSCAN_DECREASE_HEIGHT:
 			_viv_dst_zoom_set(_viv_dst_zoom_x_pos,_viv_dst_zoom_y_pos - 1);
 			break;
 			
-		case _VIV_ID_VIEW_PANSCAN_MOVE_RIGHT:
+		case VIV_ID_VIEW_PANSCAN_MOVE_RIGHT:
 			_viv_dst_pos_set(_viv_dst_pos_x + 5,_viv_dst_pos_y);
 			break;
 			
-		case _VIV_ID_VIEW_PANSCAN_MOVE_LEFT:
+		case VIV_ID_VIEW_PANSCAN_MOVE_LEFT:
 			_viv_dst_pos_set(_viv_dst_pos_x - 5,_viv_dst_pos_y);
 			break;
 			
-		case _VIV_ID_VIEW_PANSCAN_MOVE_UP:
+		case VIV_ID_VIEW_PANSCAN_MOVE_UP:
 			_viv_dst_pos_set(_viv_dst_pos_x,_viv_dst_pos_y - 5);
 			break;
 			
-		case _VIV_ID_VIEW_PANSCAN_MOVE_DOWN:
+		case VIV_ID_VIEW_PANSCAN_MOVE_DOWN:
 			_viv_dst_pos_set(_viv_dst_pos_x,_viv_dst_pos_y + 5);
 			break;
 
-		case _VIV_ID_VIEW_PANSCAN_MOVE_UP_LEFT:
+		case VIV_ID_VIEW_PANSCAN_MOVE_UP_LEFT:
 			_viv_dst_pos_set(_viv_dst_pos_x - 5,_viv_dst_pos_y - 5);
 			break;
 			
-		case _VIV_ID_VIEW_PANSCAN_MOVE_UP_RIGHT:
+		case VIV_ID_VIEW_PANSCAN_MOVE_UP_RIGHT:
 			_viv_dst_pos_set(_viv_dst_pos_x + 5,_viv_dst_pos_y - 5);
 			break;
 			
-		case _VIV_ID_VIEW_PANSCAN_MOVE_DOWN_LEFT:
+		case VIV_ID_VIEW_PANSCAN_MOVE_DOWN_LEFT:
 			_viv_dst_pos_set(_viv_dst_pos_x - 5,_viv_dst_pos_y + 5);
 			break;
 			
-		case _VIV_ID_VIEW_PANSCAN_MOVE_DOWN_RIGHT:
+		case VIV_ID_VIEW_PANSCAN_MOVE_DOWN_RIGHT:
 			_viv_dst_pos_set(_viv_dst_pos_x + 5,_viv_dst_pos_y + 5);
 			break;
 			
-		case _VIV_ID_VIEW_PANSCAN_MOVE_CENTER:
+		case VIV_ID_VIEW_PANSCAN_MOVE_CENTER:
 			_viv_dst_pos_x = 500;
 			_viv_dst_pos_y = 500;
 			InvalidateRect(_viv_hwnd,NULL,FALSE);
 			_viv_status_update_temp_pos_zoom();	
 			break;
 			
-		case _VIV_ID_VIEW_PANSCAN_RESET:
+		case VIV_ID_VIEW_PANSCAN_RESET:
 			_viv_dst_pos_x = 500;
 			_viv_dst_pos_y = 500;
 			InvalidateRect(_viv_hwnd,NULL,FALSE);
 			_viv_dst_zoom_set(_VIV_DST_ZOOM_ONE,_VIV_DST_ZOOM_ONE);		
 			break;
 			
-		case _VIV_ID_VIEW_ONTOP_ALWAYS:
-			_viv_ontop = !_viv_ontop;
+		case VIV_ID_VIEW_ONTOP_ALWAYS:
+			config_ontop = !config_ontop;
 			_viv_update_ontop();
 			break;
 						
-		case _VIV_ID_VIEW_ONTOP_WHILE_PLAYING_OR_ANIMATING:
-			_viv_ontop = 2;
+		case VIV_ID_VIEW_ONTOP_WHILE_PLAYING_OR_ANIMATING:
+			config_ontop = 2;
 			_viv_update_ontop();
 			break;
 						
-		case _VIV_ID_VIEW_ONTOP_NEVER:
-			_viv_ontop = 0;
+		case VIV_ID_VIEW_ONTOP_NEVER:
+			config_ontop = 0;
 			_viv_update_ontop();
 			break;
 						
-		case _VIV_ID_VIEW_OPTIONS:
+		case VIV_ID_VIEW_OPTIONS:
 			_viv_options();
 			break;
 			
-		case _VIV_ID_EDIT_COPY:
+		case VIV_ID_EDIT_COPY:
 			_viv_copy(0);
 			break;
 
-		case _VIV_ID_EDIT_PASTE:
+		case VIV_ID_EDIT_PASTE:
 			SendMessage(_viv_hwnd,WM_PASTE,0,0);
 			break;
 
-		case _VIV_ID_EDIT_CUT:
+		case VIV_ID_EDIT_CUT:
 			_viv_copy(1);
 			break;
 			
-		case _VIV_ID_FILE_OPEN_FILE:
-		case _VIV_ID_FILE_ADD_FILE:
+		case VIV_ID_FILE_OPEN_FILE:
+		case VIV_ID_FILE_ADD_FILE:
 			{
 				OPENFILENAME ofn;
 				wchar_t tobuf[STRING_SIZE+1];
@@ -1915,7 +1707,7 @@ static void _viv_command(int command_id)
 						_viv_random = 0;
 					}
 					
-					if (command_id == _VIV_ID_FILE_OPEN_FILE)
+					if (command_id == VIV_ID_FILE_OPEN_FILE)
 					{
 						_viv_playlist_clearall();
 	
@@ -1939,8 +1731,8 @@ static void _viv_command(int command_id)
 			}
 			break;
 			
-		case _VIV_ID_FILE_OPEN_FOLDER:
-		case _VIV_ID_FILE_ADD_FOLDER:
+		case VIV_ID_FILE_OPEN_FOLDER:
+		case VIV_ID_FILE_ADD_FOLDER:
 			
 			{
 				wchar_t filename[STRING_SIZE];
@@ -1956,7 +1748,7 @@ static void _viv_command(int command_id)
 						_viv_random = 0;
 					}
 					
-					if (command_id == _VIV_ID_FILE_OPEN_FOLDER)
+					if (command_id == VIV_ID_FILE_OPEN_FOLDER)
 					{
 						_viv_playlist_clearall();
 					}
@@ -1974,7 +1766,7 @@ static void _viv_command(int command_id)
 					
 					_viv_last_open_folder = string_alloc(filename);
 
-					if (command_id == _VIV_ID_FILE_OPEN_FOLDER)
+					if (command_id == VIV_ID_FILE_OPEN_FOLDER)
 					{
 						_viv_home(0);
 					}
@@ -1983,64 +1775,64 @@ static void _viv_command(int command_id)
 			
 			break;
 			
-		case _VIV_ID_FILE_DELETE:
+		case VIV_ID_FILE_DELETE:
 			_viv_delete();
 			break;
 
-		case _VIV_ID_FILE_RENAME:
+		case VIV_ID_FILE_RENAME:
 			_viv_rename();
 			break;
 			
-		case _VIV_ID_NAV_JUMPTO:
+		case VIV_ID_NAV_JUMPTO:
 			_viv_show_jumpto();
 			break;
 			
-		case _VIV_ID_FILE_PREVIEW:
+		case VIV_ID_FILE_PREVIEW:
 			_viv_file_preview();
 			break;
 
-		case _VIV_ID_FILE_PRINT:
+		case VIV_ID_FILE_PRINT:
 			_viv_file_print();
 			break;
 
-		case _VIV_ID_FILE_SET_DESKTOP_WALLPAPER:
+		case VIV_ID_FILE_SET_DESKTOP_WALLPAPER:
 			_viv_file_set_desktop_wallpaper();
 			break;
 			
-		case _VIV_ID_EDIT_ROTATE_270:
+		case VIV_ID_EDIT_ROTATE_270:
 			_viv_edit_rotate(1);
 			break;
 			
-		case _VIV_ID_EDIT_ROTATE_90:
+		case VIV_ID_EDIT_ROTATE_90:
 			_viv_edit_rotate(0);
 			break;
 			
-		case _VIV_ID_FILE_CLOSE:
+		case VIV_ID_FILE_CLOSE:
 			_viv_blank();
 			break;
 	
-		case _VIV_ID_FILE_EDIT:
+		case VIV_ID_FILE_EDIT:
 			_viv_file_edit();
 			break;
 
-		case _VIV_ID_FILE_OPEN_FILE_LOCATION:
+		case VIV_ID_FILE_OPEN_FILE_LOCATION:
 			_viv_open_file_location();
 			break;
 			
-		case _VIV_ID_FILE_OPEN_EVERYTHING_SEARCH:	
+		case VIV_ID_FILE_OPEN_EVERYTHING_SEARCH:	
 			_viv_search_everything(0);
 			break;
 			
-		case _VIV_ID_FILE_ADD_EVERYTHING_SEARCH:	
+		case VIV_ID_FILE_ADD_EVERYTHING_SEARCH:	
 			_viv_search_everything(1);
 			break;
 			
-		case _VIV_ID_FILE_PROPERTIES:
+		case VIV_ID_FILE_PROPERTIES:
 			_viv_properties();
 			break;
 			
-		case _VIV_ID_EDIT_COPY_TO:
-		case _VIV_ID_EDIT_MOVE_TO:
+		case VIV_ID_EDIT_COPY_TO:
+		case VIV_ID_EDIT_MOVE_TO:
 		{
 			if (*_viv_current_fd->cFileName)
 			{
@@ -2053,7 +1845,7 @@ static void _viv_command(int command_id)
 				
 				string_copy(tobuf,_viv_current_fd->cFileName);
 				string_copy_utf8_double_null(filter_wbuf,(const utf8_t *)"*.* (All Files)\0*.*\0");
-				string_copy_utf8(title_wbuf,command_id == _VIV_ID_EDIT_COPY_TO ? (const utf8_t *)"Copy To" : (const utf8_t *)"Move To");
+				string_copy_utf8(title_wbuf,command_id == VIV_ID_EDIT_COPY_TO ? (const utf8_t *)"Copy To" : (const utf8_t *)"Move To");
 				
 				ofn.lStructSize = sizeof(OPENFILENAME);
 				ofn.hwndOwner = _viv_hwnd;
@@ -2078,7 +1870,7 @@ static void _viv_command(int command_id)
 					frombuf[string_length(frombuf) + 1] = 0;
 					
 					shfileop.hwnd = _viv_hwnd;
-					shfileop.wFunc = command_id == _VIV_ID_EDIT_COPY_TO ? FO_COPY : FO_MOVE;
+					shfileop.wFunc = command_id == VIV_ID_EDIT_COPY_TO ? FO_COPY : FO_MOVE;
 					shfileop.pFrom = frombuf;
 					shfileop.pTo = tobuf;
 					shfileop.fFlags = FOF_ALLOWUNDO;
@@ -2094,7 +1886,7 @@ static void _viv_command(int command_id)
 
 static void _viv_exit(void)
 {
-	_viv_save_settings(_viv_appdata);
+	config_save_settings(config_appdata);
 	PostQuitMessage(0);
 }
 
@@ -2239,7 +2031,7 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 			if (wParam)
 			{
 				// save settings on logout.
-				_viv_save_settings(_viv_appdata);
+				config_save_settings(config_appdata);
 			}
 			return 0;
 			
@@ -2346,6 +2138,8 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 						// draw first frame and start timer.
 						_viv_frame_position = 0;
 						_viv_frame_looped = 0;
+						_viv_animation_timer_tick_start = GetTickCount();
+						_viv_timer_tick = 0;
 						
 						if (_viv_frame_count > 1)
 						{
@@ -2356,14 +2150,14 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 						
 						if (!_viv_is_fullscreen)
 						{
-							if (_viv_auto_zoom)
+							if (config_auto_zoom)
 							{
-								switch(_viv_auto_zoom_type)
+								switch(config_auto_zoom_type)
 								{
 									case 0:
 									case 1:
 									case 2:
-										_viv_command(_VIV_ID_VIEW_WINDOW_SIZE_50 + _viv_auto_zoom_type);
+										_viv_command(VIV_ID_VIEW_WINDOW_SIZE_50 + config_auto_zoom_type);
 										break;
 								}
 							}
@@ -2477,15 +2271,15 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 			
 			switch(wParam)
 			{
-				case _VIV_ID_STATUS_TEMP_TEXT_TIMER:
+				case VIV_ID_STATUS_TEMP_TEXT_TIMER:
 					_viv_status_set_temp_text(0);
 					break;
 
-				case _VIV_ID_SLIDESHOW_TIMER:
+				case VIV_ID_SLIDESHOW_TIMER:
 
 					if (_viv_is_slideshow)
 					{
-						if (_viv_loop_animations_once)
+						if (config_loop_animations_once)
 						{
 							if (_viv_frame_delays)
 							{
@@ -2503,7 +2297,7 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 					
 					break;
 					
-				case _VIV_ID_HIDE_CURSOR_TIMER:
+				case VIV_ID_HIDE_CURSOR_TIMER:
 					if (_viv_is_hide_cursor_timer)
 					{
 						if (!_viv_in_popup_menu)
@@ -2512,7 +2306,7 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 							{
 								if (GetForegroundWindow() == _viv_hwnd)
 								{
-									KillTimer(hwnd,_VIV_ID_HIDE_CURSOR_TIMER);
+									KillTimer(hwnd,VIV_ID_HIDE_CURSOR_TIMER);
 									_viv_is_hide_cursor_timer = 0;
 									
 									ShowCursor(FALSE);
@@ -2524,20 +2318,30 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 					}
 					break;
 					
-				case _VIV_ID_ANIMATION_TIMER:
+				case VIV_ID_ANIMATION_TIMER:
 				{
 					if (_viv_is_animation_timer)
 					{
+						DWORD elapsed;
+						DWORD tick;
+						int invalidate;
+						
+						invalidate = 0;
+						
+						tick = GetTickCount();
+						
+						elapsed = tick - _viv_animation_timer_tick_start;
+						_viv_animation_timer_tick_start = tick;
+						
+						// what happened?
+						// don't elapse more than one second at a time.
+						if (elapsed > 1000)
+						{
+							elapsed = 1000;
+						}
+						
 						if (_viv_animation_play)
 						{
-							DWORD elapsed;
-							DWORD tick;
-							
-							tick = GetTickCount();
-							
-							elapsed = tick - _viv_animation_timer_tick_start;
-							_viv_animation_timer_tick_start = tick;
-							
 							_viv_timer_tick += elapsed;
 							
 							for(;;)
@@ -2569,7 +2373,7 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 										_viv_frame_looped = 1;
 										_viv_frame_position = 0;
 
-										if (_viv_loop_animations_once)
+										if (config_loop_animations_once)
 										{
 											if (_viv_is_slideshow_timeup)
 											{
@@ -2580,8 +2384,12 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 										}
 									}
 									
-									_viv_status_update();
-									InvalidateRect(_viv_hwnd,0,FALSE);
+									if (invalidate)
+									{
+										debug_printf("frame skipped %d\n",elapsed);
+									}
+									
+									invalidate = 1;
 
 									_viv_timer_tick -= delay;
 								}
@@ -2591,6 +2399,12 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 								}
 							}
 						}					
+						
+						if (invalidate)
+						{
+							_viv_status_update();
+							InvalidateRect(_viv_hwnd,0,FALSE);
+						}
 					}
 					
 					break;
@@ -2602,7 +2416,7 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 		case WM_LBUTTONDBLCLK:
 
 			// 0 = scroll, 1 = play/pause slideshow, 2 = play/pause animation, 3=zoom in, 4=next, 5=1:1 scroll
-			switch(_viv_left_click_action)
+			switch(config_left_click_action)
 			{
 				case 0:
 				case 1:
@@ -2620,7 +2434,7 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 		case WM_LBUTTONDOWN:
 		
 			// 0 = scroll, 1 = play/pause slideshow, 2 = play/pause animation, 3=zoom in, 4=next, 5=1:1 scroll
-			switch(_viv_left_click_action)
+			switch(config_left_click_action)
 			{
 				case 0:
 				
@@ -2657,6 +2471,10 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 						}
 										
 						_viv_doing = _VIV_DOING_1TO1SCROLL;
+
+						// really need to see where the cursor is..
+//						ShowCursor(FALSE);
+
 						SetCapture(hwnd);
 												
 						_viv_update_1to1_scroll(lParam);
@@ -2719,7 +2537,7 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 		case WM_RBUTTONDOWN:
 		case WM_RBUTTONDBLCLK:
 
-			switch(_viv_right_click_action)
+			switch(config_right_click_action)
 			{
 				case 0:
 					break;
@@ -2737,7 +2555,7 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 			
 		case WM_RBUTTONUP:
 
-			switch(_viv_right_click_action)
+			switch(config_right_click_action)
 			{
 				case 1:
 					return 0;
@@ -2788,7 +2606,7 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 				{
 					if (_viv_context_menu_items[i] > _VIV_MENU_COUNT)
 					{
-						if ((_viv_context_menu_items[i] != _VIV_ID_VIEW_MENU) || (!_viv_is_show_menu))
+						if ((_viv_context_menu_items[i] != VIV_ID_VIEW_MENU) || (!_viv_is_show_menu))
 						{
 							int command_index;
 							
@@ -2802,7 +2620,7 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 								
 								switch(_viv_commands[command_index].command_id)
 								{
-									case _VIV_ID_SLIDESHOW_PAUSE:
+									case VIV_ID_SLIDESHOW_PAUSE:
 										string_copy_utf8(text_wbuf,"Slideshow Play/Pause");
 										break;
 										
@@ -2976,190 +2794,7 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 			
 		case WM_MOUSEWHEEL:
 		{
-			if (_viv_mouse_wheel_action == 0)
-			{
-				int cursor_x;
-				int cursor_y;
-				int rx;
-				int ry;
-				int rw;
-				int rh;
-				int old_rw;
-				int old_rh;
-				int old_cursor_px;
-				int old_cursor_py;
-				int wide;
-				int high;
-				RECT rect;
-				POINT pt;
-				__int64 new_cursor_x;
-				__int64 new_cursor_y;
-				
-				GetClientRect(hwnd,&rect);
-				wide = rect.right - rect.left;
-				high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_controls_high();
-				
-				pt.x = GET_X_LPARAM(lParam); 
-				pt.y = GET_Y_LPARAM(lParam);
-				
-				ScreenToClient(hwnd,&pt);
-
-				cursor_x = pt.x; 
-				cursor_y = pt.y;
-			
-				_viv_get_render_size(&rw,&rh);
-				
-	/*
-				if (_viv_zoom_pos == 1)
-				{
-					if ((rw < _viv_image_wide) || (rw < _viv_image_wide))
-					{
-						rw = _viv_image_wide;
-						rh = _viv_image_high;
-					}
-				}
-				*/
-				rx = (wide / 2) - (rw / 2) - _viv_view_x;
-				ry = (high / 2) - (rh / 2) - _viv_view_y;
-				
-				old_cursor_px = (cursor_x - rx);
-				old_cursor_py = (cursor_y - ry);
-				old_rw = rw;
-				old_rh = rh;
-/*
-				if (old_cursor_px < 0)
-				{
-					old_cursor_px = 0;
-				}
-
-				if (old_cursor_px > 20 * rw)
-				{
-					old_cursor_px = 20 * rw;
-				}
-				
-				if (old_cursor_py < 0)
-				{
-					old_cursor_py = 0;
-				}
-
-				if (old_cursor_py > 20 * rh)
-				{
-					old_cursor_py = 20 * rh;
-				}
-				*/
-				if (_viv_1to1)
-				{
-					_viv_1to1 = 0;
-					
-					if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
-					{
-						for(_viv_zoom_pos = 0;_viv_zoom_pos<_VIV_ZOOM_MAX;_viv_zoom_pos++)
-						{
-							_viv_get_render_size(&rw,&rh);
-							
-							if (rw > old_rw)
-							{
-								break;
-							}
-						}
-					}
-					else
-					{
-						for(_viv_zoom_pos = _VIV_ZOOM_MAX-1;_viv_zoom_pos>=0;_viv_zoom_pos--)
-						{
-							_viv_get_render_size(&rw,&rh);
-							
-							if (rw < old_rw)
-							{
-								break;
-							}
-						}
-					}
-				}
-				else
-				{
-					if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
-					{
-						_viv_zoom_pos++;
-					}
-					else
-					{
-						_viv_zoom_pos--;
-					}
-				}
-				
-				if (_viv_zoom_pos < 0) _viv_zoom_pos = 0;
-				if (_viv_zoom_pos > _VIV_ZOOM_MAX-1) _viv_zoom_pos = _VIV_ZOOM_MAX-1;
-				
-				_viv_get_render_size(&rw,&rh);
-	/*
-				if (_viv_zoom_pos == 1)
-				{
-					if ((rw < _viv_image_wide) || (rw < _viv_image_wide))
-					{
-						rw = _viv_image_wide;
-						rh = _viv_image_high;
-					}
-				}
-	*/
-				// 
-				// new_cursor_x = 
-	//			rx = (wide / 2) - (rw / 2)
-
-	//debug_printf("%d %d\n",(wide / 2) - (rw / 2),(high / 2) - (rh / 2));
-	//debug_printf("%d %d\n",old_cursor_px,(old_cursor_px * 100) / old_rw);
-							
-	//debug_printf("old %d %d new %d %d\n",old_cursor_px,old_cursor_py,(wide / 2) - (rw / 2) - cursor_x + ((old_cursor_px * rw) / old_rw),(high / 2) - (rh / 2) - cursor_y + ((old_cursor_py * rh) / old_rh))		;
-	//debug_printf("wide / 2 = %d, rw/2=%d, old_cursor_px * rw=%d\n",wide/2,rw/2,old_cursor_px * rw)		;
-
-				if (old_rw)
-				{
-					new_cursor_x = ((__int64)old_cursor_px * (__int64)rw) / (__int64)old_rw;
-				}
-				else
-				{
-					new_cursor_x = 0;
-				}
-				
-				if (old_rh)
-				{
-					new_cursor_y = ((__int64)old_cursor_py * (__int64)rh) / (__int64)old_rh;
-				}
-				else
-				{
-					new_cursor_y = 0;
-				}
-
-				_viv_view_set((wide / 2) - (rw / 2) - cursor_x + new_cursor_x,(high / 2) - (rh / 2) - cursor_y + new_cursor_y,1);
-				
-				InvalidateRect(hwnd,0,FALSE);
-			}
-			else
-			if (_viv_mouse_wheel_action == 1)
-			{
-				if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
-				{
-					_viv_next(1,1);
-				}
-				else
-				if (GET_WHEEL_DELTA_WPARAM(wParam) < 0)
-				{
-					_viv_next(0,1);
-				}
-			}
-			else
-			if (_viv_mouse_wheel_action == 2)
-			{
-				if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
-				{
-					_viv_next(0,1);
-				}
-				else
-				if (GET_WHEEL_DELTA_WPARAM(wParam) < 0)
-				{
-					_viv_next(1,1);
-				}
-			}
+			_viv_do_mousewheel_action(_viv_get_current_key_mod_flags() == CONFIG_KEYFLAG_CTRL ? config_ctrl_mouse_wheel_action : config_mouse_wheel_action,GET_WHEEL_DELTA_WPARAM(wParam),GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
 			
 			break;
 		}
@@ -3407,7 +3042,7 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 
 					// prevent sleep / monitor power off.
 
-					if (_viv_allow_sleep)
+					if (config_allow_sleep)
 					{
 						if (_viv_is_slideshow)
 						{
@@ -3445,8 +3080,8 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 						
 						GetWindowRect(hwnd,&rect);
 			
-						_viv_x = rect.left;
-						_viv_y = rect.top;
+						config_x = rect.left;
+						config_y = rect.top;
 					}
 				}
 			}
@@ -3458,7 +3093,7 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 
 			switch(((NMHDR *)lParam)->idFrom)
 			{
-				case _VIV_ID_STATUS:
+				case VIV_ID_STATUS:
 				
 					if (_viv_status_hwnd)
 					{
@@ -3480,7 +3115,7 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 								switch(item)
 								{
 									case 1:
-										_viv_frame_minus = !_viv_frame_minus;
+										config_frame_minus = !config_frame_minus;
 										_viv_status_update();
 										break;
 									
@@ -3615,7 +3250,7 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 								
 								if ((rw < _viv_image_wide) || (rh < _viv_image_high))
 								{
-									if (_viv_shrink_blit_mode == _VIV_SHRINK_BLIT_MODE_HALFTONE)
+									if (config_shrink_blit_mode == CONFIG_SHRINK_BLIT_MODE_HALFTONE)
 									{
 										last_stretch_mode = SetStretchBltMode(ps.hdc,HALFTONE);
 										SetBrushOrgEx(ps.hdc,-rx,-ry,NULL);
@@ -3630,7 +3265,7 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 								else
 								if ((rw > _viv_image_wide) || (rh > _viv_image_high))
 								{
-									if (_viv_mag_filter == _VIV_MAG_FILTER_HALFTONE)
+									if (config_mag_filter == CONFIG_MAG_FILTER_HALFTONE)
 									{
 										last_stretch_mode = SetStretchBltMode(ps.hdc,HALFTONE);
 									}
@@ -3662,7 +3297,7 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 				{
 					HBRUSH hbrush;
 					
-					hbrush = CreateSolidBrush(_viv_is_fullscreen ? RGB(_viv_fullscreen_background_color_r,_viv_fullscreen_background_color_g,_viv_fullscreen_background_color_b) : RGB(_viv_windowed_background_color_r,_viv_windowed_background_color_g,_viv_windowed_background_color_b));
+					hbrush = CreateSolidBrush(_viv_is_fullscreen ? RGB(config_fullscreen_background_color_r,config_fullscreen_background_color_g,config_fullscreen_background_color_b) : RGB(config_windowed_background_color_r,config_windowed_background_color_g,config_windowed_background_color_b));
 					
 					FillRect(ps.hdc,&rect,hbrush);
 					
@@ -3680,197 +3315,6 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 	}
 	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
-
-static void _viv_load_settings_by_location(const wchar_t *path,int is_root)
-{
-	ini_t *ini;
-	wchar_t filename[STRING_SIZE];
-	
-	string_path_combine_utf8(filename,path,(const utf8_t *)"voidImageViewer.ini");
-	
-	ini = ini_open(filename,"voidImageViewer");
-	if (ini)
-	{
-		ini_get_int(ini,(const utf8_t *)"x",&_viv_x);
-		ini_get_int(ini,(const utf8_t *)"y",&_viv_y);
-		ini_get_int(ini,(const utf8_t *)"wide",&_viv_wide);
-		ini_get_int(ini,(const utf8_t *)"high",&_viv_high);
-		ini_get_int(ini,(const utf8_t *)"slideshow_rate",&_viv_slideshow_rate);
-		ini_get_int(ini,(const utf8_t *)"allow_shrinking",&_viv_allow_shrinking);
-		ini_get_int(ini,(const utf8_t *)"shrink_blit_mode",&_viv_shrink_blit_mode);
-		ini_get_int(ini,(const utf8_t *)"mag_filter",&_viv_mag_filter);
-		ini_get_int(ini,(const utf8_t *)"keep_aspect_ratio",&_viv_keep_aspect_ratio);
-		ini_get_int(ini,(const utf8_t *)"fill_window",&_viv_fill_window);
-		ini_get_int(ini,(const utf8_t *)"fullscreen_fill_window",&_viv_fullscreen_fill_window);
-		ini_get_int(ini,(const utf8_t *)"sort",&_viv_nav_sort);
-		ini_get_int(ini,(const utf8_t *)"sort_ascending",&_viv_nav_sort_ascending);
-		ini_get_int(ini,(const utf8_t *)"multiple_instances",&_viv_multiple_instances);
-		ini_get_int(ini,(const utf8_t *)"show_status",&_viv_is_show_status);
-		ini_get_int(ini,(const utf8_t *)"show_controls",&_viv_is_show_controls);
-		ini_get_int(ini,(const utf8_t *)"auto_zoom",&_viv_auto_zoom);
-		ini_get_int(ini,(const utf8_t *)"auto_zoom_type",&_viv_auto_zoom_type);
-		ini_get_int(ini,(const utf8_t *)"frame_minus",&_viv_frame_minus);
-		ini_get_int(ini,(const utf8_t *)"mouse_wheel_action",&_viv_mouse_wheel_action);
-		ini_get_int(ini,(const utf8_t *)"left_click_action",&_viv_left_click_action);
-		ini_get_int(ini,(const utf8_t *)"right_click_action",&_viv_right_click_action);
-		ini_get_int(ini,(const utf8_t *)"keep_centered",&_viv_keep_centered);
-		ini_get_int(ini,(const utf8_t *)"windowed_background_color_r",&_viv_windowed_background_color_r);
-		ini_get_int(ini,(const utf8_t *)"windowed_background_color_g",&_viv_windowed_background_color_g);
-		ini_get_int(ini,(const utf8_t *)"windowed_background_color_b",&_viv_windowed_background_color_b);
-		ini_get_int(ini,(const utf8_t *)"fullscreen_background_color_r",&_viv_fullscreen_background_color_r);
-		ini_get_int(ini,(const utf8_t *)"fullscreen_background_color_g",&_viv_fullscreen_background_color_g);
-		ini_get_int(ini,(const utf8_t *)"fullscreen_background_color_b",&_viv_fullscreen_background_color_b);
-		ini_get_int(ini,(const utf8_t *)"options_last_page",&_viv_options_last_page);
-		ini_get_int(ini,(const utf8_t *)"short_jump",&_viv_short_jump);
-		ini_get_int(ini,(const utf8_t *)"medium_jump",&_viv_medium_jump);
-		ini_get_int(ini,(const utf8_t *)"long_jump",&_viv_long_jump);
-		ini_get_int(ini,(const utf8_t *)"loop_animations_once",&_viv_loop_animations_once);
-		ini_get_int(ini,(const utf8_t *)"allow_sleep",&_viv_allow_sleep);
-		ini_get_int(ini,(const utf8_t *)"shuffle",&_viv_shuffle);
-
-		if (is_root)
-		{
-			ini_get_int(ini,(const utf8_t *)(const utf8_t *)"appdata",&_viv_appdata);
-		}
-		
-		{
-			int i;
-			
-			for(i=0;i<_VIV_COMMAND_COUNT;i++)
-			{
-				if (!(_viv_commands[i].flags & MF_POPUP))
-				{
-					if (!(_viv_commands[i].flags & MF_SEPARATOR))
-					{
-						utf8_t key_buf[STRING_SIZE];
-						const utf8_t *key_list;
-						const utf8_t *p;
-						
-						// get ini key name.
-						
-						_viv_menu_name_to_ini_name(key_buf,i);
-						
-						key_list = ini_get_string(ini,key_buf);
-						
-						if (key_list)
-						{
-							p = key_list;
-							
-							// clear this key.
-							_viv_key_clear_all(_viv_key_list,i);
-							
-							while(*p)
-							{
-								const utf8_t *start;
-								
-								start = p;
-
-								while(*p)
-								{
-									if (*p == ',')
-									{
-										*p++;
-										break;
-									}
-									
-									p++;
-								}
-
-								_viv_key_add(_viv_key_list,i,utf8_to_int(start));
-							}
-						}
-					}
-				}
-			}
-		}
-		
-		ini_close(ini);
-	}
-}
-
-static void _viv_load_settings(void)
-{
-	wchar_t path[STRING_SIZE];
-	
-	string_get_exe_path(path);
-	
-	_viv_load_settings_by_location(path,1);
-		
-	if (_viv_appdata)
-	{
-		if (_viv_get_appdata_voidimageviewer_path(path))
-		{
-			_viv_load_settings_by_location(path,0);
-		}
-	}
-}
-
-static int _viv_is_ws(wchar_t c)
-{
-	switch(c)
-	{
-		case ' ':
-		case '\t':
-		case '\r':
-		case '\n':
-			return 1;
-	}
-	
-	return 0;
-}
-
-static wchar_t *_viv_skip_ws(wchar_t *p)
-{
-	while(*p)
-	{
-		if (!_viv_is_ws(*p))
-		{
-			break;
-		}
-		
-		p++;
-	}
-	
-	return p;
-}
-
-static wchar_t *_viv_get_word(wchar_t *p,wchar_t *buf)
-{
-	wchar_t *d;
-	int is_quote;
-	
-	d = buf;
-	is_quote = 0;
-
-	while(*p)
-	{
-		if ((*p == '"') && (p[1] == '"'))
-		{
-			p += 2;
-			*d++ = '"';
-		}
-		else
-		if (*p == '"')
-		{
-			is_quote = !is_quote;
-			p++;
-		}
-		else
-		if ((!is_quote) && (_viv_is_ws(*p)))
-		{
-			break;
-		}
-		else
-		{
-			*d++ = *p;
-			p++;
-		}
-	}
-	
-	*d = 0;
-	
-	return p;
 }
 
 static int _viv_process_install_command_line_options(wchar_t *cl)
@@ -3898,11 +3342,11 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 	install_options[0] = 0;
 	uninstall_path[0] = 0;
 
-	p = _viv_skip_ws(cl);
+	p = string_skip_ws(cl);
 	
 	// skip filename
-	p = _viv_get_word(p,buf);
-	p = _viv_skip_ws(p);
+	p = string_get_word(p,buf);
+	p = string_skip_ws(p);
 
 	cl_start = p;
 
@@ -3917,8 +3361,8 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 			break;
 		}
 		
-		p = _viv_get_word(p,buf);
-		p = _viv_skip_ws(p);
+		p = string_get_word(p,buf);
+		p = string_skip_ws(p);
 		
 		bufstart = buf;
 		
@@ -3928,8 +3372,8 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 			
 			if (string_icompare_lowercase_ascii(bufstart,"install") == 0)
 			{
-				p = _viv_get_word(p,install_path);
-				p = _viv_skip_ws(p);				
+				p = string_get_word(p,install_path);
+				p = string_skip_ws(p);				
 
 				uninstall_path[0] = 0;
 
@@ -3938,16 +3382,16 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"install-options") == 0)
 			{
-				p = _viv_get_word(p,install_options);
-				p = _viv_skip_ws(p);				
+				p = string_get_word(p,install_options);
+				p = string_skip_ws(p);				
 
 				ret = 1;
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"uninstall") == 0)
 			{
-				p = _viv_get_word(p,uninstall_path);
-				p = _viv_skip_ws(p);			
+				p = string_get_word(p,uninstall_path);
+				p = string_skip_ws(p);			
 				
 				// no uninstall path?
 				if (!uninstall_path[0])	
@@ -4063,20 +3507,20 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 		
 	if (appdata > 0)
 	{	
-		_viv_appdata = 1;
+		config_appdata = 1;
 		
-		_viv_save_settings(_viv_appdata);
+		config_save_settings(config_appdata);
 
 		// appdata enabled.
-		_viv_save_settings(0);
+		config_save_settings(0);
 	}
 	else
 	if (appdata < 0)
 	{
-		_viv_appdata = 0;
+		config_appdata = 0;
 		
 		// appdata disabled
-		_viv_save_settings(0);
+		config_save_settings(0);
 	}
 	
 	if (startmenu > 0)
@@ -4122,7 +3566,7 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 		_viv_close_existing_process();
 		
 		// remove %APPDATA%\voidimageviewer
-		if (_viv_get_appdata_voidimageviewer_path(path))
+		if (string_get_appdata_voidimageviewer_path(path))
 		{
 			_viv_uninstall_delete_file(path,(const utf8_t *)"voidImageViewer.ini");
 
@@ -4172,11 +3616,11 @@ static void _viv_process_command_line(wchar_t *cl)
 	window_wide = rect.right - rect.left;
 	window_high = rect.bottom - rect.top;
 	
-	p = _viv_skip_ws(p);
+	p = string_skip_ws(p);
 	
 	// skip filename
-	p = _viv_get_word(p,buf);
-	p = _viv_skip_ws(p);
+	p = string_get_word(p,buf);
+	p = string_skip_ws(p);
 
 	// skip first parameter.
 	for(;;)
@@ -4188,8 +3632,8 @@ static void _viv_process_command_line(wchar_t *cl)
 			break;
 		}
 		
-		p = _viv_get_word(p,buf);
-		p = _viv_skip_ws(p);
+		p = string_get_word(p,buf);
+		p = string_skip_ws(p);
 		
 		bufstart = buf;
 		
@@ -4216,44 +3660,44 @@ static void _viv_process_command_line(wchar_t *cl)
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"ontop") == 0)
 			{
-				_viv_command(_VIV_ID_VIEW_ONTOP_ALWAYS);
+				_viv_command(VIV_ID_VIEW_ONTOP_ALWAYS);
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"shuffle") == 0)
 			{
-				_viv_shuffle = 1;
+				config_shuffle = 1;
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"everything") == 0)
 			{
-				p = _viv_get_word(p,buf);
-				p = _viv_skip_ws(p);
+				p = string_get_word(p,buf);
+				p = string_skip_ws(p);
 				
 				_viv_send_everything_search(0,0,0,buf);
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"random") == 0)
 			{
-				p = _viv_get_word(p,buf);
-				p = _viv_skip_ws(p);
+				p = string_get_word(p,buf);
+				p = string_skip_ws(p);
 				
 				_viv_send_everything_search(0,0,1,buf);
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"minimal") == 0)
 			{
-				_viv_command(_VIV_ID_VIEW_PRESET_1);
+				_viv_command(VIV_ID_VIEW_PRESET_1);
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"compact") == 0)
 			{
-				_viv_command(_VIV_ID_VIEW_PRESET_2);
+				_viv_command(VIV_ID_VIEW_PRESET_2);
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"x") == 0)
 			{
-				p = _viv_get_word(p,buf);
-				p = _viv_skip_ws(p);
+				p = string_get_word(p,buf);
+				p = string_skip_ws(p);
 				
 				window_x = string_to_int(buf);
 				set_window_rect = 1;
@@ -4261,8 +3705,8 @@ static void _viv_process_command_line(wchar_t *cl)
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"y") == 0)
 			{
-				p = _viv_get_word(p,buf);
-				p = _viv_skip_ws(p);
+				p = string_get_word(p,buf);
+				p = string_skip_ws(p);
 				
 				window_y = string_to_int(buf);
 				set_window_rect = 1;
@@ -4270,8 +3714,8 @@ static void _viv_process_command_line(wchar_t *cl)
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"width") == 0)
 			{
-				p = _viv_get_word(p,buf);
-				p = _viv_skip_ws(p);
+				p = string_get_word(p,buf);
+				p = string_skip_ws(p);
 				
 				window_wide = string_to_int(buf);
 				set_window_rect = 1;
@@ -4279,8 +3723,8 @@ static void _viv_process_command_line(wchar_t *cl)
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"height") == 0)
 			{
-				p = _viv_get_word(p,buf);
-				p = _viv_skip_ws(p);
+				p = string_get_word(p,buf);
+				p = string_skip_ws(p);
 				
 				window_high = string_to_int(buf);
 				set_window_rect = 1;
@@ -4288,50 +3732,50 @@ static void _viv_process_command_line(wchar_t *cl)
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"rate") == 0)
 			{
-				p = _viv_get_word(p,buf);
-				p = _viv_skip_ws(p);
+				p = string_get_word(p,buf);
+				p = string_skip_ws(p);
 
-				_viv_slideshow_rate = string_to_int(buf);
+				config_slideshow_rate = string_to_int(buf);
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"name") == 0)
 			{
-				_viv_nav_sort = _VIV_NAV_SORT_NAME;
-				_viv_nav_sort_ascending = 1;
+				config_nav_sort = CONFIG_NAV_SORT_NAME;
+				config_nav_sort_ascending = 1;
 			}
 			else			
 			if (string_icompare_lowercase_ascii(bufstart,"dm") == 0)
 			{
-				_viv_nav_sort = _VIV_NAV_SORT_DATE_MODIFIED;
-				_viv_nav_sort_ascending = 0;
+				config_nav_sort = CONFIG_NAV_SORT_DATE_MODIFIED;
+				config_nav_sort_ascending = 0;
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"dc") == 0)
 			{
-				_viv_nav_sort = _VIV_NAV_SORT_DATE_CREATED;
-				_viv_nav_sort_ascending = 0;
+				config_nav_sort = CONFIG_NAV_SORT_DATE_CREATED;
+				config_nav_sort_ascending = 0;
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"path") == 0)
 			{
-				_viv_nav_sort = _VIV_NAV_SORT_FULL_PATH_AND_FILENAME;
-				_viv_nav_sort_ascending = 1;
+				config_nav_sort = CONFIG_NAV_SORT_FULL_PATH_AND_FILENAME;
+				config_nav_sort_ascending = 1;
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"size") == 0)
 			{
-				_viv_nav_sort = _VIV_NAV_SORT_SIZE;
-				_viv_nav_sort_ascending = 0;
+				config_nav_sort = CONFIG_NAV_SORT_SIZE;
+				config_nav_sort_ascending = 0;
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"ascending") == 0)
 			{
-				_viv_nav_sort_ascending = 1;
+				config_nav_sort_ascending = 1;
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"descending") == 0)
 			{
-				_viv_nav_sort_ascending = 0;
+				config_nav_sort_ascending = 0;
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"isrunas") == 0)
@@ -4432,7 +3876,36 @@ static int _viv_init(void)
 		
 		for(i=0;i<_VIV_DEFAULT_KEY_COUNT;i++)
 		{
-			_viv_key_add(_viv_key_list,_viv_command_index_from_command_id(_viv_default_keys[i].command_id),_viv_default_keys[i].key_flags);
+			viv_key_add(_viv_command_index_from_command_id(_viv_default_keys[i].command_id),_viv_default_keys[i].key_flags);
+		}
+	}
+	
+	// init _viv_dst_zoom_values
+	
+	{
+		int i;
+		float f;
+		
+		f = 1.0;
+		
+		i = _VIV_DST_ZOOM_ONE;
+		while(i >= 0)
+		{
+			_viv_dst_zoom_values[i] = f;
+			f /= 1.02;
+			
+			i--;
+		}
+		
+		f = 1.0;
+		
+		i = _VIV_DST_ZOOM_ONE;
+		while(i < _VIV_DST_ZOOM_MAX)
+		{
+			_viv_dst_zoom_values[i] = f;
+			f *= 1.02;
+			
+			i++;
 		}
 	}
 	
@@ -4476,7 +3949,7 @@ static int _viv_init(void)
 	}
 
 	// load settings
-	_viv_load_settings();
+	config_load_settings();
 	
 	// process install command line options
 	{
@@ -4489,7 +3962,7 @@ static int _viv_init(void)
 	}
 
 	// mutex
-	if (!_viv_multiple_instances)
+	if (!config_multiple_instances)
 	{
 		SetLastError(0);
 
@@ -4559,10 +4032,10 @@ static int _viv_init(void)
 	
 	_viv_hmenu = _viv_create_menu();
 	
-	rect.left = _viv_x;
-	rect.top = _viv_y;
-	rect.right = _viv_x + _viv_wide;
-	rect.bottom = _viv_y + _viv_high;
+	rect.left = config_x;
+	rect.top = config_y;
+	rect.right = config_x + config_wide;
+	rect.bottom = config_y + config_high;
 	
 	os_make_rect_completely_visible(&rect);
 	
@@ -4581,8 +4054,8 @@ static int _viv_init(void)
 		os_ChangeWindowMessageFilterEx(_viv_hwnd,WM_CLOSE,1,0);
 	}
 		
-	_viv_status_show(_viv_is_show_status);
-	_viv_controls_show(_viv_is_show_controls);
+	_viv_status_show(config_is_show_status);
+	_viv_controls_show(config_is_show_controls);
 	
 	DragAcceptFiles(_viv_hwnd,TRUE);
 
@@ -4592,6 +4065,8 @@ static int _viv_init(void)
 
 	si.cb = sizeof(STARTUPINFO);
 	GetStartupInfo(&si);
+	
+	_viv_update_ontop();
 	
 	ShowWindow(_viv_hwnd,si.wShowWindow);
 	UpdateWindow(_viv_hwnd);
@@ -4688,7 +4163,7 @@ static void _viv_kill(void)
 
 	mem_free(_viv_current_fd);
 	
-	_viv_key_list_clear(_viv_key_list);
+	_viv_key_clear_all(_viv_key_list);
 	mem_free(_viv_key_list);
 	
 	os_kill();
@@ -4739,179 +4214,6 @@ int APIENTRY WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR lpCmdLine
 int __cdecl main(int argc,char **argv)
 {
 	return _viv_main();
-}
-
-static void _viv_write_int(HANDLE h,const char *ascii_key,int value)
-{
-	wchar_t wbuf[STRING_SIZE];
-	
-	string_format_number(wbuf,value);
-	
-	_viv_write_string(h,ascii_key,wbuf);
-}
-
-static void _viv_write_string(HANDLE h,const char *ascii_key,const wchar_t *s)
-{
-	utf8_t buf[STRING_SIZE*3];
-	
-	WideCharToMultiByte(CP_UTF8,0,s,-1,(char *)buf,STRING_SIZE*3,0,0);
-	
-	_viv_write_utf8(h,(const utf8_t *)ascii_key);
-	_viv_write_utf8(h,(const utf8_t *)"=");
-	_viv_write_utf8(h,buf);
-	_viv_write_utf8(h,(const utf8_t *)"\r\n");
-}
-
-static void _viv_write_utf8(HANDLE h,const utf8_t *s)
-{
-	DWORD num_written;
-	
-	WriteFile(h,s,utf8_length(s),&num_written,0);
-}
-
-static void _viv_save_settings_by_location(const wchar_t *path,int is_root)
-{
-	HANDLE h;
-	wchar_t tempname[STRING_SIZE];
-	wchar_t filename[STRING_SIZE];
-	
-	string_path_combine_utf8(filename,path,(const utf8_t *)"voidImageViewer.ini");
-
-	string_copy(tempname,filename);
-	string_cat_utf8(tempname,(const utf8_t *)".tmp");
-
-	h = CreateFile(tempname,GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE,0,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,0);
-	if (h != INVALID_HANDLE_VALUE)
-	{
-		_viv_write_utf8(h,(const utf8_t *)"[voidImageViewer]\r\n");
-		
-		if ((is_root) && (_viv_appdata))
-		{
-			_viv_write_int(h,"appdata",_viv_appdata);
-		}
-		else
-		{
-			_viv_write_int(h,"x",_viv_x);
-			_viv_write_int(h,"y",_viv_y);
-			_viv_write_int(h,"wide",_viv_wide);
-			_viv_write_int(h,"high",_viv_high);
-			_viv_write_int(h,"slideshow_rate",_viv_slideshow_rate);
-			_viv_write_int(h,"allow_shrinking",_viv_allow_shrinking);
-			_viv_write_int(h,"shrink_blit_mode",_viv_shrink_blit_mode);
-			_viv_write_int(h,"mag_filter",_viv_mag_filter);
-			_viv_write_int(h,"keep_aspect_ratio",_viv_keep_aspect_ratio);
-			_viv_write_int(h,"fill_window",_viv_fill_window);
-			_viv_write_int(h,"fullscreen_fill_window",_viv_fullscreen_fill_window);
-			_viv_write_int(h,"sort",_viv_nav_sort);
-			_viv_write_int(h,"sort_ascending",_viv_nav_sort_ascending);
-			_viv_write_int(h,"multiple_instances",_viv_multiple_instances);
-			_viv_write_int(h,"show_status",_viv_is_show_status);
-			_viv_write_int(h,"show_controls",_viv_is_show_controls);
-			_viv_write_int(h,"auto_zoom",_viv_auto_zoom);
-			_viv_write_int(h,"auto_zoom_type",_viv_auto_zoom_type);
-			_viv_write_int(h,"frame_minus",_viv_frame_minus);
-			_viv_write_int(h,"mouse_wheel_action",_viv_mouse_wheel_action);
-			_viv_write_int(h,"left_click_action",_viv_left_click_action);
-			_viv_write_int(h,"right_click_action",_viv_right_click_action);
-			_viv_write_int(h,"keep_centered",_viv_keep_centered);
-			_viv_write_int(h,"windowed_background_color_r",_viv_windowed_background_color_r);
-			_viv_write_int(h,"windowed_background_color_g",_viv_windowed_background_color_g);
-			_viv_write_int(h,"windowed_background_color_b",_viv_windowed_background_color_b);
-			_viv_write_int(h,"fullscreen_background_color_r",_viv_fullscreen_background_color_r);
-			_viv_write_int(h,"fullscreen_background_color_g",_viv_fullscreen_background_color_g);
-			_viv_write_int(h,"fullscreen_background_color_b",_viv_fullscreen_background_color_b);
-			_viv_write_int(h,"options_last_page",_viv_options_last_page);
-			_viv_write_int(h,"short_jump",_viv_short_jump);
-			_viv_write_int(h,"medium_jump",_viv_medium_jump);
-			_viv_write_int(h,"long_jump",_viv_long_jump);
-			_viv_write_int(h,"loop_animations_once",_viv_loop_animations_once);
-			_viv_write_int(h,"allow_sleep",_viv_allow_sleep);
-			_viv_write_int(h,"shuffle",_viv_shuffle);
-		
-			// save keys
-			{
-				int i;
-				
-				for(i=0;i<_VIV_COMMAND_COUNT;i++)
-				{
-					if (!(_viv_commands[i].flags & MF_POPUP))
-					{
-						if (!(_viv_commands[i].flags & MF_SEPARATOR))
-						{
-							utf8_t key_buf[STRING_SIZE];
-							wchar_t keylist[STRING_SIZE];
-							_viv_key_t *key;
-							
-							// get ini key name.
-							
-							_viv_menu_name_to_ini_name(key_buf,i);
-							
-							key = _viv_key_list->start[i];
-							*keylist = 0;
-							
-							while(key)
-							{
-								wchar_t keyidbuf[STRING_SIZE];
-								
-								string_printf(keyidbuf,"%d",key->key);
-
-								if (*keylist)							
-								{
-									string_cat_utf8(keylist,(const utf8_t *)",");
-								}
-
-								string_cat(keylist,keyidbuf);
-							
-								key = key->next;
-							}
-
-							_viv_write_string(h,key_buf,keylist);
-						}
-					}
-				}
-			}	
-			
-			// save context menu items
-//			_viv_write_int(h,"context_menu_items",);
-		}
-
-		CloseHandle(h);
-
-		if (!MoveFileExW(tempname,filename,MOVEFILE_REPLACE_EXISTING))
-		{
-			if (CopyFile(tempname,filename,FALSE))
-			{
-				DeleteFile(tempname);
-			}
-		}
-	}
-}
-
-static void _viv_save_settings(int appdata)
-{
-	if (appdata)
-	{
-		wchar_t path[STRING_SIZE];
-
-		if (string_get_appdata_path(path))
-		{
-			wchar_t appdata_wbuf[STRING_SIZE];
-			
-			string_path_combine_utf8(appdata_wbuf,path,(const utf8_t *)"voidImageViewer");
-			
-			CreateDirectory(appdata_wbuf,NULL);
-
-			_viv_save_settings_by_location(appdata_wbuf,0);
-		}
-	}
-	else
-	{
-		wchar_t path[STRING_SIZE];
-		
-		string_get_exe_path(path);
-		
-		_viv_save_settings_by_location(path,1);
-	}
 }
 
 static int _viv_compare_id(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
@@ -4986,17 +4288,17 @@ static int _viv_compare(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
 	
 	ret = 0;
 	
-	switch(_viv_nav_sort)
+	switch(config_nav_sort)
 	{
-		case _VIV_NAV_SORT_NAME:
+		case CONFIG_NAV_SORT_NAME:
 			ret = _viv_compare_filenames(a,b);
 			break;
 
-		case _VIV_NAV_SORT_FULL_PATH_AND_FILENAME:
+		case CONFIG_NAV_SORT_FULL_PATH_AND_FILENAME:
 			ret = _viv_compare_full_path_and_filenames(a,b);
 			break;
 
-		case _VIV_NAV_SORT_SIZE:
+		case CONFIG_NAV_SORT_SIZE:
 		{
 			LARGE_INTEGER sizea;
 			LARGE_INTEGER sizeb;
@@ -5025,7 +4327,7 @@ static int _viv_compare(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
 			break;
 		}
 
-		case _VIV_NAV_SORT_DATE_MODIFIED:
+		case CONFIG_NAV_SORT_DATE_MODIFIED:
 		{
 			LARGE_INTEGER datea;
 			LARGE_INTEGER dateb;
@@ -5053,7 +4355,7 @@ static int _viv_compare(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
 			break;
 		}
 
-		case _VIV_NAV_SORT_DATE_CREATED:
+		case CONFIG_NAV_SORT_DATE_CREATED:
 		{
 			LARGE_INTEGER datea;
 			LARGE_INTEGER dateb;
@@ -5082,7 +4384,7 @@ static int _viv_compare(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
 		}
 	}
 	
-	if (!_viv_nav_sort_ascending)
+	if (!config_nav_sort_ascending)
 	{
 		ret *= -1;
 	}
@@ -5116,7 +4418,9 @@ static void _viv_next(int prev,int reset_slideshow_timer)
 				
 				d = _viv_playlist_start;
 				
-				if (_viv_shuffle)
+debug_printf("next %d\n",config_shuffle);
+
+				if (config_shuffle)
 				{
 					int index;
 					
@@ -5164,6 +4468,7 @@ static void _viv_next(int prev,int reset_slideshow_timer)
 					_viv_playlist_t *current_d;
 					
 					current_d = _viv_playlist_from_fd(_viv_current_fd);
+	debug_printf("cur %d\n",current_d);
 					
 					while(d)
 					{
@@ -5221,6 +4526,7 @@ static void _viv_next(int prev,int reset_slideshow_timer)
 					
 						d = d->next;
 					}
+	debug_printf("gotbest %d %d\n",got_best,got_start);
 				}
 			}
 			else
@@ -5326,7 +4632,9 @@ static void _viv_next(int prev,int reset_slideshow_timer)
 			}
 			else
 			{
-				_viv_blank();
+				// dont blank because we may not have a best or start because we only have one image 
+				// (compare_ret != 0)
+//				_viv_blank();
 			}
 		}
 		else
@@ -5340,8 +4648,8 @@ static void _viv_next(int prev,int reset_slideshow_timer)
 	{
 		if (_viv_is_slideshow)
 		{
-			KillTimer(_viv_hwnd,_VIV_ID_SLIDESHOW_TIMER);
-			SetTimer(_viv_hwnd,_VIV_ID_SLIDESHOW_TIMER,_viv_slideshow_rate,0);
+			KillTimer(_viv_hwnd,VIV_ID_SLIDESHOW_TIMER);
+			SetTimer(_viv_hwnd,VIV_ID_SLIDESHOW_TIMER,config_slideshow_rate,0);
 		}
 	}
 }
@@ -5363,7 +4671,7 @@ static void _viv_home(int end)
 		
 		if (_viv_playlist_start)
 		{
-			if (_viv_shuffle)
+			if (config_shuffle)
 			{
 				int index;
 				
@@ -5480,8 +4788,8 @@ static void _viv_home(int end)
 	// reset slideshow timer.
 	if (_viv_is_slideshow)
 	{
-		KillTimer(_viv_hwnd,_VIV_ID_SLIDESHOW_TIMER);
-		SetTimer(_viv_hwnd,_VIV_ID_SLIDESHOW_TIMER,_viv_slideshow_rate,0);
+		KillTimer(_viv_hwnd,VIV_ID_SLIDESHOW_TIMER);
+		SetTimer(_viv_hwnd,VIV_ID_SLIDESHOW_TIMER,config_slideshow_rate,0);
 	}
 }
 
@@ -5581,14 +4889,14 @@ static int _viv_is_msg(MSG *msg)
 				// find the key.
 				for(key_index=0;key_index<_VIV_COMMAND_COUNT;key_index++)
 				{
-					_viv_key_t *k;
+					config_key_t *k;
 					
 					k = _viv_key_list->start[key_index];
 					while(k)
 					{
-						if ((k->key & _VIV_KEYFLAG_MOD_MASK) == key_flags)
+						if ((k->key & CONFIG_KEYFLAG_MOD_MASK) == key_flags)
 						{
-							if ((k->key & _VIV_KEYFLAG_VK_MASK) == msg->wParam)
+							if ((k->key & CONFIG_KEYFLAG_VK_MASK) == msg->wParam)
 							{
 								_viv_command(_viv_commands[key_index].command_id);
 								
@@ -5637,7 +4945,7 @@ static void _viv_view_set(int view_x,int view_y,int invalidate)
 	rx = (wide / 2) - (rw / 2) - view_x;
 	ry = (high / 2) - (rh / 2) - view_y;
 
-	if (_viv_keep_centered)
+	if (config_keep_centered)
 	{
 		if (rw > wide)
 		{
@@ -5752,8 +5060,8 @@ static void _viv_toggle_fullscreen(void)
 			SetMenu(_viv_hwnd,0);
 		}
 		
-		_viv_status_show(_viv_is_show_status);
-		_viv_controls_show(_viv_is_show_controls);
+		_viv_status_show(config_is_show_status);
+		_viv_controls_show(config_is_show_controls);
 		
 		SetWindowLong(_viv_hwnd,GWL_STYLE,style);
 
@@ -5764,7 +5072,7 @@ static void _viv_toggle_fullscreen(void)
 			ShowWindow(_viv_hwnd,SW_MAXIMIZE);
 		}
 		
-		KillTimer(_viv_hwnd,_VIV_ID_HIDE_CURSOR_TIMER);
+		KillTimer(_viv_hwnd,VIV_ID_HIDE_CURSOR_TIMER);
 		_viv_is_hide_cursor_timer = 0;
 		
 		if (!_viv_cursor_shown)
@@ -5849,7 +5157,7 @@ static void _viv_toggle_fullscreen(void)
 			DestroyWindow(fullscreen_hwnd);
 		}		
 
-		SetTimer(_viv_hwnd,_VIV_ID_HIDE_CURSOR_TIMER,_VIV_HIDE_CURSOR_DELAY,0);
+		SetTimer(_viv_hwnd,VIV_ID_HIDE_CURSOR_TIMER,_VIV_HIDE_CURSOR_DELAY,0);
 		_viv_is_hide_cursor_timer = 1;
 		
 		{
@@ -5875,7 +5183,7 @@ static void _viv_slideshow(void)
 	
 	if (!_viv_is_slideshow)
 	{
-		SetTimer(_viv_hwnd,_VIV_ID_SLIDESHOW_TIMER,_viv_slideshow_rate,0);
+		SetTimer(_viv_hwnd,VIV_ID_SLIDESHOW_TIMER,config_slideshow_rate,0);
 		
 		_viv_is_slideshow = 1;
 		_viv_status_update();
@@ -5925,14 +5233,14 @@ static void _viv_get_render_size(int *prw,int *prh)
 			
 	if (_viv_is_fullscreen)
 	{
-		fill_window = _viv_fullscreen_fill_window;
+		fill_window = config_fullscreen_fill_window;
 	}
 	else
 	{
-		fill_window = _viv_fill_window;
+		fill_window = config_fill_window;
 	}
 	
-	if (_viv_keep_aspect_ratio)
+	if (config_keep_aspect_ratio)
 	{
 		if ((high * _viv_image_wide) / _viv_image_high < wide)
 		{
@@ -5975,9 +5283,9 @@ static void _viv_get_render_size(int *prw,int *prh)
 		}
 	}
 
-	if (!_viv_allow_shrinking)
+	if (!config_allow_shrinking)
 	{
-		if (_viv_keep_aspect_ratio)
+		if (config_keep_aspect_ratio)
 		{
 			if ((rw < _viv_image_wide) || (rh < _viv_image_high))
 			{
@@ -6042,31 +5350,31 @@ static void _viv_set_custom_rate(void)
 {
 	if (DialogBox(os_hinstance,MAKEINTRESOURCE(IDD_CUSTOM_RATE),_viv_hwnd,_viv_custom_rate_proc))
 	{
-		switch(_viv_slideshow_custom_rate_type)
+		switch(config_slideshow_custom_rate_type)
 		{
 			case 0:
-				_viv_slideshow_rate = _viv_slideshow_custom_rate;
+				config_slideshow_rate = config_slideshow_custom_rate;
 				break;
 		
 			case 1: 
-				_viv_slideshow_rate = _viv_slideshow_custom_rate * 1000;
+				config_slideshow_rate = config_slideshow_custom_rate * 1000;
 				break;
 				
 			case 2: 
-				_viv_slideshow_rate = _viv_slideshow_custom_rate * 1000 * 60;
+				config_slideshow_rate = config_slideshow_custom_rate * 1000 * 60;
 				break;
 		}
 		
-		if (_viv_slideshow_rate < 1)
+		if (config_slideshow_rate < 1)
 		{
-			_viv_slideshow_rate = 1;
+			config_slideshow_rate = 1;
 		}
 		
 		if (_viv_is_slideshow)
 		{
-			KillTimer(_viv_hwnd,_VIV_ID_SLIDESHOW_TIMER);
+			KillTimer(_viv_hwnd,VIV_ID_SLIDESHOW_TIMER);
 
-			SetTimer(_viv_hwnd,_VIV_ID_SLIDESHOW_TIMER,_viv_slideshow_rate,0);
+			SetTimer(_viv_hwnd,VIV_ID_SLIDESHOW_TIMER,config_slideshow_rate,0);
 		}			
 
 		_viv_status_update_slideshow_rate();
@@ -6075,13 +5383,13 @@ static void _viv_set_custom_rate(void)
 
 static void _viv_set_rate(int rate)
 {
-	_viv_slideshow_rate = rate;
+	config_slideshow_rate = rate;
 	
 	if (_viv_is_slideshow)
 	{
-		KillTimer(_viv_hwnd,_VIV_ID_SLIDESHOW_TIMER);
+		KillTimer(_viv_hwnd,VIV_ID_SLIDESHOW_TIMER);
 
-		SetTimer(_viv_hwnd,_VIV_ID_SLIDESHOW_TIMER,_viv_slideshow_rate,0);
+		SetTimer(_viv_hwnd,VIV_ID_SLIDESHOW_TIMER,config_slideshow_rate,0);
 	}			
 
 	_viv_status_update_slideshow_rate();
@@ -6108,107 +5416,107 @@ static void _viv_check_menus(HMENU hmenu)
 			_viv_update_ontop();
 		}
 		
-		fill_window = _viv_fullscreen_fill_window;
+		fill_window = config_fullscreen_fill_window;
 	}
 	else
 	{
-		fill_window = _viv_fill_window;
+		fill_window = config_fill_window;
 	}
 				
 	_viv_get_render_size(&rw,&rh);
 	
 	is_image_enabled = *_viv_current_fd->cFileName ? MF_ENABLED : MF_DISABLED;
 
-	EnableMenuItem(hmenu,_VIV_ID_FILE_CLOSE,is_image_enabled);
-	EnableMenuItem(hmenu,_VIV_ID_EDIT_COPY,is_image_enabled);
-	EnableMenuItem(hmenu,_VIV_ID_EDIT_COPY_TO,is_image_enabled);
-	EnableMenuItem(hmenu,_VIV_ID_EDIT_CUT,is_image_enabled);
-	EnableMenuItem(hmenu,_VIV_ID_FILE_DELETE,is_image_enabled);
-	EnableMenuItem(hmenu,_VIV_ID_FILE_EDIT,is_image_enabled);
-	EnableMenuItem(hmenu,_VIV_ID_EDIT_MOVE_TO,is_image_enabled);
-	EnableMenuItem(hmenu,_VIV_ID_FILE_OPEN_FILE_LOCATION,is_image_enabled);
-	EnableMenuItem(hmenu,_VIV_ID_FILE_PREVIEW,is_image_enabled);
-	EnableMenuItem(hmenu,_VIV_ID_FILE_PRINT,is_image_enabled);
-	EnableMenuItem(hmenu,_VIV_ID_FILE_PROPERTIES,is_image_enabled);
-	EnableMenuItem(hmenu,_VIV_ID_FILE_SET_DESKTOP_WALLPAPER,is_image_enabled);
-	EnableMenuItem(hmenu,_VIV_ID_FILE_RENAME,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_FILE_CLOSE,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_EDIT_COPY,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_EDIT_COPY_TO,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_EDIT_CUT,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_FILE_DELETE,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_FILE_EDIT,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_EDIT_MOVE_TO,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_FILE_OPEN_FILE_LOCATION,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_FILE_PREVIEW,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_FILE_PRINT,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_FILE_PROPERTIES,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_FILE_SET_DESKTOP_WALLPAPER,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_FILE_RENAME,is_image_enabled);
 
-	EnableMenuItem(hmenu,_VIV_ID_EDIT_ROTATE_270,is_image_enabled);
-	EnableMenuItem(hmenu,_VIV_ID_EDIT_ROTATE_90,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_EDIT_ROTATE_270,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_EDIT_ROTATE_90,is_image_enabled);
 
-	CheckMenuItem(hmenu,_VIV_ID_VIEW_MENU,_viv_is_show_menu ? MF_CHECKED : MF_UNCHECKED);
-	CheckMenuItem(hmenu,_VIV_ID_VIEW_CONTROLS,_viv_is_show_controls ? MF_CHECKED : MF_UNCHECKED);
-	CheckMenuItem(hmenu,_VIV_ID_VIEW_STATUS,_viv_is_show_status ? MF_CHECKED : MF_UNCHECKED);
-	CheckMenuItem(hmenu,_VIV_ID_VIEW_ALLOW_SHRINKING,_viv_allow_shrinking ? MF_CHECKED : MF_UNCHECKED);
-	CheckMenuItem(hmenu,_VIV_ID_VIEW_KEEP_ASPECT_RATIO,_viv_keep_aspect_ratio ? MF_CHECKED : MF_UNCHECKED);
-	CheckMenuItem(hmenu,_VIV_ID_VIEW_FILL_WINDOW,fill_window ? MF_CHECKED : MF_UNCHECKED);
-	CheckMenuItem(hmenu,_VIV_ID_VIEW_1TO1,((rw == _viv_image_wide) && (rh == _viv_image_high)) ? MF_CHECKED : MF_UNCHECKED);
-	CheckMenuItem(hmenu,_VIV_ID_VIEW_FULLSCREEN,_viv_is_fullscreen ? MF_CHECKED : MF_UNCHECKED);
-	CheckMenuItem(hmenu,_VIV_ID_VIEW_SLIDESHOW,is_slideshow ? MF_CHECKED : MF_UNCHECKED);
-	CheckMenuItem(hmenu,_VIV_ID_VIEW_ONTOP_ALWAYS,_viv_ontop == 1 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_VIEW_ONTOP_WHILE_PLAYING_OR_ANIMATING,_viv_ontop == 2 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_VIEW_ONTOP_NEVER,_viv_ontop == 0 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_VIEW_MENU,_viv_is_show_menu ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_VIEW_CONTROLS,config_is_show_controls ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_VIEW_STATUS,config_is_show_status ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_VIEW_ALLOW_SHRINKING,config_allow_shrinking ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_VIEW_KEEP_ASPECT_RATIO,config_keep_aspect_ratio ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_VIEW_FILL_WINDOW,fill_window ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_VIEW_1TO1,((rw == _viv_image_wide) && (rh == _viv_image_high)) ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_VIEW_FULLSCREEN,_viv_is_fullscreen ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_VIEW_SLIDESHOW,is_slideshow ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_VIEW_ONTOP_ALWAYS,config_ontop == 1 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_VIEW_ONTOP_WHILE_PLAYING_OR_ANIMATING,config_ontop == 2 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_VIEW_ONTOP_NEVER,config_ontop == 0 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 	
-	CheckMenuItem(hmenu,_VIV_ID_SLIDESHOW_PAUSE,_viv_is_slideshow ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_PAUSE,_viv_is_slideshow ? MF_CHECKED : MF_UNCHECKED);
 
-	switch(_viv_slideshow_rate)
+	switch(config_slideshow_rate)
 	{
-		case 250: slideshow_rate_id = _VIV_ID_SLIDESHOW_RATE_250; break;
-		case 500: slideshow_rate_id = _VIV_ID_SLIDESHOW_RATE_500; break;
-		case 1000: slideshow_rate_id = _VIV_ID_SLIDESHOW_RATE_1000; break;
-		case 2000: slideshow_rate_id = _VIV_ID_SLIDESHOW_RATE_2000; break;
-		case 3000: slideshow_rate_id = _VIV_ID_SLIDESHOW_RATE_3000; break;
-		case 4000: slideshow_rate_id = _VIV_ID_SLIDESHOW_RATE_4000; break;
-		case 5000: slideshow_rate_id = _VIV_ID_SLIDESHOW_RATE_5000; break;
-		case 6000: slideshow_rate_id = _VIV_ID_SLIDESHOW_RATE_6000; break;
-		case 7000: slideshow_rate_id = _VIV_ID_SLIDESHOW_RATE_7000; break;
-		case 8000: slideshow_rate_id = _VIV_ID_SLIDESHOW_RATE_8000; break;
-		case 9000: slideshow_rate_id = _VIV_ID_SLIDESHOW_RATE_9000; break;
-		case 10000: slideshow_rate_id = _VIV_ID_SLIDESHOW_RATE_10000; break;
-		case 20000: slideshow_rate_id = _VIV_ID_SLIDESHOW_RATE_20000; break;
-		case 30000: slideshow_rate_id = _VIV_ID_SLIDESHOW_RATE_30000; break;
-		case 40000: slideshow_rate_id = _VIV_ID_SLIDESHOW_RATE_40000; break;
-		case 50000: slideshow_rate_id = _VIV_ID_SLIDESHOW_RATE_50000; break;
-		case 60000: slideshow_rate_id = _VIV_ID_SLIDESHOW_RATE_60000; break;
+		case 250: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_250; break;
+		case 500: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_500; break;
+		case 1000: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_1000; break;
+		case 2000: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_2000; break;
+		case 3000: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_3000; break;
+		case 4000: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_4000; break;
+		case 5000: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_5000; break;
+		case 6000: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_6000; break;
+		case 7000: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_7000; break;
+		case 8000: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_8000; break;
+		case 9000: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_9000; break;
+		case 10000: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_10000; break;
+		case 20000: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_20000; break;
+		case 30000: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_30000; break;
+		case 40000: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_40000; break;
+		case 50000: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_50000; break;
+		case 60000: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_60000; break;
 
 		default:
-			slideshow_rate_id = _VIV_ID_SLIDESHOW_RATE_CUSTOM;
+			slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_CUSTOM;
 			break;
 	}
 
-	CheckMenuItem(hmenu,_VIV_ID_SLIDESHOW_RATE_250,slideshow_rate_id == _VIV_ID_SLIDESHOW_RATE_250 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_SLIDESHOW_RATE_500,slideshow_rate_id == _VIV_ID_SLIDESHOW_RATE_500 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_SLIDESHOW_RATE_1000,slideshow_rate_id == _VIV_ID_SLIDESHOW_RATE_1000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_SLIDESHOW_RATE_2000,slideshow_rate_id == _VIV_ID_SLIDESHOW_RATE_2000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_SLIDESHOW_RATE_3000,slideshow_rate_id == _VIV_ID_SLIDESHOW_RATE_3000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_SLIDESHOW_RATE_4000,slideshow_rate_id == _VIV_ID_SLIDESHOW_RATE_4000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_SLIDESHOW_RATE_5000,slideshow_rate_id == _VIV_ID_SLIDESHOW_RATE_5000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_SLIDESHOW_RATE_6000,slideshow_rate_id == _VIV_ID_SLIDESHOW_RATE_6000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_SLIDESHOW_RATE_7000,slideshow_rate_id == _VIV_ID_SLIDESHOW_RATE_7000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_SLIDESHOW_RATE_8000,slideshow_rate_id == _VIV_ID_SLIDESHOW_RATE_8000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_SLIDESHOW_RATE_9000,slideshow_rate_id == _VIV_ID_SLIDESHOW_RATE_9000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_SLIDESHOW_RATE_10000,slideshow_rate_id == _VIV_ID_SLIDESHOW_RATE_10000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_SLIDESHOW_RATE_20000,slideshow_rate_id == _VIV_ID_SLIDESHOW_RATE_20000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_SLIDESHOW_RATE_30000,slideshow_rate_id == _VIV_ID_SLIDESHOW_RATE_30000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_SLIDESHOW_RATE_40000,slideshow_rate_id == _VIV_ID_SLIDESHOW_RATE_40000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_SLIDESHOW_RATE_50000,slideshow_rate_id == _VIV_ID_SLIDESHOW_RATE_50000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_SLIDESHOW_RATE_60000,slideshow_rate_id == _VIV_ID_SLIDESHOW_RATE_60000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_SLIDESHOW_RATE_CUSTOM,slideshow_rate_id == _VIV_ID_SLIDESHOW_RATE_CUSTOM ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_250,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_250 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_500,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_500 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_1000,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_1000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_2000,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_2000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_3000,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_3000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_4000,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_4000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_5000,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_5000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_6000,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_6000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_7000,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_7000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_8000,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_8000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_9000,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_9000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_10000,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_10000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_20000,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_20000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_30000,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_30000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_40000,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_40000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_50000,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_50000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_60000,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_60000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_CUSTOM,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_CUSTOM ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 
-	CheckMenuItem(hmenu,_VIV_ID_ANIMATION_PLAY_PAUSE,_viv_animation_play ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_ANIMATION_PLAY_PAUSE,_viv_animation_play ? MF_CHECKED : MF_UNCHECKED);
 	
-	CheckMenuItem(hmenu,_VIV_ID_NAV_SHUFFLE,_viv_shuffle ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_NAV_SHUFFLE,config_shuffle ? MF_CHECKED : MF_UNCHECKED);
 	
-	CheckMenuItem(hmenu,_VIV_ID_NAV_SORT_NAME,_viv_nav_sort == _VIV_NAV_SORT_NAME ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_NAV_SORT_FULL_PATH_AND_FILENAME,_viv_nav_sort == _VIV_NAV_SORT_FULL_PATH_AND_FILENAME ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_NAV_SORT_SIZE,_viv_nav_sort == _VIV_NAV_SORT_SIZE ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_NAV_SORT_DATE_MODIFIED,_viv_nav_sort == _VIV_NAV_SORT_DATE_MODIFIED ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_NAV_SORT_DATE_CREATED,_viv_nav_sort == _VIV_NAV_SORT_DATE_CREATED ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_NAV_SORT_NAME,config_nav_sort == CONFIG_NAV_SORT_NAME ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_NAV_SORT_FULL_PATH_AND_FILENAME,config_nav_sort == CONFIG_NAV_SORT_FULL_PATH_AND_FILENAME ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_NAV_SORT_SIZE,config_nav_sort == CONFIG_NAV_SORT_SIZE ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_NAV_SORT_DATE_MODIFIED,config_nav_sort == CONFIG_NAV_SORT_DATE_MODIFIED ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_NAV_SORT_DATE_CREATED,config_nav_sort == CONFIG_NAV_SORT_DATE_CREATED ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 
-	CheckMenuItem(hmenu,_VIV_ID_NAV_SORT_ASCENDING,_viv_nav_sort_ascending ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,_VIV_ID_NAV_SORT_DESCENDING,(!_viv_nav_sort_ascending) ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_NAV_SORT_ASCENDING,config_nav_sort_ascending ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_NAV_SORT_DESCENDING,(!config_nav_sort_ascending) ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 	
-	CheckMenuItem(hmenu,_VIV_ID_VIEW_1TO1,((rw == _viv_image_wide) && (rh == _viv_image_high)) ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_VIEW_1TO1,((rw == _viv_image_wide) && (rh == _viv_image_high)) ? MF_CHECKED : MF_UNCHECKED);
 }
 
 static void _viv_delete(void)
@@ -6507,7 +5815,7 @@ static void _viv_pause(void)
 {
 	if (_viv_is_slideshow)
 	{
-		KillTimer(_viv_hwnd,_VIV_ID_SLIDESHOW_TIMER);
+		KillTimer(_viv_hwnd,VIV_ID_SLIDESHOW_TIMER);
 		
 		_viv_is_slideshow = 0;
 		_viv_status_update();
@@ -6516,7 +5824,7 @@ static void _viv_pause(void)
 	}
 	else
 	{
-		SetTimer(_viv_hwnd,_VIV_ID_SLIDESHOW_TIMER,_viv_slideshow_rate,0);
+		SetTimer(_viv_hwnd,VIV_ID_SLIDESHOW_TIMER,config_slideshow_rate,0);
 		
 		_viv_is_slideshow = 1;
 		_viv_status_update();
@@ -6531,11 +5839,11 @@ static void _viv_increase_rate(int dec)
 	{
 		int i;
 		
-		for(i=0;i<_VIV_PREDEFINED_RATE_COUNT;i++)
+		for(i=0;i<_VIV_SLIDESHOW_RATE_PRESET_COUNT;i++)
 		{
-			if (_viv_slideshow_rate < _viv_predefined_rates[i])
+			if (config_slideshow_rate < _viv_slideshow_rate_presets[i])
 			{
-				_viv_set_rate(_viv_predefined_rates[i]);
+				_viv_set_rate(_viv_slideshow_rate_presets[i]);
 				
 				break;
 			}
@@ -6545,11 +5853,11 @@ static void _viv_increase_rate(int dec)
 	{
 		int i;
 		
-		for(i=0;i<_VIV_PREDEFINED_RATE_COUNT;i++)
+		for(i=0;i<_VIV_SLIDESHOW_RATE_PRESET_COUNT;i++)
 		{
-			if (_viv_slideshow_rate > _viv_predefined_rates[_VIV_PREDEFINED_RATE_COUNT-i-1])
+			if (config_slideshow_rate > _viv_slideshow_rate_presets[_VIV_SLIDESHOW_RATE_PRESET_COUNT-i-1])
 			{
-				_viv_set_rate(_viv_predefined_rates[_VIV_PREDEFINED_RATE_COUNT-i-1]);
+				_viv_set_rate(_viv_slideshow_rate_presets[_VIV_SLIDESHOW_RATE_PRESET_COUNT-i-1]);
 				
 				break;
 			}
@@ -6760,6 +6068,7 @@ static void _viv_doing_cancel(void)
 
 		if (was_doing == _VIV_DOING_1TO1SCROLL)
 		{
+//			ShowCursor(TRUE);
 			_viv_view_set(_viv_doing_x,_viv_doing_y,1);
 			InvalidateRect(_viv_hwnd,0,FALSE);
 		}
@@ -6830,12 +6139,12 @@ static INT_PTR CALLBACK _viv_options_general_proc(HWND hwnd,UINT msg,WPARAM wPar
 		{
 			int exti;
 
-			if (_viv_appdata) 
+			if (config_appdata) 
 			{
 				CheckDlgButton(hwnd,IDC_APPDATA,BST_CHECKED);
 			}
 			
-			if (_viv_multiple_instances) 
+			if (config_multiple_instances) 
 			{
 				CheckDlgButton(hwnd,IDC_MULTIPLE_INSTANCES,BST_CHECKED);
 			}
@@ -6920,7 +6229,7 @@ static void _viv_options_key_list_sel_change(HWND hwnd,int previous_key_index)
 	if (index != LB_ERR)
 	{
 		int command_index;
-		_viv_key_t *key;
+		config_key_t *key;
 		
 		command_index = ListBox_GetItemData(GetDlgItem(hwnd,IDC_COMMANDS_LIST),index);
 		
@@ -7085,7 +6394,7 @@ static void _viv_options_edit_key(HWND hwnd,int key_index)
 			}
 			else
 			{
-				_viv_key_t *key;
+				config_key_t *key;
 				int keyi;
 				
 				// edit
@@ -7122,17 +6431,17 @@ static INT_PTR CALLBACK _viv_options_controls_proc(HWND hwnd,UINT msg,WPARAM wPa
 			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,(const utf8_t *)"Zoom In");
 			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,(const utf8_t *)"Next Image");
 			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,(const utf8_t *)"1:1 Scroll");
-			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_LEFTCLICKACTION),_viv_left_click_action);
+			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_LEFTCLICKACTION),config_left_click_action);
 			
 			os_ComboBox_AddString(hwnd,IDC_RIGHTCLICKACTION,(const utf8_t *)"Context Menu");
 			os_ComboBox_AddString(hwnd,IDC_RIGHTCLICKACTION,(const utf8_t *)"Zoom Out");
 			os_ComboBox_AddString(hwnd,IDC_RIGHTCLICKACTION,(const utf8_t *)"Previous Image");
-			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_RIGHTCLICKACTION),_viv_right_click_action);
+			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_RIGHTCLICKACTION),config_right_click_action);
 			
 			os_ComboBox_AddString(hwnd,IDC_MOUSEWHEELACTION,(const utf8_t *)"Zoom");
 			os_ComboBox_AddString(hwnd,IDC_MOUSEWHEELACTION,(const utf8_t *)"Next/Prev");
 			os_ComboBox_AddString(hwnd,IDC_MOUSEWHEELACTION,(const utf8_t *)"Prev/Next");
-			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_MOUSEWHEELACTION),_viv_mouse_wheel_action);
+			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_MOUSEWHEELACTION),config_mouse_wheel_action);
 			
 			{
 				int i;
@@ -7204,7 +6513,7 @@ static INT_PTR CALLBACK _viv_options_controls_proc(HWND hwnd,UINT msg,WPARAM wPa
 			
 			keylist = (_viv_key_list_t *)GetWindowLongPtr(GetDlgItem(hwnd,IDC_COMMANDS_LIST),GWLP_USERDATA);
 			
-			_viv_key_list_clear(keylist);
+			_viv_key_clear_all(keylist);
 			mem_free(keylist);
 			
 			break;
@@ -7222,7 +6531,7 @@ static INT_PTR CALLBACK _viv_options_view_proc(HWND hwnd,UINT msg,WPARAM wParam,
 			os_ComboBox_AddString(hwnd,IDC_COMBO1,(const utf8_t *)"COLORONCOLOR (Performance)");
 			os_ComboBox_AddString(hwnd,IDC_COMBO1,(const utf8_t *)"HALFTONE (Quality)");
 			
-			if (_viv_shrink_blit_mode == _VIV_SHRINK_BLIT_MODE_HALFTONE)
+			if (config_shrink_blit_mode == CONFIG_SHRINK_BLIT_MODE_HALFTONE)
 			{
 				ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_COMBO1),1);
 			}
@@ -7234,7 +6543,7 @@ static INT_PTR CALLBACK _viv_options_view_proc(HWND hwnd,UINT msg,WPARAM wParam,
 			os_ComboBox_AddString(hwnd,IDC_COMBO2,(const utf8_t *)"COLORONCOLOR (Performance)");
 			os_ComboBox_AddString(hwnd,IDC_COMBO2,(const utf8_t *)"HALFTONE (Quality)");
 			
-			if (_viv_mag_filter == _VIV_MAG_FILTER_HALFTONE)
+			if (config_mag_filter == CONFIG_MAG_FILTER_HALFTONE)
 			{
 				ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_COMBO2),1);
 			}
@@ -7243,12 +6552,12 @@ static INT_PTR CALLBACK _viv_options_view_proc(HWND hwnd,UINT msg,WPARAM wParam,
 				ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_COMBO2),0);
 			}
 					
-			CheckDlgButton(hwnd,IDC_LOOP_ANIMATIONS_ONCE,_viv_loop_animations_once ? BST_CHECKED : BST_UNCHECKED);
+			CheckDlgButton(hwnd,IDC_LOOP_ANIMATIONS_ONCE,config_loop_animations_once ? BST_CHECKED : BST_UNCHECKED);
 			
-			SetWindowLongPtr(GetDlgItem(hwnd,IDC_WINDOWEDBACKGROUNDCOLOR),GWLP_USERDATA,RGB(_viv_windowed_background_color_r,_viv_windowed_background_color_g,_viv_windowed_background_color_b));
+			SetWindowLongPtr(GetDlgItem(hwnd,IDC_WINDOWEDBACKGROUNDCOLOR),GWLP_USERDATA,RGB(config_windowed_background_color_r,config_windowed_background_color_g,config_windowed_background_color_b));
 			_viv_update_color_button_bitmap(GetDlgItem(hwnd,IDC_WINDOWEDBACKGROUNDCOLOR));
 
-			SetWindowLongPtr(GetDlgItem(hwnd,IDC_FULLSCREENBACKGROUNDCOLOR),GWLP_USERDATA,RGB(_viv_fullscreen_background_color_r,_viv_fullscreen_background_color_g,_viv_fullscreen_background_color_b));
+			SetWindowLongPtr(GetDlgItem(hwnd,IDC_FULLSCREENBACKGROUNDCOLOR),GWLP_USERDATA,RGB(config_fullscreen_background_color_r,config_fullscreen_background_color_g,config_fullscreen_background_color_b));
 			_viv_update_color_button_bitmap(GetDlgItem(hwnd,IDC_FULLSCREENBACKGROUNDCOLOR));
 					
 			return FALSE;
@@ -7311,7 +6620,7 @@ static void _viv_options_treeview_changed(HWND hwnd)
 			}
 		}
 
-		_viv_options_last_page = tvi.lParam;
+		config_options_last_page = tvi.lParam;
 	}
 }
 
@@ -7321,7 +6630,7 @@ static void _viv_options_update_sheild(HWND hwnd)
 	int need_admin;
 	HWND general_page;
 	
-	general_page = GetDlgItem(hwnd,_VIV_ID_OPTIONS_GENERAL);
+	general_page = GetDlgItem(hwnd,VIV_ID_OPTIONS_GENERAL);
 	
 	need_admin = 0;
 	
@@ -7343,7 +6652,7 @@ static void _viv_options_update_sheild(HWND hwnd)
 		}
 	}
 
-	if ((!!_viv_appdata) != (IsDlgButtonChecked(general_page,IDC_APPDATA) == BST_CHECKED)) 
+	if ((!!config_appdata) != (IsDlgButtonChecked(general_page,IDC_APPDATA) == BST_CHECKED)) 
 	{
 		need_admin = 1;
 	}
@@ -7418,7 +6727,7 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 					
 					hitem = TreeView_InsertItem(GetDlgItem(hwnd,IDC_TREE1),&tvitem);
 
-					if (i == _viv_options_last_page) 
+					if (i == config_options_last_page) 
 					{
 						TreeView_Select(GetDlgItem(hwnd,IDC_TREE1),hitem,TVGN_CARET);
 					}
@@ -7471,32 +6780,32 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 						
 						params[0] = 0;
 						
-						general_page = GetDlgItem(hwnd,_VIV_ID_OPTIONS_GENERAL);
-						view_page = GetDlgItem(hwnd,_VIV_ID_OPTIONS_VIEW);
-						controls_page = GetDlgItem(hwnd,_VIV_ID_OPTIONS_CONTROLS);
-						_viv_multiple_instances = 0;
+						general_page = GetDlgItem(hwnd,VIV_ID_OPTIONS_GENERAL);
+						view_page = GetDlgItem(hwnd,VIV_ID_OPTIONS_VIEW);
+						controls_page = GetDlgItem(hwnd,VIV_ID_OPTIONS_CONTROLS);
+						config_multiple_instances = 0;
 						
 						if (IsDlgButtonChecked(general_page,IDC_APPDATA) == BST_CHECKED) 
 						{
-							if (!_viv_appdata)
+							if (!config_appdata)
 							{
 								_viv_append_admin_param(params,(const utf8_t *)"appdata");
-								_viv_appdata = 1;
+								config_appdata = 1;
 							}
 						}
 						else
 						{
-							if (_viv_appdata)
+							if (config_appdata)
 							{
 								_viv_append_admin_param(params,(const utf8_t *)"noappdata");
 
-								_viv_appdata = 0;
+								config_appdata = 0;
 							}
 						}
 
 						if (IsDlgButtonChecked(general_page,IDC_MULTIPLE_INSTANCES) == BST_CHECKED) 
 						{
-							_viv_multiple_instances = 1;
+							config_multiple_instances = 1;
 						}
 						
 						if (IsDlgButtonChecked(general_page,IDC_STARTMENU) == BST_CHECKED) 
@@ -7534,65 +6843,65 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 							}
 						}
 						
-						old_shrink_blit_mode = _viv_shrink_blit_mode;
+						old_shrink_blit_mode = config_shrink_blit_mode;
 						
-						_viv_left_click_action = ComboBox_GetCurSel(GetDlgItem(controls_page,IDC_LEFTCLICKACTION));
-						_viv_right_click_action = ComboBox_GetCurSel(GetDlgItem(controls_page,IDC_RIGHTCLICKACTION));
-						_viv_mouse_wheel_action = ComboBox_GetCurSel(GetDlgItem(controls_page,IDC_MOUSEWHEELACTION));
+						config_left_click_action = ComboBox_GetCurSel(GetDlgItem(controls_page,IDC_LEFTCLICKACTION));
+						config_right_click_action = ComboBox_GetCurSel(GetDlgItem(controls_page,IDC_RIGHTCLICKACTION));
+						config_mouse_wheel_action = ComboBox_GetCurSel(GetDlgItem(controls_page,IDC_MOUSEWHEELACTION));
 						
 						if (ComboBox_GetCurSel(GetDlgItem(view_page,IDC_COMBO1)) == 1)
 						{
-							_viv_shrink_blit_mode = _VIV_SHRINK_BLIT_MODE_HALFTONE;
+							config_shrink_blit_mode = CONFIG_SHRINK_BLIT_MODE_HALFTONE;
 						}
 						else
 						{
-							_viv_shrink_blit_mode = _VIV_SHRINK_BLIT_MODE_COLORONCOLOR;
+							config_shrink_blit_mode = CONFIG_SHRINK_BLIT_MODE_COLORONCOLOR;
 						}
 						
 						colorref = (COLORREF)GetWindowLongPtr(GetDlgItem(view_page,IDC_WINDOWEDBACKGROUNDCOLOR),GWLP_USERDATA);
 
-						if ((GetRValue(colorref) != _viv_windowed_background_color_r) || (GetGValue(colorref) != _viv_windowed_background_color_g) || (GetBValue(colorref) != _viv_windowed_background_color_b))
+						if ((GetRValue(colorref) != config_windowed_background_color_r) || (GetGValue(colorref) != config_windowed_background_color_g) || (GetBValue(colorref) != config_windowed_background_color_b))
 						{
-							_viv_windowed_background_color_r = GetRValue(colorref);
-							_viv_windowed_background_color_g = GetGValue(colorref);
-							_viv_windowed_background_color_b = GetBValue(colorref);
+							config_windowed_background_color_r = GetRValue(colorref);
+							config_windowed_background_color_g = GetGValue(colorref);
+							config_windowed_background_color_b = GetBValue(colorref);
 
 							InvalidateRect(_viv_hwnd,0,FALSE);
 						}
 						
 						colorref = (COLORREF)GetWindowLongPtr(GetDlgItem(view_page,IDC_FULLSCREENBACKGROUNDCOLOR),GWLP_USERDATA);
 						
-						if ((GetRValue(colorref) != _viv_fullscreen_background_color_r) || (GetGValue(colorref) != _viv_fullscreen_background_color_g) || (GetBValue(colorref) != _viv_fullscreen_background_color_b))
+						if ((GetRValue(colorref) != config_fullscreen_background_color_r) || (GetGValue(colorref) != config_fullscreen_background_color_g) || (GetBValue(colorref) != config_fullscreen_background_color_b))
 						{
-							_viv_fullscreen_background_color_r = GetRValue(colorref);
-							_viv_fullscreen_background_color_g = GetGValue(colorref);
-							_viv_fullscreen_background_color_b = GetBValue(colorref);
+							config_fullscreen_background_color_r = GetRValue(colorref);
+							config_fullscreen_background_color_g = GetGValue(colorref);
+							config_fullscreen_background_color_b = GetBValue(colorref);
 
 							InvalidateRect(_viv_hwnd,0,FALSE);
 						}
 						
-						if (old_shrink_blit_mode != _viv_shrink_blit_mode)
+						if (old_shrink_blit_mode != config_shrink_blit_mode)
 						{
 							InvalidateRect(_viv_hwnd,0,FALSE);
 						}
 						
-						old_shrink_blit_mode = _viv_mag_filter;
+						old_shrink_blit_mode = config_mag_filter;
 						
 						if (ComboBox_GetCurSel(GetDlgItem(view_page,IDC_COMBO2)) == 1)
 						{
-							_viv_mag_filter = _VIV_SHRINK_BLIT_MODE_HALFTONE;
+							config_mag_filter = CONFIG_SHRINK_BLIT_MODE_HALFTONE;
 						}
 						else
 						{
-							_viv_mag_filter = _VIV_SHRINK_BLIT_MODE_COLORONCOLOR;
+							config_mag_filter = CONFIG_SHRINK_BLIT_MODE_COLORONCOLOR;
 						}
 						
-						if (old_shrink_blit_mode != _viv_mag_filter)
+						if (old_shrink_blit_mode != config_mag_filter)
 						{
 							InvalidateRect(_viv_hwnd,0,FALSE);
 						}
 
-						_viv_loop_animations_once = IsDlgButtonChecked(view_page,IDC_LOOP_ANIMATIONS_ONCE) == BST_CHECKED ? 1 : 0;
+						config_loop_animations_once = IsDlgButtonChecked(view_page,IDC_LOOP_ANIMATIONS_ONCE) == BST_CHECKED ? 1 : 0;
 						
 						// copy keys.
 						_viv_key_list_copy(_viv_key_list,(_viv_key_list_t *)GetWindowLongPtr(GetDlgItem(controls_page,IDC_COMMANDS_LIST),GWLP_USERDATA));
@@ -7627,7 +6936,7 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 						}
 
 						// save settings to disk						
-						_viv_save_settings(_viv_appdata);
+						config_save_settings(config_appdata);
 					}
 				
 					EndDialog(hwnd,0);
@@ -7893,8 +7202,9 @@ static void _viv_timer_start(void)
 	{
 		_viv_is_animation_timer = 1;
 		_viv_animation_timer_tick_start = GetTickCount();
+		_viv_timer_tick = 0;
 		
-		SetTimer(_viv_hwnd,_VIV_ID_ANIMATION_TIMER,USER_TIMER_MINIMUM,0);
+		SetTimer(_viv_hwnd,VIV_ID_ANIMATION_TIMER,USER_TIMER_MINIMUM,0);
 	}
 }
 
@@ -7919,12 +7229,12 @@ static void _viv_show_cursor(void)
 
 			if (_viv_is_hide_cursor_timer)
 			{
-				KillTimer(_viv_hwnd,_VIV_ID_HIDE_CURSOR_TIMER);
-				SetTimer(_viv_hwnd,_VIV_ID_HIDE_CURSOR_TIMER,_VIV_HIDE_CURSOR_DELAY,0);
+				KillTimer(_viv_hwnd,VIV_ID_HIDE_CURSOR_TIMER);
+				SetTimer(_viv_hwnd,VIV_ID_HIDE_CURSOR_TIMER,_VIV_HIDE_CURSOR_DELAY,0);
 			}
 			else
 			{
-				SetTimer(_viv_hwnd,_VIV_ID_HIDE_CURSOR_TIMER,_VIV_HIDE_CURSOR_DELAY,0);
+				SetTimer(_viv_hwnd,VIV_ID_HIDE_CURSOR_TIMER,_VIV_HIDE_CURSOR_DELAY,0);
 				
 				_viv_is_hide_cursor_timer = 1;
 			}
@@ -7948,23 +7258,24 @@ static void _viv_frame_step(void)
 	{
 		_viv_animation_play = 0;
 	}
-	else
+
+	if (_viv_frame_count > 1)			
 	{
-		if (_viv_frame_count > 1)			
+		if ((_viv_frame_loaded_count == _viv_frame_count) || (_viv_frame_position + 1 < _viv_frame_loaded_count))
 		{
-			if ((_viv_frame_loaded_count == _viv_frame_count) || (_viv_frame_position + 1 < _viv_frame_loaded_count))
+			_viv_frame_position++;
+			if (_viv_frame_position == _viv_frame_count)
 			{
-				_viv_frame_position++;
-				if (_viv_frame_position == _viv_frame_count)
-				{
-					_viv_frame_position = 0;
-				}
-			
-				_viv_status_update();
-				
-				InvalidateRect(_viv_hwnd,NULL,FALSE);
-				UpdateWindow(_viv_hwnd);
+				_viv_frame_position = 0;
 			}
+
+			_viv_animation_timer_tick_start = GetTickCount();
+			_viv_timer_tick = 0;
+		
+			_viv_status_update();
+			
+			InvalidateRect(_viv_hwnd,NULL,FALSE);
+			UpdateWindow(_viv_hwnd);
 		}
 	}
 }
@@ -7977,24 +7288,25 @@ static void _viv_frame_prev(void)
 	{
 		_viv_animation_play = 0;
 	}
-	else
+
+	if (_viv_frame_count > 1)
 	{
-		if (_viv_frame_count > 1)
+		if (_viv_frame_position > 0)
 		{
-			if (_viv_frame_position > 0)
-			{
-				_viv_frame_position--;
-			}
-			else
-			{
-				_viv_frame_position = _viv_frame_loaded_count - 1;
-			}
-		
-			_viv_status_update();
-			
-			InvalidateRect(_viv_hwnd,NULL,FALSE);
-			UpdateWindow(_viv_hwnd);
+			_viv_frame_position--;
 		}
+		else
+		{
+			_viv_frame_position = _viv_frame_loaded_count - 1;
+		}
+	
+		_viv_animation_timer_tick_start = GetTickCount();
+		_viv_timer_tick = 0;
+		
+		_viv_status_update();
+		
+		InvalidateRect(_viv_hwnd,NULL,FALSE);
+		UpdateWindow(_viv_hwnd);
 	}
 }
 
@@ -8300,7 +7612,7 @@ static void _viv_timer_stop(void)
 	{
 		_viv_is_animation_timer = 0;
 		
-		KillTimer(_viv_hwnd,_VIV_ID_ANIMATION_TIMER);
+		KillTimer(_viv_hwnd,VIV_ID_ANIMATION_TIMER);
 	}
 }
 
@@ -8338,13 +7650,13 @@ static INT_PTR CALLBACK _viv_custom_rate_proc(HWND hwnd,UINT msg,WPARAM wParam,L
 		{
 			os_center_dialog(hwnd);
 
-			SetDlgItemInt(hwnd,IDC_CUSTOM_RATE_EDIT,_viv_slideshow_custom_rate,FALSE);
+			SetDlgItemInt(hwnd,IDC_CUSTOM_RATE_EDIT,config_slideshow_custom_rate,FALSE);
 
 			os_ComboBox_AddString(hwnd,IDC_CUSTOM_RATE_TYPE_COMBO,(const utf8_t *)"milliseconds");
 			os_ComboBox_AddString(hwnd,IDC_CUSTOM_RATE_TYPE_COMBO,(const utf8_t *)"seconds");
 			os_ComboBox_AddString(hwnd,IDC_CUSTOM_RATE_TYPE_COMBO,(const utf8_t *)"minutes");
 			
-			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_CUSTOM_RATE_TYPE_COMBO),_viv_slideshow_custom_rate_type);
+			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_CUSTOM_RATE_TYPE_COMBO),config_slideshow_custom_rate_type);
 
 			return TRUE;
 		}
@@ -8354,8 +7666,8 @@ static INT_PTR CALLBACK _viv_custom_rate_proc(HWND hwnd,UINT msg,WPARAM wParam,L
 			switch(LOWORD(wParam))
 			{
 				case IDOK:
-					_viv_slideshow_custom_rate_type = ComboBox_GetCurSel(GetDlgItem(hwnd,IDC_CUSTOM_RATE_TYPE_COMBO));
-					_viv_slideshow_custom_rate = GetDlgItemInt(hwnd,IDC_CUSTOM_RATE_EDIT,NULL,FALSE);
+					config_slideshow_custom_rate_type = ComboBox_GetCurSel(GetDlgItem(hwnd,IDC_CUSTOM_RATE_TYPE_COMBO));
+					config_slideshow_custom_rate = GetDlgItemInt(hwnd,IDC_CUSTOM_RATE_EDIT,NULL,FALSE);
 					EndDialog(hwnd,1);
 					break;
 
@@ -8527,8 +7839,8 @@ static void _viv_update_frame(void)
 			}
 		}
 		
-		_viv_status_show(_viv_is_show_status);
-		_viv_controls_show(_viv_is_show_controls);
+		_viv_status_show(config_is_show_status);
+		_viv_controls_show(config_is_show_controls);
 
 		CopyRect(&newrect,&clientrect);
 		AdjustWindowRect(&newrect,newstyle,_viv_is_show_menu ? TRUE : FALSE);
@@ -8563,7 +7875,7 @@ static void _viv_update_ontop(void)
 	
 	is_top_most = 0;
 	
-	switch(_viv_ontop)
+	switch(config_ontop)
 	{
 		case 1:
 			is_top_most = 1;
@@ -8658,6 +7970,9 @@ static void _viv_frame_skip(int size)
 					{
 						_viv_frame_position = 0;
 					}
+
+					_viv_animation_timer_tick_start = GetTickCount();
+					_viv_timer_tick = 0;
 				}
 
 				size -= _viv_frame_delays[_viv_frame_position];
@@ -8673,6 +7988,9 @@ static void _viv_frame_skip(int size)
 				{
 					_viv_frame_position = _viv_frame_loaded_count - 1;
 				}
+				
+				_viv_animation_timer_tick_start = GetTickCount();
+				_viv_timer_tick = 0;
 				
 				size += _viv_frame_delays[_viv_frame_position];
 			}
@@ -8782,6 +8100,8 @@ static DWORD WINAPI _viv_load_image_proc(void *param)
 						
 						if (SUCCEEDED(hresult))
 						{
+							debug_printf("got stream in %f seconds\n",(double)(GetTickCount()-tickstart) * 0.001);
+							
 							// the stream owns this handle now.
 							global_handle = 0;
 						}
@@ -8809,7 +8129,7 @@ static DWORD WINAPI _viv_load_image_proc(void *param)
 
 	if (stream)
 	{
-		debug_printf("stream %p\n",stream);
+		debug_printf("stream %d\n",stream);
 		
 		if (!_viv_load_image_terminate)
 		{
@@ -8936,7 +8256,7 @@ static DWORD WINAPI _viv_load_image_proc(void *param)
 																	RECT rect;
 																	HBRUSH hbrush;
 																	
-																	hbrush = CreateSolidBrush(RGB(_viv_windowed_background_color_r,_viv_windowed_background_color_g,_viv_windowed_background_color_b));
+																	hbrush = CreateSolidBrush(RGB(config_windowed_background_color_r,config_windowed_background_color_g,config_windowed_background_color_b));
 																	
 																	rect.left = 0;
 																	rect.top = 0;
@@ -8991,6 +8311,8 @@ static DWORD WINAPI _viv_load_image_proc(void *param)
 														first_frame.frame.hbitmap = hbitmap;
 														
 														_viv_reply_add(_VIV_REPLY_LOAD_IMAGE_FIRST_FRAME,sizeof(_viv_reply_load_image_first_frame_t),&first_frame);
+														
+														first_frame.frame_delays = 0;
 													}
 													
 													ret = 1;
@@ -9026,6 +8348,11 @@ static DWORD WINAPI _viv_load_image_proc(void *param)
 	}
 
 	_viv_reply_add(ret ? _VIV_REPLY_LOAD_IMAGE_COMPLETE : _VIV_REPLY_LOAD_IMAGE_FAILED,0,0);
+	
+	if (first_frame.frame_delays)
+	{
+		mem_free(first_frame.frame_delays);
+	}
 					
 	CoUninitialize();
 	
@@ -9134,13 +8461,14 @@ static void _viv_status_show(int show)
 	{
 		if (!_viv_status_hwnd)
 		{
+			// WS_EX_COMPOSITED stops flickering issues
 			_viv_status_hwnd = os_CreateWindowEx(
-				0,
+				WS_EX_COMPOSITED,
 				STATUSCLASSNAMEA,
 				"",
 				WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_CHILD | SBARS_SIZEGRIP | WS_VISIBLE,
 				0,0,0,0,
-				_viv_hwnd,(HMENU)_VIV_ID_STATUS,os_hinstance,NULL);
+				_viv_hwnd,(HMENU)VIV_ID_STATUS,os_hinstance,NULL);
 		}
 	}
 	else
@@ -9177,7 +8505,7 @@ static void _viv_controls_show(int show)
 				"",
 				WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_CHILD | WS_VISIBLE,
 				0,0,0,0,
-				_viv_hwnd,(HMENU)_VIV_ID_TOOLBAR,os_hinstance,NULL);
+				_viv_hwnd,(HMENU)VIV_ID_TOOLBAR,os_hinstance,NULL);
 
 			_viv_toolbar_hwnd = os_CreateWindowEx(
 				0,
@@ -9185,7 +8513,7 @@ static void _viv_controls_show(int show)
 				"",
 				WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_CHILD | TBSTYLE_TRANSPARENT | TBSTYLE_LIST | TBSTYLE_FLAT | TBSTYLE_TOOLTIPS | CCS_NODIVIDER | CCS_NORESIZE | CCS_TOP,
 				0,0,0,0,
-				_viv_rebar_hwnd,(HMENU)_VIV_ID_TOOLBAR,os_hinstance,NULL);
+				_viv_rebar_hwnd,(HMENU)VIV_ID_TOOLBAR,os_hinstance,NULL);
 			
 			SendMessage(_viv_toolbar_hwnd,TB_SETEXTENDEDSTYLE,0,TBSTYLE_EX_MIXEDBUTTONS|TBSTYLE_EX_HIDECLIPPEDBUTTONS|TBSTYLE_EX_DOUBLEBUFFER);
 			SendMessage(_viv_toolbar_hwnd,TB_BUTTONSTRUCTSIZE,sizeof(TBBUTTON),0);
@@ -9208,14 +8536,14 @@ static void _viv_controls_show(int show)
 				buttoni = 0;
 	
 				buttons[buttoni].iBitmap = 0;
-				buttons[buttoni].idCommand = _VIV_ID_NAV_PREV;
+				buttons[buttoni].idCommand = VIV_ID_NAV_PREV;
 				buttons[buttoni].fsState = TBSTATE_ENABLED;
 				buttons[buttoni].fsStyle = TBSTYLE_BUTTON;
 				buttons[buttoni].iString = (INT_PTR)L"Previous Image";
 				buttoni++;
 				
 				buttons[buttoni].iBitmap = 3;
-				buttons[buttoni].idCommand = _VIV_ID_NAV_NEXT;
+				buttons[buttoni].idCommand = VIV_ID_NAV_NEXT;
 				buttons[buttoni].fsState = TBSTATE_ENABLED;
 				buttons[buttoni].fsStyle = TBSTYLE_BUTTON;
 				buttons[buttoni].iString = (INT_PTR)L"Next Image";
@@ -9229,14 +8557,14 @@ static void _viv_controls_show(int show)
 				buttoni++;
 				
 				buttons[buttoni].iBitmap = 1;
-				buttons[buttoni].idCommand = _VIV_ID_SLIDESHOW_PLAY_ONLY;
+				buttons[buttoni].idCommand = VIV_ID_SLIDESHOW_PLAY_ONLY;
 				buttons[buttoni].fsState = TBSTATE_ENABLED;
 				buttons[buttoni].fsStyle = TBSTYLE_BUTTON|TBSTYLE_CHECK|TBSTYLE_GROUP;
 				buttons[buttoni].iString = (INT_PTR)L"Play Slideshow";
 				buttoni++;
 	
 				buttons[buttoni].iBitmap = 2;
-				buttons[buttoni].idCommand = _VIV_ID_SLIDESHOW_PAUSE_ONLY;
+				buttons[buttoni].idCommand = VIV_ID_SLIDESHOW_PAUSE_ONLY;
 				buttons[buttoni].fsState = TBSTATE_ENABLED;
 				buttons[buttoni].fsStyle = TBSTYLE_BUTTON|TBSTYLE_CHECK|TBSTYLE_GROUP;
 				buttons[buttoni].iString = (INT_PTR)L"Pause Slideshow";
@@ -9250,14 +8578,14 @@ static void _viv_controls_show(int show)
 				buttoni++;
 					
 				buttons[buttoni].iBitmap = 4;
-				buttons[buttoni].idCommand = _VIV_ID_VIEW_BESTFIT;
+				buttons[buttoni].idCommand = VIV_ID_VIEW_BESTFIT;
 				buttons[buttoni].fsState = TBSTATE_ENABLED;
 				buttons[buttoni].fsStyle = TBSTYLE_BUTTON;
 				buttons[buttoni].iString = (INT_PTR)L"Best Fit";
 				buttoni++;				
 					
 				buttons[buttoni].iBitmap = 5;
-				buttons[buttoni].idCommand = _VIV_ID_VIEW_1TO1;
+				buttons[buttoni].idCommand = VIV_ID_VIEW_1TO1;
 				buttons[buttoni].fsState = TBSTATE_ENABLED;
 				buttons[buttoni].fsStyle = TBSTYLE_BUTTON;
 				buttons[buttoni].iString = (INT_PTR)L"Actual Size";
@@ -9366,7 +8694,7 @@ static void _viv_status_update(void)
 
 			string_copy_utf8(frame_buf,(const utf8_t *)"");
 			
-			if (_viv_frame_minus)
+			if (config_frame_minus)
 			{
 				frame_pos = _viv_frame_count - (_viv_frame_position);
 				string_cat_utf8(frame_buf,(const utf8_t *)"- ");
@@ -9526,7 +8854,7 @@ static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 
 			switch(((NMHDR *)lParam)->idFrom)
 			{
-				case _VIV_ID_TOOLBAR:
+				case VIV_ID_TOOLBAR:
 
 					if (_viv_toolbar_hwnd)
 					{
@@ -9635,13 +8963,13 @@ static void _viv_toolbar_update_buttons(void)
 		tbbinfo.dwMask = TBIF_STATE;
 		tbbinfo.fsState = _viv_is_slideshow ? (TBSTATE_ENABLED | TBSTATE_CHECKED) : (TBSTATE_ENABLED);
 		
-		SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONINFO,_VIV_ID_SLIDESHOW_PLAY_ONLY,(LPARAM)&tbbinfo);
+		SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONINFO,VIV_ID_SLIDESHOW_PLAY_ONLY,(LPARAM)&tbbinfo);
 		
 		tbbinfo.cbSize = sizeof(TBBUTTONINFO);
 		tbbinfo.dwMask = TBIF_STATE;
 		tbbinfo.fsState = _viv_is_slideshow ? (TBSTATE_ENABLED) : (TBSTATE_ENABLED | TBSTATE_CHECKED);
 		
-		SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONINFO,_VIV_ID_SLIDESHOW_PAUSE_ONLY,(LPARAM)&tbbinfo);
+		SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONINFO,VIV_ID_SLIDESHOW_PAUSE_ONLY,(LPARAM)&tbbinfo);
 		
 		_viv_get_render_size(&rw,&rh);
 		
@@ -9649,13 +8977,13 @@ static void _viv_toolbar_update_buttons(void)
 		tbbinfo.dwMask = TBIF_STATE;
 		tbbinfo.fsState = ((rw == _viv_image_wide) && (rh == _viv_image_high)) ? (0) : (TBSTATE_ENABLED);
 		
-		SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONINFO,_VIV_ID_VIEW_1TO1,(LPARAM)&tbbinfo);
+		SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONINFO,VIV_ID_VIEW_1TO1,(LPARAM)&tbbinfo);
 		
 		tbbinfo.cbSize = sizeof(TBBUTTONINFO);
 		tbbinfo.dwMask = TBIF_STATE;
 		tbbinfo.fsState = ((_viv_zoom_pos == 0) && (!_viv_1to1)) ? (0) : (TBSTATE_ENABLED);
 		
-		SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONINFO,_VIV_ID_VIEW_BESTFIT,(LPARAM)&tbbinfo);
+		SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONINFO,VIV_ID_VIEW_BESTFIT,(LPARAM)&tbbinfo);
 	}
 }
 
@@ -9682,7 +9010,7 @@ static void _viv_status_set_temp_text(wchar_t *text)
 {
 	if (_viv_status_temp_text)
 	{
-		KillTimer(_viv_hwnd,_VIV_ID_STATUS_TEMP_TEXT_TIMER);
+		KillTimer(_viv_hwnd,VIV_ID_STATUS_TEMP_TEXT_TIMER);
 		
 		mem_free(_viv_status_temp_text);
 		
@@ -9698,7 +9026,7 @@ static void _viv_status_set_temp_text(wchar_t *text)
 	
 	if (_viv_status_temp_text)
 	{
-		SetTimer(_viv_hwnd,_VIV_ID_STATUS_TEMP_TEXT_TIMER,3000,0);
+		SetTimer(_viv_hwnd,VIV_ID_STATUS_TEMP_TEXT_TIMER,3000,0);
 	}
 }
 
@@ -9739,7 +9067,7 @@ static void _viv_zoom_in(int out,int have_xy,int x,int y)
 
 	ClientToScreen(_viv_hwnd,&pt);
 	
-	SendMessage(_viv_hwnd,WM_MOUSEWHEEL,MAKEWPARAM(0,out ? -120 : 120),MAKELPARAM(pt.x,pt.y));
+	_viv_do_mousewheel_action(0,MAKEWPARAM(0,out ? -120 : 120),pt.x,pt.y);
 }
 
 static void _viv_status_update_slideshow_rate(void)
@@ -9748,26 +9076,26 @@ static void _viv_status_update_slideshow_rate(void)
 	const wchar_t *res;
 	int r;
 	
-	if ((_viv_slideshow_rate / 3600000) && ((_viv_slideshow_rate % 3600000) == 0))
+	if ((config_slideshow_rate / 3600000) && ((config_slideshow_rate % 3600000) == 0))
 	{
-		r = _viv_slideshow_rate / 3600000;
+		r = config_slideshow_rate / 3600000;
 		res = L"hours";
 	}
 	else
-	if ((_viv_slideshow_rate / 60000) && ((_viv_slideshow_rate % 60000) == 0))
+	if ((config_slideshow_rate / 60000) && ((config_slideshow_rate % 60000) == 0))
 	{
-		r = _viv_slideshow_rate / 60000;
+		r = config_slideshow_rate / 60000;
 		res = L"minutes";
 	}
 	else
-	if ((_viv_slideshow_rate / 1000) && ((_viv_slideshow_rate % 1000) == 0))
+	if ((config_slideshow_rate / 1000) && ((config_slideshow_rate % 1000) == 0))
 	{
-		r = _viv_slideshow_rate / 1000;
+		r = config_slideshow_rate / 1000;
 		res = L"seconds";
 	}
 	else
 	{
-		r = _viv_slideshow_rate;
+		r = config_slideshow_rate;
 		res = L"milliseconds";
 	}
 	
@@ -9791,7 +9119,7 @@ static void _viv_command_line_options(void)
 		"/minimal\t\tBorderless window.\n"
 		"/compact\t\tBordered window.\n"
 		"/x <x> /y <y> /width <width> /height <height>\n"
-		"\t\tSet the Window position.\n"
+		"\t\tSet the Window position and size.\n"
 		"/rate <rate>\tSet the slideshow rate in milliseconds.\n"
 		"/name\t\tSort by name.\n"
 		"/path\t\tSort by full path and filename.\n"
@@ -9801,6 +9129,7 @@ static void _viv_command_line_options(void)
 		"/ascending\tSort in ascending order.\n"
 		"/descending\tSort in descending order.\n"
 		"/everything <search> Open files from an Everything search.\n"
+		"/random <search>\tOpen random files from an Everything search.\n"
 		"/shuffle\t\tShuffle playlist.\n"
 		"/<bmp|gif|ico|jpeg|jpg|png|tif|tiff>\n"
 		"\t\tInstall association.\n"
@@ -10032,37 +9361,47 @@ static utf8_t *_viv_cat_command_menu_ini_name_path(utf8_t *buf,int menu_index)
 }
 
 // make sure this is english only.
-static void _viv_menu_name_to_ini_name(utf8_t *buf,int command_index)
+int viv_menu_name_to_ini_name(utf8_t *buf,int command_index)
 {
-	utf8_t *d;
-	const utf8_t *p;
-	
-	d = buf;
-	p = _viv_commands[command_index].name;
-	
-	d = _viv_cat_command_menu_ini_name_path(d,_viv_commands[command_index].menu_id);
-	
-	while(*p)
+	if (!(_viv_commands[command_index].flags & MF_POPUP))
 	{
-		int ch;
-		
-		ch = _viv_convert_menu_ini_name_ch(*p);
-		
-		if (ch)
+		if (!(_viv_commands[command_index].flags & MF_SEPARATOR))
 		{
-			*d++ = ch;
-		}
+			utf8_t *d;
+			const utf8_t *p;
+			
+			d = buf;
+			p = _viv_commands[command_index].name;
+			
+			d = _viv_cat_command_menu_ini_name_path(d,_viv_commands[command_index].menu_id);
+			
+			while(*p)
+			{
+				int ch;
+				
+				ch = _viv_convert_menu_ini_name_ch(*p);
+				
+				if (ch)
+				{
+					*d++ = ch;
+				}
 
-		p++;
+				p++;
+			}
+			
+			*d++ = '_';
+			*d++ = 'k';
+			*d++ = 'e';
+			*d++ = 'y';
+			*d++ = 's';
+			
+			*d = 0;
+			
+			return 1;
+		}
 	}
 	
-	*d++ = '_';
-	*d++ = 'k';
-	*d++ = 'e';
-	*d++ = 'y';
-	*d++ = 's';
-	
-	*d = 0;
+	return 0;
 }
 
 static void _viv_get_menu_display_name(wchar_t *buf,const utf8_t *menu_name)
@@ -10179,22 +9518,22 @@ static void _viv_get_key_text(wchar_t *wbuf,DWORD keyflags)
 	
 	*wbuf = 0;
 	
-	if (keyflags & _VIV_KEYFLAG_CTRL)
+	if (keyflags & CONFIG_KEYFLAG_CTRL)
 	{
 		_viv_cat_key_mod(wbuf,VK_CONTROL,"Ctrl");
 	}
 	
-	if (keyflags & _VIV_KEYFLAG_ALT)
+	if (keyflags & CONFIG_KEYFLAG_ALT)
 	{
 		_viv_cat_key_mod(wbuf,VK_MENU,"Alt");
 	}
 	
-	if (keyflags & _VIV_KEYFLAG_SHIFT)
+	if (keyflags & CONFIG_KEYFLAG_SHIFT)
 	{
 		_viv_cat_key_mod(wbuf,VK_SHIFT,"Shift");
 	}
 	
-	if (_viv_vk_to_text(keytext,keyflags & _VIV_KEYFLAG_VK_MASK))
+	if (_viv_vk_to_text(keytext,keyflags & CONFIG_KEYFLAG_VK_MASK))
 	{
 		string_cat(wbuf,keytext);
 	}
@@ -10256,9 +9595,9 @@ static HMENU _viv_create_menu(void)
 
 static void _viv_key_add(_viv_key_list_t *key_list,int command_index,DWORD keyflags)
 {	
-	_viv_key_t *key;
+	config_key_t *key;
 	
-	key = mem_alloc(sizeof(_viv_key_t));
+	key = mem_alloc(sizeof(config_key_t));
 	
 	key->key = keyflags;
 	
@@ -10275,15 +9614,15 @@ static void _viv_key_add(_viv_key_list_t *key_list,int command_index,DWORD keyfl
 	key_list->last[command_index] = key;
 }
 
-static void _viv_key_clear_all(_viv_key_list_t *key_list,int command_index)
+static void _viv_key_clear(_viv_key_list_t *key_list,int command_index)
 {	
-	_viv_key_t *key;
+	config_key_t *key;
 	
 	key = key_list->start[command_index];
 	
 	while(key)
 	{
-		_viv_key_t *next_key;
+		config_key_t *next_key;
 		
 		next_key = key->next;
 		
@@ -10300,11 +9639,11 @@ static void _viv_key_list_copy(_viv_key_list_t *dst,const _viv_key_list_t *src)
 {
 	int i;
 
-	_viv_key_list_clear(dst);
+	_viv_key_clear_all(dst);
 	
 	for(i=0;i<_VIV_COMMAND_COUNT;i++)
 	{
-		_viv_key_t *key;
+		config_key_t *key;
 
 		key = src->start[i];
 		
@@ -10317,14 +9656,14 @@ static void _viv_key_list_copy(_viv_key_list_t *dst,const _viv_key_list_t *src)
 	}
 }
 
-static void _viv_key_list_clear(_viv_key_list_t *list)
+static void _viv_key_clear_all(_viv_key_list_t *list)
 {
 	// free keys
 	int i;
 	
 	for(i=0;i<_VIV_COMMAND_COUNT;i++)
 	{
-		_viv_key_clear_all(list,i);
+		_viv_key_clear(list,i);
 	}
 }
 
@@ -10413,17 +9752,17 @@ static int _viv_get_current_key_mod_flags(void)
 	
 	if (GetKeyState(VK_CONTROL) < 0)
 	{
-		key_flags |= _VIV_KEYFLAG_CTRL;
+		key_flags |= CONFIG_KEYFLAG_CTRL;
 	}
 	
 	if (GetKeyState(VK_SHIFT) < 0)
 	{
-		key_flags |= _VIV_KEYFLAG_SHIFT;
+		key_flags |= CONFIG_KEYFLAG_SHIFT;
 	}
 	
 	if (GetKeyState(VK_MENU) < 0)
 	{
-		key_flags |= _VIV_KEYFLAG_ALT;
+		key_flags |= CONFIG_KEYFLAG_ALT;
 	}
 	
 	return key_flags;
@@ -10441,7 +9780,7 @@ static void _viv_options_edit_key_changed(HWND hwnd)
 	
 	for(command_index=0;command_index<_VIV_COMMAND_COUNT;command_index++)
 	{
-		_viv_key_t *key;
+		config_key_t *key;
 		
 		key = _viv_key_list->start[command_index];
 		
@@ -10488,7 +9827,7 @@ static void _viv_edit_key_set_key(HWND hwnd,DWORD key_flags)
 
 static void _viv_key_remove(_viv_key_list_t *keylist,int command_index,DWORD keyflags)
 {
-	_viv_key_t *key;
+	config_key_t *key;
 	
 	key = keylist->start[command_index];
 	
@@ -10497,7 +9836,7 @@ static void _viv_key_remove(_viv_key_list_t *keylist,int command_index,DWORD key
 	
 	while(key)
 	{
-		_viv_key_t *next_key;
+		config_key_t *next_key;
 		
 		next_key = key->next;
 		
@@ -10566,20 +9905,6 @@ static void _viv_close_existing_process(void)
 			break;
 		}
 	}
-}
-
-static int _viv_get_appdata_voidimageviewer_path(wchar_t *wbuf)
-{
-	wchar_t appdata_wbuf[STRING_SIZE];
-	
-	if (string_get_appdata_path(appdata_wbuf))
-	{
-		string_path_combine_utf8(wbuf,appdata_wbuf,(const utf8_t *)"voidImageViewer");
-
-		return 1;
-	}
-	
-	return 0;
 }
 
 static void _viv_uninstall_delete_file(const wchar_t *path,const utf8_t *filename)
@@ -10701,9 +10026,15 @@ static void _viv_install_copy_file(const wchar_t *install_path,const wchar_t *te
 
 static void _viv_shuffle_playlist(void)
 {
-	if (_viv_playlist_count > 1)
+	if (_viv_playlist_count)
 	{
-		srand(GetTickCount());
+		{
+			LARGE_INTEGER counter;
+			
+			QueryPerformanceCounter(&counter);
+			
+			srand(counter.LowPart);
+		}
 		
 		_viv_playlist_shuffle_allocated = _VIV_DEFAULT_SHUFFLE_ALLOCATED;
 		
@@ -11106,6 +10437,14 @@ static int _viv_send_everything_search(HWND hwnd,int add,int randomize,const wch
 		_viv_random_tot_results = 0xffffffff;
 
 		_viv_playlist_clearall();
+
+		{
+			LARGE_INTEGER counter;
+			
+			QueryPerformanceCounter(&counter);
+			
+			srand(counter.LowPart);
+		}
 									
 		_viv_home(0);
 		
@@ -11242,13 +10581,16 @@ static int _viv_playlist_shuffle_index_from_fd(const WIN32_FIND_DATA *fd)
 {
 	int index;
 
-	for(index=0;index < _viv_playlist_count;index++)
+	if (_viv_playlist_shuffle_indexes)
 	{
-		if (_viv_playlist_shuffle_indexes[index]->fd.dwReserved0 == fd->dwReserved0)
+		for(index=0;index < _viv_playlist_count;index++)
 		{
-			if (_viv_playlist_shuffle_indexes[index]->fd.dwReserved1 == fd->dwReserved1)
+			if (_viv_playlist_shuffle_indexes[index]->fd.dwReserved0 == fd->dwReserved0)
 			{
-				return index;
+				if (_viv_playlist_shuffle_indexes[index]->fd.dwReserved1 == fd->dwReserved1)
+				{
+					return index;
+				}
 			}
 		}
 	}
@@ -11280,7 +10622,7 @@ static _viv_playlist_t *_viv_playlist_from_fd(const WIN32_FIND_DATA *fd)
 static void _viv_do_initial_shuffle(void)
 {
 	// if we don't have a playlist, but we have a current image, add the current path to the playlist and shuffle it.
-	if (_viv_shuffle)
+	if (config_shuffle)
 	{
 		if ((!_viv_playlist_start) && (*_viv_current_fd->cFileName))
 		{
@@ -11513,8 +10855,6 @@ static void _viv_send_random_everything_search(void)
 		
 		q = mem_alloc(size);
 		
-		srand(GetTickCount());
-			
 		q->reply_hwnd = (DWORD)_viv_hwnd;
 		q->reply_copydata_message = _VIV_COPYDATA_RANDOM_EVERYTHING_SEARCH;
 		q->search_flags = 0;
@@ -11535,4 +10875,213 @@ static void _viv_send_random_everything_search(void)
 		
 		mem_free(q);
 	}
+}
+
+// x,y in screen coords
+static void _viv_do_mousewheel_action(int action,int delta,int x,int y)
+{
+	if (action == 0)
+	{
+		int cursor_x;
+		int cursor_y;
+		int rx;
+		int ry;
+		int rw;
+		int rh;
+		int old_rw;
+		int old_rh;
+		int old_cursor_px;
+		int old_cursor_py;
+		int wide;
+		int high;
+		RECT rect;
+		POINT pt;
+		__int64 new_cursor_x;
+		__int64 new_cursor_y;
+		
+		GetClientRect(_viv_hwnd,&rect);
+		wide = rect.right - rect.left;
+		high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_controls_high();
+		
+		pt.x = x;
+		pt.y = y;
+		
+		ScreenToClient(_viv_hwnd,&pt);
+
+		cursor_x = pt.x; 
+		cursor_y = pt.y;
+	
+		_viv_get_render_size(&rw,&rh);
+		
+/*
+		if (_viv_zoom_pos == 1)
+		{
+			if ((rw < _viv_image_wide) || (rw < _viv_image_wide))
+			{
+				rw = _viv_image_wide;
+				rh = _viv_image_high;
+			}
+		}
+		*/
+		rx = (wide / 2) - (rw / 2) - _viv_view_x;
+		ry = (high / 2) - (rh / 2) - _viv_view_y;
+		
+		old_cursor_px = (cursor_x - rx);
+		old_cursor_py = (cursor_y - ry);
+		old_rw = rw;
+		old_rh = rh;
+/*
+		if (old_cursor_px < 0)
+		{
+			old_cursor_px = 0;
+		}
+
+		if (old_cursor_px > 20 * rw)
+		{
+			old_cursor_px = 20 * rw;
+		}
+		
+		if (old_cursor_py < 0)
+		{
+			old_cursor_py = 0;
+		}
+
+		if (old_cursor_py > 20 * rh)
+		{
+			old_cursor_py = 20 * rh;
+		}
+		*/
+		if (_viv_1to1)
+		{
+			_viv_1to1 = 0;
+			
+			if (delta > 0)
+			{
+				for(_viv_zoom_pos = 0;_viv_zoom_pos<_VIV_ZOOM_MAX;_viv_zoom_pos++)
+				{
+					_viv_get_render_size(&rw,&rh);
+					
+					if (rw > old_rw)
+					{
+						break;
+					}
+				}
+			}
+			else
+			{
+				for(_viv_zoom_pos = _VIV_ZOOM_MAX-1;_viv_zoom_pos>=0;_viv_zoom_pos--)
+				{
+					_viv_get_render_size(&rw,&rh);
+					
+					if (rw < old_rw)
+					{
+						break;
+					}
+				}
+			}
+		}
+		else
+		{
+			if (delta > 0)
+			{
+				_viv_zoom_pos++;
+			}
+			else
+			{
+				_viv_zoom_pos--;
+			}
+		}
+		
+		if (_viv_zoom_pos < 0) _viv_zoom_pos = 0;
+		if (_viv_zoom_pos > _VIV_ZOOM_MAX-1) _viv_zoom_pos = _VIV_ZOOM_MAX-1;
+		
+		_viv_get_render_size(&rw,&rh);
+/*
+		if (_viv_zoom_pos == 1)
+		{
+			if ((rw < _viv_image_wide) || (rw < _viv_image_wide))
+			{
+				rw = _viv_image_wide;
+				rh = _viv_image_high;
+			}
+		}
+*/
+		// 
+		// new_cursor_x = 
+//			rx = (wide / 2) - (rw / 2)
+
+//debug_printf("%d %d\n",(wide / 2) - (rw / 2),(high / 2) - (rh / 2));
+//debug_printf("%d %d\n",old_cursor_px,(old_cursor_px * 100) / old_rw);
+					
+//debug_printf("old %d %d new %d %d\n",old_cursor_px,old_cursor_py,(wide / 2) - (rw / 2) - cursor_x + ((old_cursor_px * rw) / old_rw),(high / 2) - (rh / 2) - cursor_y + ((old_cursor_py * rh) / old_rh))		;
+//debug_printf("wide / 2 = %d, rw/2=%d, old_cursor_px * rw=%d\n",wide/2,rw/2,old_cursor_px * rw)		;
+
+		if (old_rw)
+		{
+			new_cursor_x = ((__int64)old_cursor_px * (__int64)rw) / (__int64)old_rw;
+		}
+		else
+		{
+			new_cursor_x = 0;
+		}
+		
+		if (old_rh)
+		{
+			new_cursor_y = ((__int64)old_cursor_py * (__int64)rh) / (__int64)old_rh;
+		}
+		else
+		{
+			new_cursor_y = 0;
+		}
+
+		_viv_view_set((wide / 2) - (rw / 2) - cursor_x + new_cursor_x,(high / 2) - (rh / 2) - cursor_y + new_cursor_y,1);
+		
+		InvalidateRect(_viv_hwnd,0,FALSE);
+	}
+	else
+	if (action == 1)
+	{
+		if (delta > 0)
+		{
+			_viv_next(1,1);
+		}
+		else
+		if (delta < 0)
+		{
+			_viv_next(0,1);
+		}
+	}
+	else
+	if (action == 2)
+	{
+		if (delta > 0)
+		{
+			_viv_next(0,1);
+		}
+		else
+		if (delta < 0)
+		{
+			_viv_next(1,1);
+		}
+	}
+}
+
+void viv_key_add(int command_index,DWORD keyflags)
+{	
+	_viv_key_add(_viv_key_list,command_index,keyflags);
+}
+
+void viv_key_clear_all(int command_index)
+{
+	_viv_key_clear(_viv_key_list,command_index);
+}
+
+config_key_t *viv_key_get_start(int command_index)
+{
+	return _viv_key_list->start[command_index];
+}
+
+int viv_get_command_count(void)
+{
+	return _VIV_COMMAND_COUNT;
 }
