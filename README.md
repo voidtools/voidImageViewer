@@ -1,5 +1,5 @@
 # void Image Viewer
-A lightweight image viewer for Windows with GIF/WEBP support.  
+A lightweight image viewer for Windows with animated GIF/WEBP support.  
 Opens and displays BMP, GIF, ICO, BMP, JPG, TIF and WEBP images as fast as possible.  
 Animate GIF/WEBP files as accurately as possible.  
 
