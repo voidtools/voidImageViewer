@@ -326,6 +326,31 @@ void string_vprintf(wchar_t *wbuf,char *format,va_list argptr)
 					
 					break;
 				}
+			
+				case 'p':
+				{
+					uintptr_t num;
+					wchar_t numbuf[64];
+					wchar_t *s;
+
+					num = va_arg(argptr,uintptr_t);
+
+					string_format_number(numbuf,num);
+					
+					s = numbuf;
+					
+					while(*s)
+					{
+						if (d < e)
+						{
+							*d++ = *s;
+						}
+						
+						s++;
+					}
+					
+					break;
+				}
 
 				case 'f':
 				{

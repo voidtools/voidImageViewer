@@ -61,6 +61,7 @@ extern int config_x;
 extern int config_y;
 extern int config_wide;
 extern int config_high;
+extern int config_maximized;
 extern int config_slideshow_rate;
 extern int config_allow_shrinking;
 extern int config_shrink_blit_mode;
@@ -76,12 +77,13 @@ extern int config_frame_minus;
 extern int config_multiple_instances;
 extern int config_is_show_status;
 extern int config_is_show_controls;
-extern int config_allow_sleep;
+extern int config_prevent_sleep;
 extern int config_loop_animations_once;
 extern int config_mouse_wheel_action;
 extern int config_ctrl_mouse_wheel_action;
 extern int config_left_click_action;
 extern int config_right_click_action;
+extern int config_xbutton_action;
 extern int config_windowed_background_color_r;
 extern int config_windowed_background_color_g;
 extern int config_windowed_background_color_b;
@@ -97,6 +99,9 @@ extern int config_browse_file_open_dialog;
 extern int config_ontop;
 extern int config_slideshow_custom_rate;
 extern int config_slideshow_custom_rate_type;
+extern int config_scroll_window;
+extern int config_preload_next;
+extern int config_icm;
 
 #ifdef __cplusplus
 }

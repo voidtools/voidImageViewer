@@ -78,6 +78,10 @@ static IShellItem *_os_get_shellitem(const ITEMIDLIST *pidl);
 
 HINSTANCE os_hinstance = 0;
 DWORD os_major_version = 0; // 4 = 9x/nt, 5 = xp,2k,server2k3, 6 = vista
+BOOL (WINAPI *os_CreateTimerQueueTimer)(PHANDLE phNewTimer,HANDLE TimerQueue,WAITORTIMERCALLBACK Callback,PVOID Parameter,DWORD DueTime,DWORD Period,ULONG Flags) = 0;
+BOOL (WINAPI *os_DeleteTimerQueueTimer)(HANDLE TimerQueue,HANDLE Timer,HANDLE CompletionEvent) = 0;
+BOOL (WINAPI *_os_SetDllDirectoryW)(LPCTSTR lpPathName) = 0;
+BOOL (WINAPI *_os_SetDefaultDllDirectories)(DWORD DirectoryFlags) = 0;
 HRESULT (WINAPI *os_SHOpenFolderAndSelectItems)(LPCITEMIDLIST pidlFolder,UINT cidl,LPCITEMIDLIST *apidl,DWORD dwFlags) = 0;
 int (WINAPI *os_GdiplusStartup)(OUT ULONG_PTR *token,const os_GdiplusStartupInput_t *input,void *output) = 0;
 VOID (WINAPI *os_GdiplusShutdown)(ULONG_PTR token) = 0;
@@ -113,6 +117,7 @@ static const IID _os_CLSID_FileOpenDialog = {0xdc1c5a9c,0xe88a,0x4dde,{0xa5,0xa1
 static HRESULT (WINAPI *_os_SHCreateItemFromIDList)(ITEMIDLIST *pidl,REFIID riid,void **ppv) = 0;
 
 static COLORREF *_os_custom_colors = 0;
+static HMODULE _os_kernel32_hmodule = 0;
 static HMODULE _os_shell32_hmodule = 0;
 static HMODULE _os_user32_hmodule = 0;
 static HMODULE _os_UxTheme_hmodule = 0;
@@ -140,48 +145,73 @@ void os_move_memory(void *d,const void *s,int size)
 // if you have a window that is fully visible, but half is displayed on one display, and half on another, this function will
 // push it onto just one of the displays. (the one with the most area shown)
 // make sure you call os_is_rect_completely_visible before calling this.
-void os_make_rect_completely_visible(RECT *prect)
+void os_make_rect_completely_visible(HWND hwnd,RECT *prect)
 {
 	int wide;
 	int high;
-	RECT monitor_rect;
+	RECT monitor_from_window_rect;
+	RECT monitor_from_rect_rect;
 
 	// we hit something so reposition the window on this monitor.
 	// note that MonitorFromRect can return null, even when MONITOR_DEFAULTTOPRIMARY is specified.
-	os_MonitorRectFromWindowRect(prect,&monitor_rect);
+	os_MonitorRectFromWindow(hwnd,&monitor_from_window_rect);
+	os_MonitorRectFromRect(prect,&monitor_from_rect_rect);
+	
+	OffsetRect(prect,-monitor_from_rect_rect.left,-monitor_from_rect_rect.top);
+	OffsetRect(prect,monitor_from_window_rect.left,monitor_from_window_rect.top);
 	
 	// get window width and height,
 	wide = prect->right - prect->left;
 	high = prect->bottom - prect->top;
 
 	// push the window 
-	if (prect->right > monitor_rect.right) 
+	if (prect->right > monitor_from_window_rect.right) 
 	{
-		prect->left = monitor_rect.right - wide;
-		prect->right = monitor_rect.right;
+		prect->left = monitor_from_window_rect.right - wide;
+		prect->right = monitor_from_window_rect.right;
 	}
 	
-	if (prect->bottom > monitor_rect.bottom) 
+	if (prect->bottom > monitor_from_window_rect.bottom) 
 	{
-		prect->top = monitor_rect.bottom - high;
-		prect->bottom = monitor_rect.bottom;
+		prect->top = monitor_from_window_rect.bottom - high;
+		prect->bottom = monitor_from_window_rect.bottom;
 	}
 
 	// push the window 
-	if (prect->left < monitor_rect.left) 
+	if (prect->left < monitor_from_window_rect.left) 
 	{
-		prect->left = monitor_rect.left;
-		prect->right = monitor_rect.left + wide;
+		prect->left = monitor_from_window_rect.left;
+		prect->right = monitor_from_window_rect.left + wide;
 	}
 	
-	if (prect->top < monitor_rect.top) 
+	if (prect->top < monitor_from_window_rect.top) 
 	{
-		prect->top = monitor_rect.top;
-		prect->bottom = monitor_rect.top + high;
+		prect->top = monitor_from_window_rect.top;
+		prect->bottom = monitor_from_window_rect.top + high;
 	}
 }
 
-void os_MonitorRectFromWindowRect(const RECT *window_rect,RECT *monitor_rect)
+void os_MonitorRectFromWindow(HWND hwnd,RECT *monitor_rect)
+{
+	HMONITOR hmonitor;
+	MONITORINFO mi;
+	
+	hmonitor = MonitorFromWindow(hwnd,MONITOR_DEFAULTTOPRIMARY);
+	if (hmonitor)
+	{
+		mi.cbSize = sizeof(MONITORINFO);
+		GetMonitorInfo(hmonitor,&mi);
+		
+		CopyRect(monitor_rect,&mi.rcWork);
+	}
+	else
+	{
+		// work area
+		SystemParametersInfo(SPI_GETWORKAREA,0,(PVOID)monitor_rect,0);
+	}
+}
+
+void os_MonitorRectFromRect(RECT *window_rect,RECT *monitor_rect)
 {
 	HMONITOR hmonitor;
 	MONITORINFO mi;
@@ -672,6 +702,29 @@ void os_init(void)
 
 		ReleaseDC(0,hdc);
 	}	
+	
+	_os_kernel32_hmodule = GetModuleHandleA("kernel32.dll");
+	if (_os_kernel32_hmodule)
+	{
+		os_CreateTimerQueueTimer  = (void *)GetProcAddress(_os_kernel32_hmodule,"CreateTimerQueueTimer");
+		os_DeleteTimerQueueTimer  = (void *)GetProcAddress(_os_kernel32_hmodule,"DeleteTimerQueueTimer");
+		_os_SetDllDirectoryW  = (void *)GetProcAddress(_os_kernel32_hmodule,"SetDllDirectoryW");
+		_os_SetDefaultDllDirectories  = (void *)GetProcAddress(_os_kernel32_hmodule,"SetDefaultDllDirectories");
+	}
+
+	// system dlls only.
+	if (_os_SetDllDirectoryW)
+	{
+		// prevent dlls from loading other dlls from the current dir.
+		_os_SetDllDirectoryW(L"");
+	}
+	
+	// system dlls only.
+	if (_os_SetDefaultDllDirectories)
+	{
+		// #define LOAD_LIBRARY_SEARCH_SYSTEM32 0x00000800
+		_os_SetDefaultDllDirectories(0x00000800);
+	}
 
 	_os_shell32_hmodule = LoadLibraryA("shell32.dll");
 	if (_os_shell32_hmodule)
@@ -765,6 +818,11 @@ void os_kill(void)
 		FreeLibrary(_os_gdiplus_hmodule);
 	}
 	
+	if (_os_kernel32_hmodule)
+	{
+		FreeLibrary(_os_kernel32_hmodule);
+	}
+		
 	if (_os_custom_colors)
 	{
 		mem_free(_os_custom_colors);
@@ -901,7 +959,7 @@ void os_center_dialog(HWND hwnd)
 	rect.right = rect.left + (dialog_rect.right - dialog_rect.left);
 	rect.bottom = rect.top + (dialog_rect.bottom - dialog_rect.top);
 		
-	os_make_rect_completely_visible(&rect);
+	os_make_rect_completely_visible(hwnd,&rect);
 	
 	SetWindowPos(hwnd,0,rect.left,rect.top,0,0,SWP_NOSIZE|SWP_NOZORDER);
 }
@@ -1106,4 +1164,31 @@ int os_browse_for_folder(HWND parent,wchar_t *filename)
 
 		return ret;
 	}
+}
+
+// returns tick
+QWORD os_get_tick_count(void)
+{
+	ULARGE_INTEGER tick;
+		
+	// why doesn't this take a ULARGE_INTEGER?
+	if (QueryPerformanceCounter((LARGE_INTEGER *)&tick))
+	{
+		return tick.QuadPart;
+	}
+	
+	return 0;
+}
+
+QWORD os_get_tick_freq(void)
+{
+	ULARGE_INTEGER freq;
+	
+	// why doesn't this take a ULARGE_INTEGER?
+	if (QueryPerformanceFrequency((LARGE_INTEGER *)&freq))
+	{
+		return freq.QuadPart;
+	}
+	
+	return 0;
 }

@@ -32,6 +32,7 @@ int config_x = 0;
 int config_y = 0;
 int config_wide = 640;
 int config_high = 480;
+int config_maximized = 0;
 int config_slideshow_rate = 5000;
 int config_allow_shrinking = 1; // prevent resizing an image below 100%
 int config_shrink_blit_mode = CONFIG_SHRINK_BLIT_MODE_HALFTONE; // shrink filter
@@ -47,12 +48,13 @@ int config_frame_minus = 0; // show frame counter or remaining frames in status 
 int config_multiple_instances = 0; // all multiple instances or use a single instance.
 int config_is_show_status = 1;
 int config_is_show_controls = 1;
-int config_allow_sleep = 1;
+int config_prevent_sleep = 1;
 int config_loop_animations_once = 1;
 int config_mouse_wheel_action = 0; // 0 = zoom, 1 = next/prev, 2=prev/next
 int config_ctrl_mouse_wheel_action = 0; // 0 = zoom, 1 = next/prev, 2=prev/next
 int config_left_click_action = 0; // 0 = scroll, 1 = play/pause slideshow, 2 = play/pause animation, 3=zoom in, 4=next, 5=1:1 scroll
 int config_right_click_action = 0; // 0 = context menu, 1=zoom out, 2=prev, 
+int config_xbutton_action = 2; // 1=zoom, 2=next
 int config_windowed_background_color_r = 255;
 int config_windowed_background_color_g = 255;
 int config_windowed_background_color_b = 255;
@@ -68,6 +70,9 @@ int config_browse_file_open_dialog = 1;
 int config_ontop = 0; // 0 = never, 1 = always, 2 = while slideshow or animating.
 int config_slideshow_custom_rate = 3; // custom slideshow rate (see type below)
 int config_slideshow_custom_rate_type = 1; // 0 = milliseconds, 1 = seconds, 2 = minutes
+int config_scroll_window = 1;
+int config_preload_next = 1;
+int config_icm = 1;
 
 static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 {
@@ -83,6 +88,7 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		ini_get_int(ini,(const utf8_t *)"y",&config_y);
 		ini_get_int(ini,(const utf8_t *)"wide",&config_wide);
 		ini_get_int(ini,(const utf8_t *)"high",&config_high);
+		ini_get_int(ini,(const utf8_t *)"maximized",&config_maximized);
 		ini_get_int(ini,(const utf8_t *)"slideshow_rate",&config_slideshow_rate);
 		ini_get_int(ini,(const utf8_t *)"allow_shrinking",&config_allow_shrinking);
 		ini_get_int(ini,(const utf8_t *)"shrink_blit_mode",&config_shrink_blit_mode);
@@ -102,6 +108,7 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		ini_get_int(ini,(const utf8_t *)"ctrl_mouse_wheel_action",&config_ctrl_mouse_wheel_action);
 		ini_get_int(ini,(const utf8_t *)"left_click_action",&config_left_click_action);
 		ini_get_int(ini,(const utf8_t *)"right_click_action",&config_right_click_action);
+		ini_get_int(ini,(const utf8_t *)"xbutton_action",&config_xbutton_action);
 		ini_get_int(ini,(const utf8_t *)"keep_centered",&config_keep_centered);
 		ini_get_int(ini,(const utf8_t *)"windowed_background_color_r",&config_windowed_background_color_r);
 		ini_get_int(ini,(const utf8_t *)"windowed_background_color_g",&config_windowed_background_color_g);
@@ -114,12 +121,15 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		ini_get_int(ini,(const utf8_t *)"medium_jump",&config_medium_jump);
 		ini_get_int(ini,(const utf8_t *)"long_jump",&config_long_jump);
 		ini_get_int(ini,(const utf8_t *)"loop_animations_once",&config_loop_animations_once);
-		ini_get_int(ini,(const utf8_t *)"allow_sleep",&config_allow_sleep);
+		ini_get_int(ini,(const utf8_t *)"prevent_sleep",&config_prevent_sleep);
 		ini_get_int(ini,(const utf8_t *)"shuffle",&config_shuffle);
 		ini_get_int(ini,(const utf8_t *)"browse_file_open_dialog",&config_browse_file_open_dialog);
 		ini_get_int(ini,(const utf8_t *)"ontop",&config_ontop);
 		ini_get_int(ini,(const utf8_t *)"slideshow_custom_rate",&config_slideshow_custom_rate);
 		ini_get_int(ini,(const utf8_t *)"slideshow_custom_rate_type",&config_slideshow_custom_rate_type);
+		ini_get_int(ini,(const utf8_t *)"scroll_window",&config_scroll_window);
+		ini_get_int(ini,(const utf8_t *)"preload_next",&config_preload_next);
+		ini_get_int(ini,(const utf8_t *)"icm",&config_icm);
 
 		if (is_root)
 		{
@@ -248,6 +258,7 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"y",config_y);
 			_config_write_int(h,"wide",config_wide);
 			_config_write_int(h,"high",config_high);
+			_config_write_int(h,"maximized",config_maximized);
 			_config_write_int(h,"slideshow_rate",config_slideshow_rate);
 			_config_write_int(h,"allow_shrinking",config_allow_shrinking);
 			_config_write_int(h,"shrink_blit_mode",config_shrink_blit_mode);
@@ -267,6 +278,7 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"ctrl_mouse_wheel_action",config_ctrl_mouse_wheel_action);
 			_config_write_int(h,"left_click_action",config_left_click_action);
 			_config_write_int(h,"right_click_action",config_right_click_action);
+			_config_write_int(h,"xbutton_action",config_xbutton_action);
 			_config_write_int(h,"keep_centered",config_keep_centered);
 			_config_write_int(h,"windowed_background_color_r",config_windowed_background_color_r);
 			_config_write_int(h,"windowed_background_color_g",config_windowed_background_color_g);
@@ -279,12 +291,15 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"medium_jump",config_medium_jump);
 			_config_write_int(h,"long_jump",config_long_jump);
 			_config_write_int(h,"loop_animations_once",config_loop_animations_once);
-			_config_write_int(h,"allow_sleep",config_allow_sleep);
+			_config_write_int(h,"prevent_sleep",config_prevent_sleep);
 			_config_write_int(h,"shuffle",config_shuffle);
 			_config_write_int(h,"browse_file_open_dialog",config_browse_file_open_dialog);
 			_config_write_int(h,"ontop",config_ontop);
 			_config_write_int(h,"slideshow_custom_rate",config_slideshow_custom_rate);
 			_config_write_int(h,"slideshow_custom_rate_type",config_slideshow_custom_rate_type);
+			_config_write_int(h,"scroll_window",config_scroll_window);
+			_config_write_int(h,"preload_next",config_preload_next);
+			_config_write_int(h,"icm",config_icm);
 		
 			// save keys
 			{

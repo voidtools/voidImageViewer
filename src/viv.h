@@ -44,6 +44,7 @@ extern "C" {
 #define CINTERFACE // c interface only
 
 typedef unsigned char utf8_t;
+typedef unsigned __int64 QWORD;
 
 #include <windows.h>
 #include <windowsx.h>
@@ -205,18 +206,23 @@ enum
 	VIV_ID_FILE_ADD_EVERYTHING_SEARCH,
 	VIV_ID_EDIT_ROTATE_90,
 	VIV_ID_EDIT_ROTATE_270,
+	VIV_ID_FILE_DELETE_RECYCLE,
+	VIV_ID_FILE_DELETE_PERMANENTLY,
+
+	VIV_ID_EDIT_COPY_FILENAME,
+	VIV_ID_EDIT_COPY_IMAGE,
 };
 
 #include "version.h"
 #include "debug.h"
 #include "mem.h"
 #include "os.h"
-#include "crt.h"
 #include "wchar.h"
 #include "string.h"
 #include "utf8.h"
 #include "ini.h"
 #include "config.h"
+#include "webp.h"
 
 #include "everything_ipc.h"
 

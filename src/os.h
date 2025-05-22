@@ -44,8 +44,9 @@ void os_zero_memory(void *data,int size);
 void os_copy_memory(void *d,const void *s,int size);
 void os_move_memory(void *d,const void *s,int size);
 void os_qsort(void **base,uintptr_t count,int (*compare)(const void *a,const void *b));
-void os_make_rect_completely_visible(RECT *prect);
-void os_MonitorRectFromWindowRect(const RECT *window_rect,RECT *monitor_rect);
+void os_make_rect_completely_visible(HWND hwnd,RECT *prect);
+void os_MonitorRectFromWindow(HWND hwnd,RECT *monitor_rect);
+void os_MonitorRectFromRect(RECT *window_rect,RECT *monitor_rect);
 int os_ComboBox_AddString(HWND hwnd,int id,const utf8_t *s);
 void os_SetDlgItemText(HWND hwnd,int id,const utf8_t *s);
 HWND os_CreateWindowEx(DWORD dwExStyle,const utf8_t *lpClassName,const utf8_t *lpWindowName,DWORD dwStyle,int X,int Y,int nWidth,int nHeight,HWND hWndParent,HMENU hMenu,HINSTANCE hInstance,LPVOID lpParam);
@@ -62,6 +63,8 @@ void os_create_shell_link(const wchar_t *exe_filename_wbuf,const wchar_t *lnk_wb
 void os_center_dialog(HWND hwnd);
 int os_shell_execute(HWND hwnd,const wchar_t *filename,int wait,const char *verb,const wchar_t *params);
 int os_browse_for_folder(HWND parent,wchar_t *filename);
+QWORD os_get_tick_count(void);
+QWORD os_get_tick_freq(void);
 
 extern HINSTANCE os_hinstance;
 extern DWORD os_major_version;
