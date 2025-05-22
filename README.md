@@ -1,6 +1,6 @@
 # void Image Viewer
 A lightweight image viewer for Windows with GIF support.  
-Opens and displays BMP, GIF, ICO, BMP, JPG and TIF images as fast as possible.  
+Opens and displays BMP, GIF, ICO, BMP, JPG, TIF and WEBP images as fast as possible.  
 Animate GIF files as accurately as possible.  
 
 ![Void Image Viewer Image View](https://www.voidtools.com/voidImageViewer.Image.View10.gif)
