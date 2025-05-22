@@ -82,6 +82,8 @@
 #define IDC_JUMPTO_EDIT                 1044
 #define IDC_EDIT1                       1045
 #define IDC_EVERYTHING_EDIT             1046
+#define IDC_WEBP                        1047
+#define IDC_PRELOAD_NEXT_IMAGE          1048
 
 // Next default values for new objects
 // 
@@ -90,7 +92,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        130
 #define _APS_NEXT_COMMAND_VALUE         40048
-#define _APS_NEXT_CONTROL_VALUE         1047
+#define _APS_NEXT_CONTROL_VALUE         1049
 #define _APS_NEXT_SYMED_VALUE           109
 #endif
 #endif
