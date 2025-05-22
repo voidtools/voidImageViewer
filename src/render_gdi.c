@@ -18,39 +18,9 @@
 //
 // GDI renderer
 
-#if 0
-
 #include "viv.h"
 
-void render_software_blit(HDC dst_hdc,int dst_x,int dst_y,int dst_wide,int dst_high,DWORD *src_pixels,int src_pitch,int src_x,int src_y,int src_wide,int src_high)
+void render_gdi_blit(HDC dst_hdc,int dst_x,int dst_y,int dst_wide,int dst_high,DWORD *src_pixels,int src_pitch,int src_x,int src_y,int src_wide,int src_high)
 {
-	if (dst_wide * dst_high)
-	{
-		DWORD *dst_pixels;
-		BITMAPINFOHEADER bi;
-		int x;
-		int y;
-		
-		dst_pixels = mem_alloc(dst_wide * dst_high);
-		
-		os_zero_memory(&bi,sizeof(BITMAPINFOHEADER));
-		bi.biSize = sizeof(BITMAPINFOHEADER);
-		bi.biWidth = dst_wide;
-		bi.biHeight = -dst_high;
-		bi.biPlanes = 1;
-		bi.biBitCount = 32;
-		bi.biCompression = BI_RGB;
-		
-		for(y=0;y<dst_high;y++)
-		{
-			for(x=0;x<dst_wide;x++)
-			{
-				dst_pixels[x + y * dst_wide] = 0;
-			}			
-		}
-		
-		StretchDIBits(dst_hdc,dst_x,dst_y,dst_wide,dst_high,0,0,dst_wide,dst_high,dst_pixels,(BITMAPINFO *)&bi,DIB_RGB_COLORS,SRCCOPY);
-	}
+//	StretchDib(dst_hdc,dst_x,dst_y,dst_wide,dst_high,0,0,dst_wide,dst_high,dst_pixels,(BITMAPINFO *)&bi,DIB_RGB_COLORS,SRCCOPY);
 }
-
-#endif 

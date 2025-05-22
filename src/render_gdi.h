@@ -22,7 +22,7 @@
 extern "C" {
 #endif
 
-void render_software_blit(HDC dest_hdc,int dest_x,int dest_y,int dest_wide,int dest_high,HBITMAP src_hbitmap,int src_x,int src_y,int src_wide,int src_high);
+void render_gdi_blit(HDC dest_hdc,int dest_x,int dest_y,int dest_wide,int dest_high,HBITMAP src_hbitmap,int src_x,int src_y,int src_wide,int src_high);
 
 #ifdef __cplusplus
 }

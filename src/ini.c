@@ -358,7 +358,7 @@ next_line:
 			
 			// calculate new count
 			// count can not be zero.
-			count = (int)(kv_d - indexes);
+			count = (uintptr_t)(kv_d - indexes);
 		}
 		
 		// init ini

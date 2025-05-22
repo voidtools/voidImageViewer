@@ -15,13 +15,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-
-#if 0
+//
+// software renderer
 
 #include "viv.h"
 
 void render_software_blit(HDC dst_hdc,int dst_x,int dst_y,int dst_wide,int dst_high,DWORD *src_pixels,int src_pitch,int src_x,int src_y,int src_wide,int src_high)
-{
+{/*
 	if (dst_wide * dst_high)
 	{
 		DWORD *dst_pixels;
@@ -48,7 +48,8 @@ void render_software_blit(HDC dst_hdc,int dst_x,int dst_y,int dst_wide,int dst_h
 		}
 		
 		StretchDIBits(dst_hdc,dst_x,dst_y,dst_wide,dst_high,0,0,dst_wide,dst_high,dst_pixels,(BITMAPINFO *)&bi,DIB_RGB_COLORS,SRCCOPY);
-	}
+		
+		mem_free(dst_pixels);
+	}*/
 }
 
-#endif 

@@ -18,6 +18,7 @@
 // VoidImageViewer
 
 // TODO:
+// use sort order from Windows Explorer folder.
 // fix going fullscreen and using the window zoom, if zoomed in and we go fullscreen the zoom is too much (try a small image to see)
 // Copy the zoomed part of the image to another buffer and stretch that to avoid gdi driver issues when zooming in really close with large images.
 // - get image width/length via IPC
@@ -976,14 +977,15 @@ const char *_viv_association_descriptions[] =
 
 const char *_viv_association_icon_locations[] = 
 {
-	0,
-	0,
+	NULL,
+	NULL,
 	"%1",
-	0,
-	0,
-	0,
-	0,
-	0,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
 };
 
 const WORD _viv_association_dlg_item_id[] = 
@@ -3748,7 +3750,6 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 
 static int _viv_process_install_command_line_options(wchar_t *cl)
 {
-	int ret;
 	wchar_t *p;
 	wchar_t buf[STRING_SIZE];
 	DWORD install_flags;
@@ -3760,13 +3761,16 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 	wchar_t uninstall_path[STRING_SIZE];
 	int startmenu;
 	wchar_t *cl_start;
+	int is_admin_install;
+	int is_standard_user_install;
 	
 	startmenu = 0;
 	install_flags = 0;
 	uninstall_flags = 0;
 	appdata = 0;
 	is_runas = 0;
-	ret = 0;
+	is_admin_install = 0;
+	is_standard_user_install = 0;
 	install_path[0] = 0;
 	install_options[0] = 0;
 	uninstall_path[0] = 0;
@@ -3806,7 +3810,7 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 
 				uninstall_path[0] = 0;
 
-				ret = 1;
+				is_admin_install = 1;
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"install-options") == 0)
@@ -3814,7 +3818,7 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 				p = string_get_word(p,install_options);
 				p = string_skip_ws(p);				
 
-				ret = 1;
+				is_admin_install = 1;
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"uninstall") == 0)
@@ -3836,31 +3840,32 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 
 				install_path[0] = 0;
 				
-				ret = 1;
+				is_admin_install = 1;
+				is_standard_user_install = 1;
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"appdata") == 0)
 			{
 				appdata = 1;
-				ret = 1;
+				is_admin_install = 1;
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"noappdata") == 0)
 			{
 				appdata = -1;
-				ret = 1;
+				is_admin_install = 1;
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"startmenu") == 0)
 			{
 				startmenu = 1;
-				ret = 1;
+				is_admin_install = 1;
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"nostartmenu") == 0)
 			{
 				startmenu = -1;
-				ret = 1;
+				is_admin_install = 1;
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"isrunas") == 0)
@@ -3893,15 +3898,31 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 							install_flags |= 1 << exti;
 						}
 						
-						ret = 1;
+						is_standard_user_install = 1;
 						break;
 					}
 				}
 			}
 		}
 	}
+	
+	// debug_printf("isrunas %d install_flags %u uninstall_flags %u\n",is_runas,install_flags,uninstall_flags);
 
-	if (ret)
+	// do associationas as standard user
+	if (!is_runas)
+	{
+		if (install_flags)
+		{
+			_viv_install_association(install_flags);
+		}
+	
+		if (uninstall_flags)
+		{
+			_viv_uninstall_association(uninstall_flags);
+		}
+	}
+		
+	if (is_admin_install)
 	{
 		if (!os_is_admin())
 		{
@@ -3924,16 +3945,6 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 		}
 	}
 	
-	if (install_flags)
-	{
-		_viv_install_association(install_flags);
-	}
-	
-	if (uninstall_flags)
-	{
-		_viv_uninstall_association(uninstall_flags);
-	}
-		
 	if (appdata > 0)
 	{	
 		config_appdata = 1;
@@ -4010,7 +4021,12 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 		RemoveDirectory(uninstall_path);
 	}
 	
-	return ret;
+	if ((is_admin_install) || (is_standard_user_install))
+	{
+		return 1;
+	}
+	
+	return 0;
 }
 
 static void _viv_process_command_line(wchar_t *cl)
@@ -6769,15 +6785,6 @@ static INT_PTR CALLBACK _viv_options_general_proc(HWND hwnd,UINT msg,WPARAM wPar
 			{
 				case IDC_STARTMENU:
 				case IDC_APPDATA:
-				case IDC_BMP:
-				case IDC_GIF:
-				case IDC_ICO:
-				case IDC_JPEG:
-				case IDC_JPG:
-				case IDC_PNG:
-				case IDC_TIF:
-				case IDC_TIFF:
-				case IDC_WEBP:
 					_viv_options_update_sheild(GetParent(hwnd));
 					break;
 					
@@ -6798,8 +6805,6 @@ static INT_PTR CALLBACK _viv_options_general_proc(HWND hwnd,UINT msg,WPARAM wPar
 					CheckDlgButton(hwnd,IDC_TIFF,check);
 					CheckDlgButton(hwnd,IDC_WEBP,check);
 					
-					_viv_options_update_sheild(GetParent(hwnd));
-
 					break;
 				}
 			}
@@ -7230,14 +7235,14 @@ static void _viv_options_treeview_changed(HWND hwnd)
 
 static void _viv_options_update_sheild(HWND hwnd)
 {
-	int exti;
+//	int exti;
 	int need_admin;
 	HWND general_page;
 	
 	general_page = GetDlgItem(hwnd,VIV_ID_OPTIONS_GENERAL);
 	
 	need_admin = 0;
-	
+	/*
 	for(exti=0;exti<_VIV_ASSOCIATION_COUNT;exti++)
 	{
 		if (IsDlgButtonChecked(general_page,_viv_association_dlg_item_id[exti]) == BST_CHECKED) 
@@ -7255,7 +7260,7 @@ static void _viv_options_update_sheild(HWND hwnd)
 			}
 		}
 	}
-
+*/
 	if ((!!config_appdata) != (IsDlgButtonChecked(general_page,IDC_APPDATA) == BST_CHECKED)) 
 	{
 		need_admin = 1;
@@ -7568,6 +7573,7 @@ static void _viv_install_association_by_extension(const char *association,const 
 	wchar_t key[STRING_SIZE];
 	wchar_t default_icon[STRING_SIZE];
 	wchar_t dot_association[STRING_SIZE];
+	LONG reg_ret;
 	
 	string_copy_utf8(dot_association,(const utf8_t *)".");
 	string_cat_utf8(dot_association,association);
@@ -7578,14 +7584,11 @@ static void _viv_install_association_by_extension(const char *association,const 
 	string_copy_utf8(class_name,"voidImageViewer");
 	string_cat(class_name,dot_association);
 
-	string_copy_utf8(default_icon,"voidImageViewer");
+	string_copy_utf8(default_icon,"SOFTWARE\\Classes\\voidImageViewer");
 	string_cat(default_icon,dot_association);
 	string_cat_utf8(default_icon,"\\DefaultIcon");
 
-	string_copy(key,class_name);
-	string_cat_utf8(key,"\\shell\\open\\command");
-	
-	if (RegCreateKeyExW(HKEY_CLASSES_ROOT,default_icon,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
+	if (RegCreateKeyExW(HKEY_CURRENT_USER,default_icon,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
 	{
 		if (icon_location)
 		{
@@ -7611,7 +7614,10 @@ static void _viv_install_association_by_extension(const char *association,const 
 		RegCloseKey(hkey);
 	}	
 		
-	if (RegCreateKeyExW(HKEY_CLASSES_ROOT,class_name,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
+	string_copy_utf8(key,"SOFTWARE\\Classes\\");
+	string_cat(key,class_name);
+	
+	if (RegCreateKeyExW(HKEY_CURRENT_USER,class_name,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
 	{
 		wchar_t description_wbuf[STRING_SIZE];
 		
@@ -7622,7 +7628,11 @@ static void _viv_install_association_by_extension(const char *association,const 
 		RegCloseKey(hkey);
 	}		
 	
-	if (RegCreateKeyExW(HKEY_CLASSES_ROOT,key,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
+	string_copy_utf8(key,"SOFTWARE\\Classes\\");
+	string_cat(key,class_name);
+	string_cat_utf8(key,"\\shell\\open\\command");
+	
+	if (RegCreateKeyExW(HKEY_CURRENT_USER,key,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
 	{
 		wchar_t filename[STRING_SIZE];
 		wchar_t command[STRING_SIZE];
@@ -7638,7 +7648,11 @@ static void _viv_install_association_by_extension(const char *association,const 
 		RegCloseKey(hkey);
 	}
 
-	if (RegCreateKeyExW(HKEY_CLASSES_ROOT,dot_association,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
+	string_copy_utf8(key,"SOFTWARE\\Classes\\");
+	string_cat(key,dot_association);
+	
+	reg_ret = RegCreateKeyExW(HKEY_CURRENT_USER,key,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0);
+	if (reg_ret == ERROR_SUCCESS)
 	{
 		wchar_t wbuf[STRING_SIZE];
 		
@@ -7656,21 +7670,24 @@ static void _viv_install_association_by_extension(const char *association,const 
 		
 		RegCloseKey(hkey);
 	}
+	else
+	{
+		debug_printf("RegCreateKeyExW failed %u\n",reg_ret);
+	}
 }
 
 static void _viv_uninstall_association_by_extension(const char *association)
 {
+	long reg_ret;
 	HKEY hkey;
-	wchar_t class_name[STRING_SIZE];
-	wchar_t dot_association[STRING_SIZE];
+	wchar_t key[STRING_SIZE];
 	
-	string_copy_utf8(dot_association,(const utf8_t *)".");
-	string_cat_utf8(dot_association,association);
+	string_copy_utf8(key,(const utf8_t *)"SOFTWARE\\Classes\\.");
+	string_cat_utf8(key,association);
 	
-	string_copy_utf8(class_name,(const utf8_t *)"voidImageViewer");
-	string_cat(class_name,dot_association);
+	// debug_printf("query %S\n",key);
 	
-	if (RegCreateKeyExW(HKEY_CLASSES_ROOT,dot_association,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
+	if (RegCreateKeyExW(HKEY_CURRENT_USER,key,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
 	{
 		wchar_t wbuf[STRING_SIZE];
 		
@@ -7678,13 +7695,26 @@ static void _viv_uninstall_association_by_extension(const char *association)
 		{
 			_viv_set_registry_string(hkey,0,wbuf);
 
-			RegDeleteValueA(hkey,"voidImageViewer.Backup");
+			// debug_printf("Delete voidImageViewer.Backup\n");
+
+			reg_ret = RegDeleteValueA(hkey,"voidImageViewer.Backup");
+			if (reg_ret == ERROR_SUCCESS)
+			{
+				// debug_printf("Delete voidImageViewer.Backup OK\n");
+			}
+			else
+			{
+				debug_printf("RegDeleteValueA failed %u\n",reg_ret);
+			}
 		}
 
 		RegCloseKey(hkey);
 	}
 	
-	RegDeleteKey(HKEY_CLASSES_ROOT,class_name);
+	string_copy_utf8(key,(const utf8_t *)"SOFTWARE\\Classes\\voidImageViewer.");
+	string_cat_utf8(key,association);
+	
+	RegDeleteKey(HKEY_CURRENT_USER,key);
 }
 
 static int _viv_is_association(const char *association)
@@ -7693,25 +7723,26 @@ static int _viv_is_association(const char *association)
 	HKEY hkey;
 	wchar_t class_name[STRING_SIZE];
 	wchar_t key[STRING_SIZE];
-	wchar_t dot_association[STRING_SIZE];
 	
-	string_copy_utf8(dot_association,(const utf8_t *)".");
-	string_cat_utf8(dot_association,association);
-
-	string_copy_utf8(class_name,(const utf8_t *)"voidImageViewer");
-	string_cat(class_name,dot_association);
-	
-	string_copy(key,class_name);
-	string_cat_utf8(key,(const utf8_t *)"\\shell\\open\\command");
+	string_copy_utf8(class_name,(const utf8_t *)"voidImageViewer.");
+	string_cat_utf8(class_name,association);
 	
 	ret = 0;
 
-	if (RegOpenKeyExW(HKEY_CLASSES_ROOT,dot_association,0,KEY_QUERY_VALUE,&hkey) == ERROR_SUCCESS)
+	string_copy_utf8(key,"SOFTWARE\\Classes\\.");
+	string_cat_utf8(key,association);
+	
+//debug_printf("key %S\n",key);
+	
+	if (RegOpenKeyExW(HKEY_CURRENT_USER,key,0,KEY_QUERY_VALUE,&hkey) == ERROR_SUCCESS)
 	{
 		wchar_t wbuf[STRING_SIZE];
 
+//debug_printf("key OK\n",key);
+
 		if (_viv_get_registry_string(hkey,0,wbuf,STRING_SIZE))
 		{
+//debug_printf("value cmp %S %S\n",wbuf,class_name);
 			if (string_compare(wbuf,class_name) == 0)
 			{
 				ret++;
@@ -7721,7 +7752,13 @@ static int _viv_is_association(const char *association)
 		RegCloseKey(hkey);
 	}
 
-	if (RegOpenKeyExW(HKEY_CLASSES_ROOT,key,0,KEY_QUERY_VALUE,&hkey) == ERROR_SUCCESS)
+	string_copy_utf8(key,"SOFTWARE\\Classes\\");
+	string_cat(key,class_name);
+	string_cat_utf8(key,(const utf8_t *)"\\shell\\open\\command");
+	
+//debug_printf("key %S\n",key);
+	
+	if (RegOpenKeyExW(HKEY_CURRENT_USER,key,0,KEY_QUERY_VALUE,&hkey) == ERROR_SUCCESS)
 	{
 		wchar_t wbuf[STRING_SIZE];
 
@@ -7730,11 +7767,15 @@ static int _viv_is_association(const char *association)
 			wchar_t filename[STRING_SIZE];
 			wchar_t command[STRING_SIZE];
 
+//debug_printf("key OK\n",key);
+
 			GetModuleFileName(0,filename,STRING_SIZE);
 			
 			string_copy_utf8(command,(const utf8_t *)"\"");
 			string_cat(command,filename);
 			string_cat_utf8(command,(const utf8_t *)"\" \"%1\"");
+
+//debug_printf("value cmp %S %S\n",wbuf,command);
 			
 			if (string_compare(wbuf,command) == 0)
 			{
@@ -7782,6 +7823,7 @@ static int _viv_set_registry_string(HKEY hkey,const utf8_t *value,const wchar_t 
 {
 	wchar_t value_wbuf[STRING_SIZE];
 	wchar_t *value_wp;
+	LONG reg_ret;
 
 	if (value)
 	{
@@ -7793,9 +7835,14 @@ static int _viv_set_registry_string(HKEY hkey,const utf8_t *value,const wchar_t 
 		value_wp = 0;
 	}	
 
-	if (RegSetValueExW(hkey,value_wp,0,REG_SZ,(BYTE *)wbuf,(string_length(wbuf) + 1) * sizeof(wchar_t)) == ERROR_SUCCESS)
+	reg_ret = RegSetValueExW(hkey,value_wp,0,REG_SZ,(BYTE *)wbuf,(string_length(wbuf) + 1) * sizeof(wchar_t));
+	if (reg_ret == ERROR_SUCCESS)
 	{
 		return 1;
+	}
+	else
+	{
+		debug_printf("failed to set reg value %u %s %S",reg_ret,value,wbuf);
 	}
 	
 	return 0;
@@ -10137,7 +10184,7 @@ static void _viv_install_association(DWORD flags)
 	
 	for(i=0;i<_VIV_ASSOCIATION_COUNT;i++)
 	{
-		if (flags & 1 << i)
+		if (flags & (1 << i))
 		{
 			_viv_install_association_by_extension(_viv_association_extensions[i],_viv_association_descriptions[i],_viv_association_icon_locations[i]);
 		}
