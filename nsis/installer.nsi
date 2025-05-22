@@ -32,7 +32,8 @@ XPStyle on
 ; vars
 
 Var existing_ini_filename
-Var install_options
+Var admin_install_options
+Var user_install_options
 
 BrandingText "void Image Viewer ${VERSION}${BETAVERSION} (${TARGETMACHINE}) Setup"
 
@@ -171,138 +172,139 @@ FunctionEnd
 Section "voidImageViewer" SECTION_VOIDIMAGEVIEWER
 
 	; init
-	StrCpy $install_options ""
+	StrCpy $admin_install_options ""
+	StrCpy $user_install_options ""
 
 	; app data
 	!insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions.ini" "Field 2" "State"
 	strcmp $R0 "0" no_app_data
-	StrCpy $install_options "$install_options /appdata"
+	StrCpy $admin_install_options "$admin_install_options /appdata"
 	Goto skip_app_data
 
 no_app_data:
 
 	; this option is special, we MUST unset any option that voidImageViewer was previously installed with.
-	StrCpy $install_options "$install_options /noappdata"
+	StrCpy $admin_install_options "$admin_install_options /noappdata"
 	
 skip_app_data:	
 
 	; startmenu
 	!insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 1" "State"
 	strcmp $R0 "0" no_startmenu
-	StrCpy $install_options "$install_options /startmenu"
+	StrCpy $admin_install_options "$admin_install_options /startmenu"
 	Goto skip_startmenu
 	
 no_startmenu:
 
-	StrCpy $install_options "$install_options /nostartmenu"
+	StrCpy $admin_install_options "$admin_install_options /nostartmenu"
 
 skip_startmenu:
 
 	; BMP Associations
 	!insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 3" "State"
 	strcmp $R0 "0" no_bmp_association
-	StrCpy $install_options "$install_options /bmp"
+	StrCpy $user_install_options "$user_install_options /bmp"
 	Goto skip_bmp_association
 	
 no_bmp_association:
 
-	StrCpy $install_options "$install_options /nobmp"
+	StrCpy $user_install_options "$user_install_options /nobmp"
 
 skip_bmp_association:
 
 	; GIF Associations
 	!insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 4" "State"
 	strcmp $R0 "0" no_gif_association
-	StrCpy $install_options "$install_options /gif"
+	StrCpy $user_install_options "$user_install_options /gif"
 	Goto skip_gif_association
 	
 no_gif_association:
 
-	StrCpy $install_options "$install_options /nogif"
+	StrCpy $user_install_options "$user_install_options /nogif"
 
 skip_gif_association:
 
 	; ico Associations
 	!insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 5" "State"
 	strcmp $R0 "0" no_ico_association
-	StrCpy $install_options "$install_options /ico"
+	StrCpy $user_install_options "$user_install_options /ico"
 	Goto skip_ico_association
 	
 no_ico_association:
 
-	StrCpy $install_options "$install_options /noico"
+	StrCpy $user_install_options "$user_install_options /noico"
 
 skip_ico_association:
 
 	; jpeg Associations
 	!insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 6" "State"
 	strcmp $R0 "0" no_jpeg_association
-	StrCpy $install_options "$install_options /jpeg"
+	StrCpy $user_install_options "$user_install_options /jpeg"
 	Goto skip_jpeg_association
 	
 no_jpeg_association:
 
-	StrCpy $install_options "$install_options /nojpeg"
+	StrCpy $user_install_options "$user_install_options /nojpeg"
 
 skip_jpeg_association:
 
 	; jpg Associations
 	!insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 7" "State"
 	strcmp $R0 "0" no_jpg_association
-	StrCpy $install_options "$install_options /jpg"
+	StrCpy $user_install_options "$user_install_options /jpg"
 	Goto skip_jpg_association
 	
 no_jpg_association:
 
-	StrCpy $install_options "$install_options /nojpg"
+	StrCpy $user_install_options "$user_install_options /nojpg"
 
 skip_jpg_association:
 
 	; png Associations
 	!insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 8" "State"
 	strcmp $R0 "0" no_png_association
-	StrCpy $install_options "$install_options /png"
+	StrCpy $user_install_options "$user_install_options /png"
 	Goto skip_png_association
 	
 no_png_association:
 
-	StrCpy $install_options "$install_options /nopng"
+	StrCpy $user_install_options "$user_install_options /nopng"
 
 skip_png_association:
 
 	; tif Associations
 	!insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 9" "State"
 	strcmp $R0 "0" no_tif_association
-	StrCpy $install_options "$install_options /tif"
+	StrCpy $user_install_options "$user_install_options /tif"
 	Goto skip_tif_association
 	
 no_tif_association:
 
-	StrCpy $install_options "$install_options /notif"
+	StrCpy $user_install_options "$user_install_options /notif"
 
 skip_tif_association:
 
 	; tiff Associations
 	!insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 10" "State"
 	strcmp $R0 "0" no_tiff_association
-	StrCpy $install_options "$install_options /tiff"
+	StrCpy $user_install_options "$user_install_options /tiff"
 	Goto skip_tiff_association
 	
 no_tiff_association:
 
-	StrCpy $install_options "$install_options /notiff"
+	StrCpy $user_install_options "$user_install_options /notiff"
 
 skip_tiff_association:
 
 	; webp Associations
-	!insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 10" "State"
+	!insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 11" "State"
 	strcmp $R0 "0" no_webp_association
-	StrCpy $install_options "$install_options /webp"
+	StrCpy $user_install_options "$user_install_options /webp"
 	Goto skip_webp_association
 	
 no_webp_association:
 
-	StrCpy $install_options "$install_options /nowebp"
+	StrCpy $user_install_options "$user_install_options /nowebp"
 
 skip_webp_association:
 
@@ -333,12 +335,12 @@ skip_webp_association:
 	; check for command line options that will override the default install options.
 	${GetOptions} $CMDLINE "/install-options" $0
 	IfErrors +2
-	StrCpy $install_options "$install_options $0"
+	StrCpy $admin_install_options "$admin_install_options $0"
 
 	; install with admin rights.
-	; MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION "ADMIN $install_options"
+	; MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION "ADMIN $admin_install_options"
 	ClearErrors
-	ExecWait '"$pluginsdir\voidImageViewer\voidImageViewer.exe" /install "$INSTDIR" /install-options "$install_options"' $0
+	ExecWait '"$pluginsdir\voidImageViewer\voidImageViewer.exe" /install "$INSTDIR" /install-options "$admin_install_options"' $0
 	IfErrors exec_admin_error
 	IntCmp $0 0 exec_admin_ok
 	
@@ -347,6 +349,17 @@ exec_admin_error:
 	MessageBox MB_OK|MB_ICONSTOP "Failed to execute admin command"
 
 exec_admin_ok:
+
+	ClearErrors
+	ExecWait '"$INSTDIR\voidImageViewer.exe" $user_install_options' $0
+	IfErrors exec_install_options_error
+	IntCmp $0 0 exec_install_options_ok
+
+exec_install_options_error:
+	
+	MessageBox MB_OK|MB_ICONSTOP "Failed to execute install options"
+
+exec_install_options_ok:
 
 SectionEnd
 
