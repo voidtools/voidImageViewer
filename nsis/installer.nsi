@@ -75,7 +75,7 @@ VIAddVersionKey "ProductName" "void Image Viewer"
 VIAddVersionKey "Comments" ""
 VIAddVersionKey "CompanyName" ""
 VIAddVersionKey "LegalTrademarks" ""
-VIAddVersionKey "LegalCopyright" "Copyright (c) 2017 David Carpenter"
+VIAddVersionKey "LegalCopyright" "Copyright (c) 2025 David Carpenter"
 VIAddVersionKey "FileDescription" "void Image Viewer Setup"
 
 VIAddVersionKey "FileVersion" "${VERSION}${BETAVERSION}.${TARGETMACHINE}.en-US"
