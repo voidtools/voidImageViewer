@@ -1,3 +1,13 @@
+Thursday, 22 May 2025: Version 1.0.0.9
+	added webp support
+	added animated webp support
+	added mipmap support for faster resizing
+	added preload option
+	added maximized options
+	added option to copy image
+	added option to copy filename
+	improved animation timings
+
 Wednesday, 11 October 2017: Version 1.0.0.8b
 	added ctrl mousewheel action
 	fixed an issue when only one image was in the playlist
