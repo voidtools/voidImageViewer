@@ -294,6 +294,18 @@ no_tiff_association:
 
 skip_tiff_association:
 
+	; webp Associations
+	!insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 10" "State"
+	strcmp $R0 "0" no_webp_association
+	StrCpy $install_options "$install_options /webp"
+	Goto skip_webp_association
+	
+no_webp_association:
+
+	StrCpy $install_options "$install_options /nowebp"
+
+skip_webp_association:
+
 	; ----------------------------------
 	; begin voidImageViewer installation
 	; ----------------------------------
