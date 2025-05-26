@@ -176,9 +176,17 @@
 #define BCM_SETSHIELD	0x0000160C
 
 #ifdef VERSION_X64
-#define VERSION_TARGET_MACHINE "(x64)"
+	#define VERSION_TARGET_MACHINE "(x64)"
 #else
-#define VERSION_TARGET_MACHINE "(x86)"
+	#ifdef VERSION_ARM
+		#define VERSION_TARGET_MACHINE "(ARM)"
+	#else
+		#ifdef VERSION_ARM64
+			#define VERSION_TARGET_MACHINE "(ARM64)"
+		#else
+			#define VERSION_TARGET_MACHINE "(x86)"
+		#endif
+	#endif
 #endif
 
 #define _VIV_DEFAULT_SHUFFLE_ALLOCATED		(65536 / sizeof(_viv_playlist_t *))
