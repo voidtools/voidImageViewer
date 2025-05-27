@@ -191,6 +191,9 @@
 
 #define _VIV_DEFAULT_SHUFFLE_ALLOCATED		(65536 / sizeof(_viv_playlist_t *))
 
+#define VIV_YEAR_STRING2(x)	#x
+#define VIV_YEAR_STRING(x)	VIV_YEAR_STRING2(x)	
+
 #include "viv.h"
 //#include <Shlwapi.h> // SHCreateStreamOnFileEx
 
@@ -8435,7 +8438,7 @@ static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 			os_SetDlgItemText(hwnd,IDC_ABOUTVOIDIMAGEVIEWER,(const utf8_t *)"void Image Viewer");
 			string_printf(version_wbuf,"%d.%d.%d.%d%s %s",VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD,VERSION_TYPE,VERSION_TARGET_MACHINE);
 			SetDlgItemText(hwnd,IDC_ABOUTVERSION,version_wbuf);
-			os_SetDlgItemText(hwnd,IDC_ABOUTCOPYRIGHT,(const utf8_t *)"Copyright © 2020 David Carpenter");
+			os_SetDlgItemText(hwnd,IDC_ABOUTCOPYRIGHT,(const utf8_t *)"Copyright © " VIV_YEAR_STRING(VERSION_YEAR) " David Carpenter");
 			os_SetDlgItemText(hwnd,IDC_ABOUTEMAIL,(const utf8_t *)"david@voidtools.com");
 			os_SetDlgItemText(hwnd,IDC_ABOUTWEBSITE,(const utf8_t *)"www.voidtools.com");
 			
@@ -9979,6 +9982,38 @@ static int _viv_toolbar_get_wide(void)
 	{	
 		SIZE size;
 		
+/*		
+{
+	TBMETRICS tbmetrics;
+	DWORD button_size;
+	
+	os_zero_memory(&tbmetrics,sizeof(TBMETRICS));
+	
+	tbmetrics.cbSize = sizeof(TBMETRICS);
+	tbmetrics.dwMask = TBMF_PAD | TBMF_BARPAD | TBMF_BUTTONSPACING;
+	
+	SendMessage(_viv_toolbar_hwnd,TB_GETMETRICS,0,(LPARAM)&tbmetrics);
+
+	debug_printf("TB_GETMETRICS cbSize %u %u %p\n",tbmetrics.cbSize,sizeof(TB_GETMETRICS),&tbmetrics);
+	debug_printf("TB_GETMETRICS dwMask %u\n",tbmetrics.dwMask);
+	debug_printf("TB_GETMETRICS cxPad %d\n",tbmetrics.cxPad);
+	debug_printf("TB_GETMETRICS cyPad %d\n",tbmetrics.cyPad);
+	debug_printf("TB_GETMETRICS cxBarPad %d\n",tbmetrics.cxBarPad);
+	debug_printf("TB_GETMETRICS cyBarPad %d\n",tbmetrics.cyBarPad);
+	debug_printf("TB_GETMETRICS cxButtonSpacing %d\n",tbmetrics.cxButtonSpacing);
+	debug_printf("TB_GETMETRICS cyButtonSpacing %d\n",tbmetrics.cyButtonSpacing);
+	
+	button_size = SendMessage(_viv_toolbar_hwnd,TB_GETBUTTONSIZE,0,0);
+	debug_printf("TB_GETBUTTONSIZE wide %u\n",LOWORD(button_size));
+	debug_printf("TB_GETBUTTONSIZE high %u\n",HIWORD(button_size));
+	
+	if (SendMessage(_viv_toolbar_hwnd,TB_GETMAXSIZE,0,(LPARAM)&size))
+	{
+		debug_printf("TB_GETMAXSIZE wide %u\n",size.cx);
+		debug_printf("TB_GETMAXSIZE high %u\n",size.cy);
+	}	
+}*/
+
 		if (SendMessage(_viv_toolbar_hwnd,TB_GETMAXSIZE,0,(LPARAM)&size))
 		{
 			return size.cx;
