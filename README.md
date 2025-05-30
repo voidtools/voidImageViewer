@@ -17,28 +17,28 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 <br/><br/><br/>
 
 
-voidImageViewer main window:
+void Image Viewer main window:
 
 ![Void Image Viewer Image View](https://www.voidtools.com/voidImageViewer.Image.View10.gif)
 <br/><br/><br/>
 
 
 
-voidImageViewer General Options:
+void Image Viewer General Options:
 
 ![Void Image Viewer Options General](https://www.voidtools.com/voidImageViewer.Options.General10.png)
 <br/><br/><br/>
 
 
 
-voidImageViewer View Options:
+void Image Viewer View Options:
 
 ![Void Image Viewer Options View](https://www.voidtools.com/voidImageViewer.Options.View10.png)
 <br/><br/><br/>
 
 
 
-voidImageViewer Controls Options:
+void Image Viewer Controls Options:
 
 ![Void Image Viewer Image Controls](https://www.voidtools.com/voidImageViewer.Options.Controls10.png)
 <br/><br/><br/>
