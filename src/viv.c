@@ -23,6 +23,7 @@
 
 // TODO:
 // Use Direct3D to render images when shrinking.
+// dragging the status bar should move the window.
 // center window on first run. (when no image is shown) -it's currently showing top left.
 // use sort order from Windows Explorer folder.
 // fix going fullscreen and using the window zoom, if zoomed in and we go fullscreen the zoom is too much (try a small image to see)
