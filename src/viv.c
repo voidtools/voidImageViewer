@@ -22,6 +22,7 @@
 // VoidImageViewer
 
 // TODO:
+// why does webp use soo much RAM when gif doesn't use any?
 // Use Direct3D to render images when shrinking.
 // dragging the status bar should move the window.
 // center window on first run. (when no image is shown) -it's currently showing top left.
@@ -8441,7 +8442,7 @@ static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 			string_printf(version_wbuf,"%d.%d.%d.%d%s %s",VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD,VERSION_TYPE,VERSION_TARGET_MACHINE);
 			SetDlgItemText(hwnd,IDC_ABOUTVERSION,version_wbuf);
 			os_SetDlgItemText(hwnd,IDC_ABOUTCOPYRIGHT,(const utf8_t *)"Copyright © " VIV_YEAR_STRING(VERSION_YEAR) " David Carpenter");
-			os_SetDlgItemText(hwnd,IDC_ABOUTEMAIL,(const utf8_t *)"david@voidtools.com");
+			os_SetDlgItemText(hwnd,IDC_ABOUTEMAIL,(const utf8_t *)"david.carpenter@voidtools.com");
 			os_SetDlgItemText(hwnd,IDC_ABOUTWEBSITE,(const utf8_t *)"www.voidtools.com");
 			
 			if (!_viv_about_hfont)
@@ -8866,7 +8867,7 @@ static int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 		bmi.bmiHeader.biBitCount = 24;
 		bmi.bmiHeader.biCompression = BI_RGB;
 		
-		hbitmap = CreateDIBSection(viv_webp->mem_hdc,&bmi,DIB_RGB_COLORS,NULL,NULL,0);
+		hbitmap = CreateCompatibleBitmap(viv_webp->screen_hdc,viv_webp->wide,viv_webp->high);
 
 		// Set RGB data to the bitmap
 		if (hbitmap) 
