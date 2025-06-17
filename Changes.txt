@@ -1,3 +1,6 @@
+Tuesday, 17 June 2025: Version 1.0.0.10
+	improved webp memory usage.
+
 Thursday, 22 May 2025: Version 1.0.0.9
 	added webp support
 	added animated webp support
