@@ -22,7 +22,9 @@
 // VoidImageViewer
 
 // TODO:
-// why does webp use soo much RAM when gif doesn't use any?
+// [HIGH] option to keep last view image in cache.
+// [HIGH] when going back (left arrow key), start preloading the previous item instead.
+// [HIGH] Ctrl + F5 = reload current image.
 // Use Direct3D to render images when shrinking.
 // dragging the status bar should move the window.
 // center window on first run. (when no image is shown) -it's currently showing top left.
@@ -82,6 +84,7 @@
 // therube: Just to note...  Something like: voidImageViewer.exe "\my documents" or voidImageViewer.exe "\my documents\"  , will load "images" found in the \my documents\ directory.  Though somethig like: voidImageViewer.exe "\my documents\*" or voidImageViewer.exe "\my documents\*.*"  will load (I suppose it is) ALL images on your computer. voidImageViewer.exe "\my documents\*.jpg" works as expected. 
 //
 // DONE:
+// *why does webp use soo much RAM when gif doesn't use any? -because we used a memory bitmap instead of a compatible bitmap -images now stored in video RAM.
 // *mipmaps for shrink resizing.. could generate mipmaps on load or as needed. -too slow. maybe do this on resize only. -find a way to do this efficiently
 // *add right click Exit
 // *Ctrl + Shift + C = Copy filename / *add an option to copy image path ctrl + shift +c
