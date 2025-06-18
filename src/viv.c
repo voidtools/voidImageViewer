@@ -22,7 +22,7 @@
 // VoidImageViewer
 
 // TODO:
-// [HIGH] option to keep last view image in cache.
+// [HIGH] option to keep last viewed image in cache.
 // [HIGH] when going back (left arrow key), start preloading the previous item instead.
 // [HIGH] Ctrl + F5 = reload current image.
 // Use Direct3D to render images when shrinking.
