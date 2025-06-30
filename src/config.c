@@ -33,8 +33,8 @@ int config_appdata = 0; // store settings in %APPDATA%\voidimageviewer or in the
 int config_keep_centered = 1; // when zooming out, don't recenter the image. (keep cursor under the same pixel)
 int config_x = 0;
 int config_y = 0;
-int config_wide = 640;
-int config_high = 480;
+int config_wide = 0;
+int config_high = 0;
 int config_maximized = 0;
 int config_slideshow_rate = 5000;
 int config_allow_shrinking = 1; // prevent resizing an image below 100%
@@ -75,6 +75,7 @@ int config_slideshow_custom_rate = 3; // custom slideshow rate (see type below)
 int config_slideshow_custom_rate_type = 1; // 0 = milliseconds, 1 = seconds, 2 = minutes
 int config_scroll_window = 1;
 int config_preload_next = 1;
+int config_cache_last = 1;
 int config_icm = 1;
 
 static void _config_load_settings_by_location(const wchar_t *path,int is_root)
@@ -132,6 +133,7 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		ini_get_int(ini,(const utf8_t *)"slideshow_custom_rate_type",&config_slideshow_custom_rate_type);
 		ini_get_int(ini,(const utf8_t *)"scroll_window",&config_scroll_window);
 		ini_get_int(ini,(const utf8_t *)"preload_next",&config_preload_next);
+		ini_get_int(ini,(const utf8_t *)"cache_last",&config_cache_last);
 		ini_get_int(ini,(const utf8_t *)"icm",&config_icm);
 
 		if (is_root)
@@ -302,6 +304,7 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"slideshow_custom_rate_type",config_slideshow_custom_rate_type);
 			_config_write_int(h,"scroll_window",config_scroll_window);
 			_config_write_int(h,"preload_next",config_preload_next);
+			_config_write_int(h,"cache_last",config_cache_last);
 			_config_write_int(h,"icm",config_icm);
 		
 			// save keys

@@ -48,8 +48,8 @@ void os_copy_memory(void *d,const void *s,int size);
 void os_move_memory(void *d,const void *s,int size);
 void os_qsort(void **base,uintptr_t count,int (*compare)(const void *a,const void *b));
 void os_make_rect_completely_visible(HWND hwnd,RECT *prect);
-void os_MonitorRectFromWindow(HWND hwnd,RECT *monitor_rect);
-void os_MonitorRectFromRect(RECT *window_rect,RECT *monitor_rect);
+void os_MonitorRectFromWindow(HWND hwnd,int is_fullscreen,RECT *out_monitor_rect);
+void os_MonitorRectFromRect(RECT *window_rect,int is_fullscreen,RECT *out_monitor_rect);
 int os_ComboBox_AddString(HWND hwnd,int id,const utf8_t *s);
 void os_SetDlgItemText(HWND hwnd,int id,const utf8_t *s);
 HWND os_CreateWindowEx(DWORD dwExStyle,const utf8_t *lpClassName,const utf8_t *lpWindowName,DWORD dwStyle,int X,int Y,int nWidth,int nHeight,HWND hWndParent,HMENU hMenu,HINSTANCE hInstance,LPVOID lpParam);
@@ -68,6 +68,7 @@ int os_shell_execute(HWND hwnd,const wchar_t *filename,int wait,const char *verb
 int os_browse_for_folder(HWND parent,wchar_t *filename);
 QWORD os_get_tick_count(void);
 QWORD os_get_tick_freq(void);
+void os_get_monitor_rect_from_window(HWND hwnd,RECT *monitor_rect,int fullscreen);
 
 extern HINSTANCE os_hinstance;
 extern DWORD os_major_version;
@@ -96,6 +97,7 @@ extern int (__stdcall *os_GdipDrawImageRectI)(void *graphics, void *image, INT x
 extern int (__stdcall *os_GdipDeleteGraphics)(void *graphics);
 extern BOOL (WINAPI *os_CreateTimerQueueTimer)(PHANDLE phNewTimer,HANDLE TimerQueue,WAITORTIMERCALLBACK Callback,PVOID Parameter,DWORD DueTime,DWORD Period,ULONG Flags);
 extern BOOL (WINAPI *os_DeleteTimerQueueTimer)(HANDLE TimerQueue,HANDLE Timer,HANDLE CompletionEvent);
+extern BOOL (WINAPI *os_GetFileAttributesExW)(LPCWSTR lpFileName,GET_FILEEX_INFO_LEVELS fInfoLevelId,LPVOID lpFileInformation);
 extern BOOL (STDAPICALLTYPE *os_IsUserAnAdmin)(void);
 extern HRESULT (__stdcall *os_EnableThemeDialogTexture)(HWND hwnd, DWORD dwFlags);
 extern BOOL (WINAPI *os_ChangeWindowMessageFilterEx)(HWND hWnd,UINT message,DWORD action,void *pChangeFilterStruct);

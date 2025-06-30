@@ -104,6 +104,7 @@ extern int config_slideshow_custom_rate;
 extern int config_slideshow_custom_rate_type;
 extern int config_scroll_window;
 extern int config_preload_next;
+extern int config_cache_last;
 extern int config_icm;
 
 #ifdef __cplusplus

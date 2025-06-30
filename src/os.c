@@ -85,6 +85,8 @@ BOOL (WINAPI *os_CreateTimerQueueTimer)(PHANDLE phNewTimer,HANDLE TimerQueue,WAI
 BOOL (WINAPI *os_DeleteTimerQueueTimer)(HANDLE TimerQueue,HANDLE Timer,HANDLE CompletionEvent) = 0;
 BOOL (WINAPI *_os_SetDllDirectoryW)(LPCTSTR lpPathName) = 0;
 BOOL (WINAPI *_os_SetDefaultDllDirectories)(DWORD DirectoryFlags) = 0;
+BOOL (WINAPI *os_GetFileAttributesExW)(LPCWSTR lpFileName,GET_FILEEX_INFO_LEVELS fInfoLevelId,LPVOID lpFileInformation) = NULL;
+BOOL (WINAPI *_os_IsDebuggerPresent)(void) = 0;
 HRESULT (WINAPI *os_SHOpenFolderAndSelectItems)(LPCITEMIDLIST pidlFolder,UINT cidl,LPCITEMIDLIST *apidl,DWORD dwFlags) = 0;
 int (WINAPI *os_GdiplusStartup)(OUT ULONG_PTR *token,const os_GdiplusStartupInput_t *input,void *output) = 0;
 VOID (WINAPI *os_GdiplusShutdown)(ULONG_PTR token) = 0;
@@ -112,6 +114,9 @@ BOOL (STDAPICALLTYPE *os_IsUserAnAdmin)(void) = 0;
 HRESULT (__stdcall *os_EnableThemeDialogTexture)(HWND hwnd, DWORD dwFlags) = 0;
 static unsigned int (__cdecl *_os_controlfp)(unsigned int _NewValue,unsigned int _Mask) = 0;
 BOOL (WINAPI *os_ChangeWindowMessageFilterEx)(HWND hWnd,UINT message,DWORD action,void *pChangeFilterStruct) = 0;
+static HMONITOR (WINAPI *_os_MonitorFromWindow)(HWND hwnd,DWORD dwFlags) = 0;
+static HMONITOR (WINAPI *_os_MonitorFromRect)(LPCRECT lprc,DWORD dwFlags) = 0;
+
 int os_logical_wide = 96;
 int os_logical_high = 96;
 static const IID _os_IID_IShellItem = {0x43826d1e,0xe718,0x42ee,{0xbc,0x55,0xa1,0xe2,0x61,0xc3,0x7b,0xfe}};
@@ -157,8 +162,8 @@ void os_make_rect_completely_visible(HWND hwnd,RECT *prect)
 
 	// we hit something so reposition the window on this monitor.
 	// note that MonitorFromRect can return null, even when MONITOR_DEFAULTTOPRIMARY is specified.
-	os_MonitorRectFromWindow(hwnd,&monitor_from_window_rect);
-	os_MonitorRectFromRect(prect,&monitor_from_rect_rect);
+	os_MonitorRectFromWindow(hwnd,0,&monitor_from_window_rect);
+	os_MonitorRectFromRect(prect,0,&monitor_from_rect_rect);
 	
 	OffsetRect(prect,-monitor_from_rect_rect.left,-monitor_from_rect_rect.top);
 	OffsetRect(prect,monitor_from_window_rect.left,monitor_from_window_rect.top);
@@ -194,43 +199,69 @@ void os_make_rect_completely_visible(HWND hwnd,RECT *prect)
 	}
 }
 
-void os_MonitorRectFromWindow(HWND hwnd,RECT *monitor_rect)
+void os_MonitorRectFromWindow(HWND hwnd,int is_fullscreen,RECT *out_monitor_rect)
 {
 	HMONITOR hmonitor;
 	MONITORINFO mi;
 	
-	hmonitor = MonitorFromWindow(hwnd,MONITOR_DEFAULTTOPRIMARY);
+	hmonitor = NULL;
+	
+	if (_os_MonitorFromWindow)
+	{
+		hmonitor = _os_MonitorFromWindow(hwnd,MONITOR_DEFAULTTOPRIMARY);
+	}
+	
 	if (hmonitor)
 	{
 		mi.cbSize = sizeof(MONITORINFO);
 		GetMonitorInfo(hmonitor,&mi);
 		
-		CopyRect(monitor_rect,&mi.rcWork);
+		if (is_fullscreen)
+		{
+			CopyRect(out_monitor_rect,&mi.rcMonitor);
+		}
+		else
+		{
+			CopyRect(out_monitor_rect,&mi.rcWork);
+		}
 	}
 	else
 	{
 		// work area
-		SystemParametersInfo(SPI_GETWORKAREA,0,(PVOID)monitor_rect,0);
+		SystemParametersInfo(SPI_GETWORKAREA,0,(PVOID)out_monitor_rect,0);
 	}
 }
 
-void os_MonitorRectFromRect(RECT *window_rect,RECT *monitor_rect)
+void os_MonitorRectFromRect(RECT *window_rect,int is_fullscreen,RECT *out_monitor_rect)
 {
 	HMONITOR hmonitor;
 	MONITORINFO mi;
 	
-	hmonitor = MonitorFromRect(window_rect,MONITOR_DEFAULTTOPRIMARY);
+	hmonitor = NULL;
+	
+	if (_os_MonitorFromRect)
+	{
+		hmonitor = _os_MonitorFromRect(window_rect,MONITOR_DEFAULTTOPRIMARY);
+	}
+	
 	if (hmonitor)
 	{
 		mi.cbSize = sizeof(MONITORINFO);
 		GetMonitorInfo(hmonitor,&mi);
 		
-		CopyRect(monitor_rect,&mi.rcWork);
+		if (is_fullscreen)
+		{
+			CopyRect(out_monitor_rect,&mi.rcMonitor);
+		}
+		else
+		{
+			CopyRect(out_monitor_rect,&mi.rcWork);
+		}
 	}
 	else
 	{
 		// work area
-		SystemParametersInfo(SPI_GETWORKAREA,0,(PVOID)monitor_rect,0);
+		SystemParametersInfo(SPI_GETWORKAREA,0,(PVOID)out_monitor_rect,0);
 	}
 }
 
@@ -712,7 +743,9 @@ void os_init(void)
 		os_CreateTimerQueueTimer  = (void *)GetProcAddress(_os_kernel32_hmodule,"CreateTimerQueueTimer");
 		os_DeleteTimerQueueTimer  = (void *)GetProcAddress(_os_kernel32_hmodule,"DeleteTimerQueueTimer");
 		_os_SetDllDirectoryW  = (void *)GetProcAddress(_os_kernel32_hmodule,"SetDllDirectoryW");
-		_os_SetDefaultDllDirectories  = (void *)GetProcAddress(_os_kernel32_hmodule,"SetDefaultDllDirectories");
+		_os_SetDefaultDllDirectories = (void *)GetProcAddress(_os_kernel32_hmodule,"SetDefaultDllDirectories");
+		os_GetFileAttributesExW = (void *)GetProcAddress(_os_kernel32_hmodule,"GetFileAttributesExW");
+		_os_IsDebuggerPresent = (void *)GetProcAddress(_os_kernel32_hmodule,"IsDebuggerPresent");
 	}
 
 	// system dlls only.
@@ -741,6 +774,8 @@ void os_init(void)
 	if (_os_user32_hmodule)
 	{
 		os_ChangeWindowMessageFilterEx = (void *)GetProcAddress(_os_user32_hmodule,"ChangeWindowMessageFilterEx");
+		_os_MonitorFromWindow = (void *)GetProcAddress(_os_user32_hmodule,"MonitorFromWindow");
+		_os_MonitorFromRect = (void *)GetProcAddress(_os_user32_hmodule,"MonitorFromRect");
 	}
 
 	_os_UxTheme_hmodule = LoadLibraryA("UxTheme.dll");
@@ -787,10 +822,6 @@ void os_init(void)
 		os_GdipSetSmoothingMode = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipSetSmoothingMode");
 		os_GdipDrawImageRectI = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipDrawImageRectI");
 		os_GdipDeleteGraphics = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipDeleteGraphics");
-	}
-	else
-	{
-		debug_fatal("no gdiplus");
 	}
 }
 
@@ -1195,3 +1226,17 @@ QWORD os_get_tick_freq(void)
 	
 	return 0;
 }
+
+// The cool Win95 hack, so the compiler can launch on it, even compiled with VS2005
+// Basically, this function is needed by the libcmt.lib/gs_report.obj
+//
+BOOL __stdcall _imp__IsDebuggerPresent()
+{
+	if (_os_IsDebuggerPresent)
+	{
+		return _os_IsDebuggerPresent();
+	}
+	
+	return FALSE;
+}
+
