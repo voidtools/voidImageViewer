@@ -22,12 +22,15 @@
 // VoidImageViewer
 
 // TODO:
+// [HIGH] opening a non existing filename should show an error message: "File Not Found". eg: viv.exe "c:\non-existing-folder\foo.jpg"
+// remove crt.c and other unused c files.
 // check if disabling preload works
 // *fixed a crash when interrupting the loading of a multi-frame image.
 // [HIGH] break the redraw region down into rects and only stretch what we need to.
 // [HIGH] option to keep last viewed image in cache.
 // [HIGH] when going back (left arrow key), start preloading the previous item instead.
 // [HIGH] F5 = reload current image.
+// dark mode
 // Use Direct3D to render images when shrinking.
 // dragging the status bar should move the window.
 // center window on first run. (when no image is shown) -it's currently showing top left.
