@@ -22,6 +22,7 @@
 // VoidImageViewer
 
 // TODO:
+// [HIGH] view -> Menu setting not remembered.
 // [HIGH] opening a non existing filename should show an error message: "File Not Found". eg: viv.exe "c:\non-existing-folder\foo.jpg"
 // remove crt.c and other unused c files.
 // check if disabling preload works
