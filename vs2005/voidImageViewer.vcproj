@@ -190,7 +190,7 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
-				AdditionalManifestFiles="../res/voidImageViewer.x64.Manifest"
+				AdditionalManifestFiles="../res/voidImageViewer.Manifest"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -348,7 +348,6 @@
 				StringPooling="true"
 				MinimalRebuild="false"
 				RuntimeLibrary="0"
-				BufferSecurityCheck="false"
 				EnableFunctionLevelLinking="true"
 				FloatingPointModel="2"
 				UsePrecompiledHeader="0"
@@ -455,9 +454,7 @@
 				AdditionalIncludeDirectories="..\libwebp"
 				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;BZ_NO_STDIO;VERSION_X64"
 				StringPooling="true"
-				BasicRuntimeChecks="0"
 				RuntimeLibrary="0"
-				BufferSecurityCheck="false"
 				FloatingPointModel="2"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
@@ -495,7 +492,7 @@
 			/>
 			<Tool
 				Name="VCManifestTool"
-				AdditionalManifestFiles="../res/voidImageViewer.x64.Manifest"
+				AdditionalManifestFiles="../res/voidImageViewer.Manifest"
 				SuppressStartupBanner="false"
 				VerboseOutput="false"
 			/>
