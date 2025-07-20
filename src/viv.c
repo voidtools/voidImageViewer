@@ -548,6 +548,7 @@ static int _viv_should_show_cursor(void);
 static void _viv_update_show_cursor(void);
 static void _viv_start_hide_cursor_timer(void);
 static int _viv_main(int nCmdShow);
+static void _viv_get_exe_filename(wchar_t filename[STRING_SIZE]);
 
 static HMODULE _viv_stobject_hmodule = 0;
 static _viv_playlist_t *_viv_playlist_start = 0;
@@ -4361,7 +4362,7 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 				wchar_t params[STRING_SIZE];
 				wchar_t cwd[STRING_SIZE];
 				
-				GetModuleFileName(0,exe_filename,STRING_SIZE);
+				_viv_get_exe_filename(exe_filename);
 				GetCurrentDirectory(STRING_SIZE,cwd);
 				
 				string_copy_utf8(params,(const utf8_t *)"/isrunas ");
@@ -8143,7 +8144,7 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 						{	
 							wchar_t exe_filename[STRING_SIZE];
 							
-							GetModuleFileName(0,exe_filename,STRING_SIZE);
+							_viv_get_exe_filename(exe_filename);
 							
 							os_shell_execute(0,exe_filename,1,NULL,params);
 						}
@@ -8205,7 +8206,7 @@ static void _viv_install_association_by_extension(const char *association,const 
 			wchar_t filename[STRING_SIZE];
 			wchar_t command[STRING_SIZE];
 
-			GetModuleFileName(0,filename,STRING_SIZE);
+			_viv_get_exe_filename(filename);
 			
 			string_copy(command,filename);
 
@@ -8240,7 +8241,7 @@ static void _viv_install_association_by_extension(const char *association,const 
 		wchar_t filename[STRING_SIZE];
 		wchar_t command[STRING_SIZE];
 
-		GetModuleFileName(0,filename,STRING_SIZE);
+		_viv_get_exe_filename(filename);
 		
 		string_copy_utf8(command,(const utf8_t *)"\"");
 		string_cat(command,filename);
@@ -8372,7 +8373,7 @@ static int _viv_is_association(const char *association)
 
 //debug_printf("key OK\n",key);
 
-			GetModuleFileName(0,filename,STRING_SIZE);
+			_viv_get_exe_filename(filename);
 			
 			string_copy_utf8(command,(const utf8_t *)"\"");
 			string_cat(command,filename);
@@ -11744,7 +11745,7 @@ static void _viv_install_start_menu_shortcuts(void)
 		os_make_sure_path_exists(path_wbuf);
 
 		// void image viewer.lnk
-		GetModuleFileName(NULL,exe_filename_wbuf,STRING_SIZE);
+		_viv_get_exe_filename(exe_filename_wbuf);
 		string_path_combine_utf8(lnk_wbuf,path_wbuf,"void Image Viewer.lnk");
 		os_create_shell_link(exe_filename_wbuf,lnk_wbuf);
 	
@@ -13336,5 +13337,23 @@ static void _viv_start_hide_cursor_timer(void)
 		SetTimer(_viv_hwnd,VIV_ID_HIDE_CURSOR_TIMER,_VIV_HIDE_CURSOR_DELAY,0);
 		
 		_viv_is_hide_cursor_timer = 1;
+	}
+}
+
+static void _viv_get_exe_filename(wchar_t filename[STRING_SIZE])
+{
+	filename[0] = 0;
+	
+	GetModuleFileName(0,filename,STRING_SIZE);
+	
+	// make sure the drive letter is uppercase.
+	// launching from .png == d:
+	// launching from .exe == D:
+	if ((*filename >= 'a') && (*filename <= 'z'))
+	{
+		if (filename[1] == ':')
+		{
+			*filename = *filename - 'a' + 'A';
+		}
 	}
 }
