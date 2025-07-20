@@ -321,11 +321,11 @@ skip_webp_association:
 
 	!ifdef x64
 	
-		File "..\x64\release\voidImageViewer.exe"
+		File "..\vs2005\x64\release\voidImageViewer.exe"
 		
 	!else
 	
-		File "..\release\voidImageViewer.exe"
+		File "..\vs2005\release\voidImageViewer.exe"
 		
 	!endif
 
