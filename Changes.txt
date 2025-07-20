@@ -1,5 +1,15 @@
+Sunday, 20 July 2025: Version 1.0.0.11
+	fixed an issue with using the wrong association registry key
+	fixed a crash when interrupting the loading of a multi-frame image
+	fixed an issue with displaying images after rotating
+	fixed an issue with remembering some view settings
+	fixed an issue with losing the view after toogling fullscreen
+	inverted increase/descrease slideshow rate
+	improved preloading next/previous image
+	added cache last image
+
 Tuesday, 17 June 2025: Version 1.0.0.10
-	improved webp memory usage.
+	improved webp memory usage
 
 Thursday, 22 May 2025: Version 1.0.0.9
 	added webp support
@@ -36,7 +46,7 @@ Thursday, 14 September 2017: Version 1.0.0.6b
 	
 Thursday, 31 August 2017: Version 1.0.0.5b
 	fixed a bug with move to/copy to
-	fixed a bug with save as filters.
+	fixed a bug with save as filters
 
 Saturday, 19 August 2017: Version 1.0.0.4b
 	added background color selection
@@ -74,6 +84,6 @@ Saturday, 17 August 2016: Version 0.0.0.1b
 	added navigation
 	added hide cursor on fullscreen
 	improved slideshow mode
-	improved 1:1 mode.
+	improved 1:1 mode
 	fixed an issue with transparent gifs
 	fixed an issue when deleting an image and displaying the next image
