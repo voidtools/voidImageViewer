@@ -76,11 +76,12 @@ BEGIN
     COMBOBOX        IDC_COMBO2,68,17,126,30,CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
     CONTROL         "&Play animations at least once in slideshow",IDC_LOOP_ANIMATIONS_ONCE,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,0,38,192,10
-    CONTROL         "Preload &next image",IDC_PRELOAD_NEXT_IMAGE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,0,54,192,10
-    LTEXT           "&Windowed background color:",IDC_STATIC,0,75,96,8
-    PUSHBUTTON      "",IDC_WINDOWEDBACKGROUNDCOLOR,96,72,50,14,BS_BITMAP
-    LTEXT           "&Fullscreen background color:",IDC_STATIC,0,93,96,8
-    PUSHBUTTON      "",IDC_FULLSCREENBACKGROUNDCOLOR,96,90,50,14,BS_BITMAP
+    CONTROL         "Preload &next image",IDC_PRELOAD_NEXT_IMAGE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,0,55,192,10
+    LTEXT           "&Windowed background color:",IDC_STATIC,0,90,96,8
+    PUSHBUTTON      "",IDC_WINDOWEDBACKGROUNDCOLOR,96,87,50,14,BS_BITMAP
+    LTEXT           "&Fullscreen background color:",IDC_STATIC,0,108,96,8
+    PUSHBUTTON      "",IDC_FULLSCREENBACKGROUNDCOLOR,96,105,50,14,BS_BITMAP
+    CONTROL         "Cache &last image",IDC_CACHE_LAST_IMAGE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,0,71,192,10
 END
 
 IDD_CONTROLS DIALOGEX 0, 0, 194, 216
@@ -200,8 +201,8 @@ IDI_BESTFIT             ICON                    "bestfit.ico"
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,0,9
- PRODUCTVERSION 1,0,0,9
+ FILEVERSION 1,0,0,11
+ PRODUCTVERSION 1,0,0,11
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -217,12 +218,12 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "FileDescription", "voidImageViewer"
-            VALUE "FileVersion", "1.0.0.9"
+            VALUE "FileVersion", "1.0.0.11"
             VALUE "InternalName", "voidImageViewer"
             VALUE "LegalCopyright", "Copyright © 2025 voidtools"
             VALUE "OriginalFilename", "voidImageViewer.exe"
             VALUE "ProductName", "voidImageViewer"
-            VALUE "ProductVersion", "1.0.0.9"
+            VALUE "ProductVersion", "1.0.0.11"
         END
     END
     BLOCK "VarFileInfo"
@@ -258,6 +259,11 @@ END
 3 TEXTINCLUDE 
 BEGIN
     "\r\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""afxres.h""\r\0"
 END
 
 #endif    // APSTUDIO_INVOKED
