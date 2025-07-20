@@ -445,7 +445,7 @@ static int _ini_keyvalue_compare(const _ini_keyvalue_t *a,const _ini_keyvalue_t 
 	return a->index - b->index;
 }
 
-void ini_get_int(ini_t *ini,const utf8_t *key,int *pint)
+int ini_get_int(ini_t *ini,const utf8_t *key,int default_int_value)
 {
 	_ini_keyvalue_t *kv;
 	
@@ -453,8 +453,10 @@ void ini_get_int(ini_t *ini,const utf8_t *key,int *pint)
 	kv = _ini_keyvalue_find(ini,key);
 	if (kv)
 	{
-		*pint = utf8_to_int(kv->value);
+		return utf8_to_int(kv->value);
 	}
+	
+	return default_int_value;
 }
 
 const utf8_t *ini_get_string(ini_t *ini,const utf8_t *key)

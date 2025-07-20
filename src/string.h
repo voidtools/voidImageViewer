@@ -48,6 +48,7 @@ void string_path_combine_utf8(wchar_t *wbuf,const wchar_t *path,const utf8_t *fi
 void string_copy_utf8(wchar_t *buf,const utf8_t *s);
 void string_copy_utf8_double_null(wchar_t *buf,const utf8_t *s);
 void string_cat_utf8(wchar_t *buf,const utf8_t *s);
+void string_cat_path_separator(wchar_t *buf);
 void string_get_exe_path(wchar_t *wbuf);
 void string_copy_double_null(wchar_t *buf,wchar_t *s);
 void string_remove_extension(wchar_t *buf);

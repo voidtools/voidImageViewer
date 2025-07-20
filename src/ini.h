@@ -28,7 +28,7 @@ extern "C" {
 typedef struct _ini_s ini_t;
 
 ini_t *ini_open(const wchar_t *filename,const utf8_t *ascii_section);
-void ini_get_int(ini_t *ini,const utf8_t *key,int *pint);
+int ini_get_int(ini_t *ini,const utf8_t *key,int default_int_value);
 const utf8_t *ini_get_string(ini_t *ini,const utf8_t *key);
 void ini_close(ini_t *ini);
 

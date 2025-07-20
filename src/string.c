@@ -133,6 +133,20 @@ void string_cat_utf8(wchar_t *buf,const utf8_t *s)
 	string_cat(buf,s_wbuf);
 }
 
+void string_cat_path_separator(wchar_t *buf)
+{
+	uintptr_t len;
+	
+	len = string_length(buf);
+	
+	if ((len) && (buf[len-1] == '\\'))
+	{
+		return;
+	}
+	
+	string_cat(buf,L"\\");
+}
+
 int string_compare(const wchar_t *s1,const wchar_t *s2)
 {
 	const wchar_t *p1;

@@ -81,6 +81,7 @@ static IShellItem *_os_get_shellitem(const ITEMIDLIST *pidl);
 
 HINSTANCE os_hinstance = 0;
 DWORD os_major_version = 0; // 4 = 9x/nt, 5 = xp,2k,server2k3, 6 = vista
+DWORD os_minor_version = 0;
 BOOL (WINAPI *os_CreateTimerQueueTimer)(PHANDLE phNewTimer,HANDLE TimerQueue,WAITORTIMERCALLBACK Callback,PVOID Parameter,DWORD DueTime,DWORD Period,ULONG Flags) = 0;
 BOOL (WINAPI *os_DeleteTimerQueueTimer)(HANDLE TimerQueue,HANDLE Timer,HANDLE CompletionEvent) = 0;
 BOOL (WINAPI *_os_SetDllDirectoryW)(LPCTSTR lpPathName) = 0;
@@ -721,6 +722,7 @@ void os_init(void)
 		GetVersionExA(&osvi);
 
 		os_major_version = (char)osvi.dwMajorVersion;
+		os_minor_version = (char)osvi.dwMinorVersion;
 
 		debug_printf("os %d\n",os_major_version);
 	}
@@ -1240,3 +1242,41 @@ BOOL __stdcall _imp__IsDebuggerPresent()
 	return FALSE;
 }
 
+WNDPROC os_set_window_proc(HWND hwnd,WNDPROC proc)
+{
+	return (WNDPROC)(uintptr_t)SetWindowLongPtr(hwnd,GWLP_WNDPROC,(LONG_PTR)proc);
+}
+
+int os_statusbar_index_from_x(HWND statusbar_hwnd,int x)
+{
+	RECT rect;
+	
+	GetClientRect(statusbar_hwnd,&rect);
+	
+	if ((x >= 0) && (x < rect.right - rect.left))
+	{
+		int i;
+		int count;
+		
+		count = (int)SendMessage(statusbar_hwnd,SB_GETPARTS,0,(LPARAM)NULL);
+		
+		if (count > 0)
+		{
+			for(i=0;i<count;i++)
+			{
+				if (SendMessage(statusbar_hwnd,SB_GETRECT,i,(LPARAM)&rect))
+				{
+					if ((x >= rect.left) && (x < rect.right))
+					{
+						return i;
+					}
+				}
+			}
+		}
+		
+		// simple?
+		return 0;
+	}
+	
+	return -1;
+}

@@ -69,6 +69,8 @@ int os_browse_for_folder(HWND parent,wchar_t *filename);
 QWORD os_get_tick_count(void);
 QWORD os_get_tick_freq(void);
 void os_get_monitor_rect_from_window(HWND hwnd,RECT *monitor_rect,int fullscreen);
+WNDPROC os_set_window_proc(HWND hwnd,WNDPROC proc);
+int os_statusbar_index_from_x(HWND statusbar_hwnd,int x);
 
 extern HINSTANCE os_hinstance;
 extern DWORD os_major_version;
