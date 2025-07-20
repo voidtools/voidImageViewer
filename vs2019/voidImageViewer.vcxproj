@@ -635,6 +635,9 @@
     <PostBuildEvent>
       <Command />
     </PostBuildEvent>
+    <Manifest>
+      <AdditionalManifestFiles>..\res\voidImageViewer.Manifest</AdditionalManifestFiles>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <PreBuildEvent>
@@ -679,11 +682,15 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <LinkTimeCodeGeneration>
       </LinkTimeCodeGeneration>
+      <OutputFile>$(OutDir)$(TargetName)ARM$(TargetExt)</OutputFile>
     </Link>
     <PostBuildEvent>
       <Command>
       </Command>
     </PostBuildEvent>
+    <Manifest>
+      <AdditionalManifestFiles>..\res\voidImageViewer.Manifest</AdditionalManifestFiles>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <PreBuildEvent>
@@ -723,6 +730,9 @@
       <LinkTimeCodeGeneration />
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
+    <Manifest>
+      <AdditionalManifestFiles>..\res\voidImageViewer.Manifest</AdditionalManifestFiles>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <PreBuildEvent>
@@ -760,7 +770,11 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <LinkTimeCodeGeneration>
       </LinkTimeCodeGeneration>
+      <OutputFile>$(OutDir)$(TargetName)ARM64$(TargetExt)</OutputFile>
     </Link>
+    <Manifest>
+      <AdditionalManifestFiles>..\res\voidImageViewer.Manifest</AdditionalManifestFiles>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release ALPHA|Win32'">
     <PreBuildEvent>
