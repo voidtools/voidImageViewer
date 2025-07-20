@@ -373,7 +373,7 @@ static void _viv_command_with_is_key_repeat(int command,int is_key_repeat);
 static void _viv_command(int command);
 static int _viv_process_install_command_line_options(wchar_t *cl);
 static void _viv_process_command_line(wchar_t *cl);
-static int _viv_init(void);
+static int _viv_init(int nCmdShow);
 static void _viv_kill(void);
 static void _viv_exit(void);
 static int _viv_next(int prev,int reset_slideshow_timer,int is_preload,int allow_image_skip);
@@ -547,6 +547,7 @@ static void _viv_hide_cursor(void);
 static int _viv_should_show_cursor(void);
 static void _viv_update_show_cursor(void);
 static void _viv_start_hide_cursor_timer(void);
+static int _viv_main(int nCmdShow);
 
 static HMODULE _viv_stobject_hmodule = 0;
 static _viv_playlist_t *_viv_playlist_start = 0;
@@ -4794,7 +4795,7 @@ static void _viv_process_command_line(wchar_t *cl)
 	}
 }
 
-static int _viv_init(void)
+static int _viv_init(int nCmdShow)
 {
 	RECT rect;
 	STARTUPINFO si;
@@ -4951,6 +4952,11 @@ static int _viv_init(void)
 				si.cb = sizeof(STARTUPINFO);
 				GetStartupInfo(&si);
 				
+				if (!(si.dwFlags & STARTF_USESHOWWINDOW))
+				{
+					si.wShowWindow = nCmdShow;
+				}
+				
 				// calc size
 				size = sizeof(DWORD) + (((int)string_length(command_line) + 1) * sizeof(wchar_t)) + (((int)string_length(cwd) + 1) * sizeof(wchar_t));
 				buf = (char *)mem_alloc(size);
@@ -5036,6 +5042,11 @@ static int _viv_init(void)
 	
 	si.cb = sizeof(STARTUPINFO);
 	GetStartupInfo(&si);
+
+	if (!(si.dwFlags & STARTF_USESHOWWINDOW))
+	{
+		si.wShowWindow = nCmdShow;
+	}
 	
 	// default is to shownormal.
 	// if its anything else, like minimize/maximize to that before we apply the command line.
@@ -5182,9 +5193,9 @@ static void _viv_kill(void)
 #endif	
 }
 
-static int _viv_main(void)
+static int _viv_main(int nCmdShow)
 {
-	if (_viv_init())
+	if (_viv_init(nCmdShow))
 	{
 		for(;;)
 		{
@@ -5219,12 +5230,12 @@ static int _viv_main(void)
 
 int APIENTRY WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR lpCmdLine,int nShowCmd)
 {
-	return _viv_main();
+	return _viv_main(nShowCmd);
 }
 
 int __cdecl main(int argc,char **argv)
 {
-	return _viv_main();
+	return _viv_main(SW_SHOW);
 }
 
 static int _viv_compare_id(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
