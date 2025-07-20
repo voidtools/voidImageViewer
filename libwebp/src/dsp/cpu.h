@@ -55,7 +55,8 @@
 
 #if defined(_MSC_VER) && _MSC_VER >= 1500 && \
     (defined(_M_X64) || defined(_M_IX86))
-#define WEBP_MSC_SSE41  // Visual C++ SSE4.1 targets
+//VOID:    
+//#define WEBP_MSC_SSE41  // Visual C++ SSE4.1 targets
 #endif
 #endif
 
