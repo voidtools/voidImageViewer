@@ -77,6 +77,27 @@ void string_copy(wchar_t *d,const wchar_t *s)
 			break;
 		}
 		
+		size--;
+		*d++ = *s++;
+	}
+	
+	*d = 0;
+}
+
+void string_copy_with_bufsize(wchar_t *d,SIZE_T bufsize,const wchar_t *s)
+{
+	uintptr_t size;
+	
+	size = bufsize - 1;
+	
+	while(*s)
+	{
+		if (!size) 
+		{
+			break;
+		}
+		
+		size--;
 		*d++ = *s++;
 	}
 	
@@ -117,6 +138,7 @@ void string_cat(wchar_t *buf,const wchar_t *s)
 	{
 		if (!size) break;
 		
+		size--;
 		*d++ = *s;
 		s++;
 	}

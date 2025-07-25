@@ -22,7 +22,6 @@
 // VoidImageViewer
 
 // TODO:
-// [HIGH] vs2005 and vs2019 solutions in separate dirs.
 // [HIGH] break the redraw region down into rects and only stretch what we need to.
 // preserve center when changing size/fullscreen/windowed.
 // install for current user only option, install to %LocalAppData%\Programs
@@ -175,6 +174,12 @@
 // *opening a non existing filename should show an error message: "File Not Found". eg: viv.exe "c:\non-existing-folder\foo.jpg" -also added "failed to load image" message for bad images.
 // *hide mouse on hover.
 // *using wrong registry key in _viv_install_association_by_extension.
+// *vs2005 and vs2019 solutions in separate dirs.
+// 1.0.0.12
+// *fixed a gdi leak when freeing mipmaps
+// *fixed a gdi leak when refreshing.
+// *fixed changing sort loading the wrong next image.
+// *added natural sort
 
 #define _VIV_WM_REPLY							(WM_USER+1)
 #define _VIV_WM_RETRY_RANDOM_EVERYTHING_SEARCH	(WM_USER+2)
@@ -376,7 +381,7 @@ static void _viv_process_command_line(wchar_t *cl);
 static int _viv_init(int nCmdShow);
 static void _viv_kill(void);
 static void _viv_exit(void);
-static int _viv_next(int prev,int reset_slideshow_timer,int is_preload,int allow_image_skip);
+static int _viv_next(int prev,int reset_slideshow_timer,int is_preload,int wait_for_current_load);
 static void _viv_home(int end,int is_preload);
 static int _viv_is_valid_filename(WIN32_FIND_DATA *fd);
 static int _viv_is_msg(MSG *msg);
@@ -395,7 +400,7 @@ static void _viv_copy_image(void);
 static int _viv_is_key_state(int control,int shift,int alt);
 static CLIPFORMAT _viv_get_CF_PREFERREDDROPEFFECT(void);
 static void _viv_pause(void);
-static int _viv_compare(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b);
+static int _viv_fd_compare(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b);
 static void _viv_open(WIN32_FIND_DATA *fd,int is_preload);
 static BOOL _viv_open_from_filename(const wchar_t *filename);
 static void _viv_increase_rate(int dec);
@@ -512,6 +517,7 @@ static void _viv_jumpto_on_search(HWND hwnd);
 static void _viv_jumpto_open_sel(HWND hwnd);
 static void _viv_nav_item_free_all(void);
 static void _viv_nav_item_add(WIN32_FIND_DATA *fd);
+static int _viv_nav_compare(const _viv_nav_item_t *a,const _viv_nav_item_t *b);
 static void _viv_add_current_path_to_playlist(void);
 static void _viv_search_everything(int add);
 static int _viv_send_everything_search(HWND parent,int add,int randomize,const wchar_t *search);
@@ -520,8 +526,8 @@ static int _viv_playlist_shuffle_index_from_fd(const WIN32_FIND_DATA *fd);
 static void _viv_do_initial_shuffle(void);
 static _viv_playlist_t *_viv_playlist_from_fd(const WIN32_FIND_DATA *fd);
 static int _viv_compare_id(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b);
-static int _viv_compare_filenames(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b);
-static int _viv_compare_full_path_and_filenames(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b);
+static int _viv_fd_compare_name(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b);
+static int _viv_fd_compare_path_and_name(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b);
 static void _viv_update_1to1_scroll(LPARAM lParam);
 static HBITMAP _viv_rorate_hbitmap(HBITMAP hbitmap,int counterclockwise);
 static void _viv_send_random_everything_search(void);
@@ -530,7 +536,9 @@ static void _viv_mipmap_free(_viv_mipmap_t *mipmap);
 static void _viv_queue_clear(void);
 static void _viv_clear(void);
 static void _viv_process_pending_clear(void);
+static void _viv_clear_loading_preload(void);
 static void _viv_clear_preload(void);
+static void _viv_clear_preload_frames(void);
 static HBITMAP _viv_get_mipmap(HBITMAP hbitmap,int image_wide,int image_high,int render_wide,int render_high,int *pmip_wide,int *pmip_high,_viv_mipmap_t **out_mip);
 static void _viv_preload_next(void);
 static void _viv_start_first_frame(void);
@@ -651,7 +659,7 @@ static BYTE _viv_is_animation_timer_event = 0;
 static BYTE _viv_is_animation_paint = 0;
 static BYTE _viv_preload_state = 0; // 0 = loading, 1=complete, 2=failed
 static int _viv_preload_image_wide = 0; // current image width
-static int _viv_preload_image_high = 0; // current image width
+static int _viv_preload_image_high = 0; // current image height
 static int _viv_preload_frame_count = 0; // current image frame count, 1 for static image, > 1 for animation
 static int _viv_preload_frame_loaded_count = 0; // number of loaded frames, can be less than _viv_frame_count
 static _viv_frame_t *_viv_preload_frames = 0; // the frames that make up an image, could be more than one for animations.
@@ -664,9 +672,9 @@ static _viv_frame_t *_viv_pending_clear_frames = NULL;
 static int _viv_pending_clear_frame_loaded_count = 0;
 static WIN32_FIND_DATA *_viv_last_fd = 0; // the last find data including the full path and filename.
 static WIN32_FIND_DATA *_viv_frame_fd = 0; // the frame fd, may differ to the current fd because we change the title before the frames are loaded.
-static WIN32_FIND_DATA *_viv_load_fd = 0; // the frame fd, may differ to the current fd because we change the title before the frames are loaded.
+static WIN32_FIND_DATA *_viv_load_fd = 0; // the load fd
 static int _viv_last_image_wide = 0; // last image width
-static int _viv_last_image_high = 0; // last image width
+static int _viv_last_image_high = 0; // last image height
 static int _viv_last_frame_count = 0; // last image frame count, 1 for static image, > 1 for animation (all frames are loaded)
 static _viv_frame_t *_viv_last_frames = 0; // the last frames that make up an image, could be more than one for animations.
 static BYTE _viv_load_image_allow_draw = 0; // allow the image to show if it loaded successfully after the load was terminated.
@@ -1115,6 +1123,8 @@ static void _viv_update_title(void)
 
 static void _viv_mipmap_free(_viv_mipmap_t *mipmap)
 {
+	DeleteObject(mipmap->hbitmap);
+	
 	if (mipmap->mipmap)
 	{
 		_viv_mipmap_free(mipmap->mipmap);
@@ -1185,7 +1195,18 @@ static void _viv_process_pending_clear(void)
 	_viv_pending_clear_frame_loaded_count = 0;
 }
 
-static void _viv_clear_preload(void)
+static void _viv_clear_loading_preload(void)
+{
+	if (_viv_load_image_thread)
+	{
+		if (_viv_load_is_preload)
+		{
+			_viv_load_image_terminate = 1;
+		}
+	}
+}
+
+static void _viv_clear_preload_frames(void)
 {
 	if (_viv_preload_frames)
 	{
@@ -1198,6 +1219,13 @@ static void _viv_clear_preload(void)
 	_viv_preload_frame_loaded_count = 0;
 	_viv_preload_image_wide = 0;
 	_viv_preload_image_high = 0;
+}
+
+static void _viv_clear_preload(void)
+{
+	_viv_clear_preload_frames();
+	
+	_viv_preload_fd->cFileName[0] = 0;
 }
 
 static BOOL _viv_open_from_filename(const wchar_t *filename)
@@ -1413,8 +1441,6 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 	
 	// clear any existing preload and start a fresh one.
 	_viv_clear_preload();
-
-	_viv_preload_fd->cFileName[0] = 0;
 	
 	if (_viv_load_image_thread)
 	{
@@ -1657,6 +1683,7 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			}
 			
 			// clear preload
+			_viv_clear_loading_preload();
 			_viv_clear_preload();
 			_viv_clear_last();
 			
@@ -1709,6 +1736,7 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			}
 			
 			// clear preload and last
+			_viv_clear_loading_preload();
 			_viv_clear_preload();
 			_viv_clear_last();
 			
@@ -1718,6 +1746,7 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			config_nav_sort_ascending = 1;
 			
 			// clear preload and last
+			_viv_clear_loading_preload();
 			_viv_clear_preload();
 			_viv_clear_last();
 			
@@ -1727,6 +1756,7 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			config_nav_sort_ascending = 0;
 			
 			// clear preload and last
+			_viv_clear_loading_preload();
 			_viv_clear_preload();
 			_viv_clear_last();
 			
@@ -2798,7 +2828,7 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 								
 								if (_viv_load_is_preload)
 								{
-									_viv_clear_preload();
+									_viv_clear_preload_frames();
 									
 									_viv_preload_image_wide = first_frame->wide;
 									_viv_preload_image_high = first_frame->high;
@@ -5110,7 +5140,7 @@ static void _viv_kill(void)
 		_viv_last_frames = NULL;
 	}
 	
-	_viv_clear_preload();
+	_viv_clear_preload_frames();
 	_viv_clear();
 	_viv_process_pending_clear();
 
@@ -5264,16 +5294,25 @@ static int _viv_compare_id(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
 	return 0;	
 }
 
-static int _viv_compare_filenames(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
+static int _viv_fd_compare_name(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
 {
 	int ret;
 	const wchar_t *afilename;
 	const wchar_t *bfilename;
+	DWORD dwCmpFlags;
+	
+	dwCmpFlags = SORT_STRINGSORT|NORM_IGNORECASE;
+	
+	if (os_is_windows_7_or_later())
+	{
+		// #define SORT_DIGITSASNUMBERS      0x00000008  // use digits as numbers sort method
+		dwCmpFlags |= 0x00000008;
+	}
 
 	afilename = string_get_filename_part(a->cFileName);
 	bfilename = string_get_filename_part(b->cFileName);
 
-	ret = CompareString(LOCALE_USER_DEFAULT,SORT_STRINGSORT|NORM_IGNORECASE,afilename,string_length(afilename),bfilename,string_length(bfilename));
+	ret = CompareString(LOCALE_USER_DEFAULT,dwCmpFlags,afilename,string_length(afilename),bfilename,string_length(bfilename));
 	
 	switch(ret)
 	{
@@ -5287,11 +5326,20 @@ static int _viv_compare_filenames(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA
 	return _viv_compare_id(a,b);
 }
 
-static int _viv_compare_full_path_and_filenames(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
+static int _viv_fd_compare_path_and_name(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
 {
 	int ret;
+	DWORD dwCmpFlags;
+	
+	dwCmpFlags = SORT_STRINGSORT|NORM_IGNORECASE;
+	
+	if (os_is_windows_7_or_later())
+	{
+		// #define SORT_DIGITSASNUMBERS      0x00000008  // use digits as numbers sort method
+		dwCmpFlags |= 0x00000008;
+	}
 
-	ret = CompareString(LOCALE_USER_DEFAULT,SORT_STRINGSORT|NORM_IGNORECASE,a->cFileName,string_length(a->cFileName),b->cFileName,string_length(b->cFileName));
+	ret = CompareString(LOCALE_USER_DEFAULT,dwCmpFlags,a->cFileName,string_length(a->cFileName),b->cFileName,string_length(b->cFileName));
 	
 	switch(ret)
 	{
@@ -5305,7 +5353,7 @@ static int _viv_compare_full_path_and_filenames(const WIN32_FIND_DATA *a,const W
 	return _viv_compare_id(a,b);
 }
 
-static int _viv_compare(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
+static int _viv_fd_compare(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
 {
 	int ret;
 	
@@ -5314,11 +5362,11 @@ static int _viv_compare(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
 	switch(config_nav_sort)
 	{
 		case CONFIG_NAV_SORT_NAME:
-			ret = _viv_compare_filenames(a,b);
+			ret = _viv_fd_compare_name(a,b);
 			break;
 
 		case CONFIG_NAV_SORT_FULL_PATH_AND_FILENAME:
-			ret = _viv_compare_full_path_and_filenames(a,b);
+			ret = _viv_fd_compare_path_and_name(a,b);
 			break;
 
 		case CONFIG_NAV_SORT_SIZE:
@@ -5344,7 +5392,7 @@ static int _viv_compare(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
 			else
 			{
 				// we want name ascending when we are size descending.
-				ret = -_viv_compare_filenames(a,b);
+				ret = -_viv_fd_compare_name(a,b);
 			}
 			
 			break;
@@ -5372,7 +5420,7 @@ static int _viv_compare(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
 			}
 			else
 			{
-				ret = -_viv_compare_filenames(a,b);
+				ret = -_viv_fd_compare_name(a,b);
 			}
 			
 			break;
@@ -5400,7 +5448,7 @@ static int _viv_compare(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
 			}
 			else
 			{
-				ret = -_viv_compare_filenames(a,b);
+				ret = -_viv_fd_compare_name(a,b);
 			}
 			
 			break;
@@ -5415,12 +5463,14 @@ static int _viv_compare(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
 	return ret;
 }
 
-static int _viv_next(int prev,int reset_slideshow_timer,int is_preload,int allow_image_skip)
+static int _viv_next(int prev,int reset_slideshow_timer,int is_preload,int wait_for_current_load)
 {
 	int ret;
 
 	ret = 1;
 	
+debug_printf("_viv_next %d %d\n",prev,is_preload);
+
 	if (is_preload)
 	{
 		if (_viv_random)
@@ -5433,8 +5483,12 @@ static int _viv_next(int prev,int reset_slideshow_timer,int is_preload,int allow
 	{
 		_viv_last_is_prev = prev;
 	}
-	
-	if ((!is_preload) && (_viv_preload_is_prev == prev) && (_viv_load_is_preload) && (*_viv_preload_fd->cFileName))
+
+//TODO: review -when enabled, viv fills unresponsive/sluggish.
+// when disabled, viv can load multiple images when the 'up' key is released.
+//wait_for_current_load = 0;
+
+	if ((!is_preload) && (_viv_preload_is_prev == prev) && (_viv_load_is_preload) && (*_viv_preload_fd->cFileName) && (string_compare(_viv_current_fd->cFileName,_viv_preload_fd->cFileName) != 0))
 	{
 		WIN32_FIND_DATA best_fd;
 		
@@ -5443,9 +5497,10 @@ static int _viv_next(int prev,int reset_slideshow_timer,int is_preload,int allow
 		_viv_open(&best_fd,0);
 	}
 	else
-	if ((!is_preload) && (_viv_load_image_thread) && ((_viv_frame_loaded_count <= 1) || (_viv_load_image_terminate)) && (allow_image_skip))
+	if ((!is_preload) && (_viv_load_image_thread) && ((_viv_frame_loaded_count <= 1) || (_viv_load_image_terminate)) && (wait_for_current_load))
 	{
-		// no image skip
+		// still loading.
+		// wait for current load to finish.
 	}
 	else
 	if (_viv_random)
@@ -5530,7 +5585,7 @@ debug_printf("next %d\n",config_shuffle);
 						{
 							int compare_ret;
 							
-							compare_ret = _viv_compare(&d->fd,_viv_current_fd);
+							compare_ret = _viv_fd_compare(&d->fd,_viv_current_fd);
 
 							if (compare_ret != 0)
 							{
@@ -5538,7 +5593,7 @@ debug_printf("next %d\n",config_shuffle);
 								{
 									if (compare_ret < 0)
 									{
-										if ((!got_best) || (_viv_compare(&d->fd,&best_fd) > 0))
+										if ((!got_best) || (_viv_fd_compare(&d->fd,&best_fd) > 0))
 										{
 											os_copy_memory(&best_fd,&d->fd,sizeof(WIN32_FIND_DATA));
 											got_best = 1;
@@ -5549,7 +5604,7 @@ debug_printf("next %d\n",config_shuffle);
 								{
 									if (compare_ret > 0)
 									{
-										if ((!got_best) || (_viv_compare(&d->fd,&best_fd) < 0))
+										if ((!got_best) || (_viv_fd_compare(&d->fd,&best_fd) < 0))
 										{
 											os_copy_memory(&best_fd,&d->fd,sizeof(WIN32_FIND_DATA));
 											got_best = 1;
@@ -5561,7 +5616,7 @@ debug_printf("next %d\n",config_shuffle);
 							// compare with start..
 							if (prev)
 							{
-								if ((!got_start) || (_viv_compare(&d->fd,&start_fd) > 0))
+								if ((!got_start) || (_viv_fd_compare(&d->fd,&start_fd) > 0))
 								{
 									os_copy_memory(&start_fd,&d->fd,sizeof(WIN32_FIND_DATA));
 									
@@ -5570,7 +5625,7 @@ debug_printf("next %d\n",config_shuffle);
 							}
 							else
 							{
-								if ((!got_start) || (_viv_compare(&d->fd,&start_fd) < 0))
+								if ((!got_start) || (_viv_fd_compare(&d->fd,&start_fd) < 0))
 								{
 									os_copy_memory(&start_fd,&d->fd,sizeof(WIN32_FIND_DATA));
 									got_start = 1;
@@ -5589,6 +5644,8 @@ debug_printf("next %d\n",config_shuffle);
 				HANDLE h;
 				wchar_t search_wbuf[STRING_SIZE];
 				wchar_t path_wbuf[STRING_SIZE];
+
+debug_printf("FIND next\n");
 				
 				string_get_path_part(path_wbuf,_viv_current_fd->cFileName);
 				
@@ -5607,7 +5664,7 @@ debug_printf("next %d\n",config_shuffle);
 							fd.dwReserved0 = 0;
 							fd.dwReserved1 = 0;
 							
-							compare_ret = _viv_compare(&fd,_viv_current_fd);
+							compare_ret = _viv_fd_compare(&fd,_viv_current_fd);
 
 							if (compare_ret != 0)
 							{
@@ -5615,7 +5672,7 @@ debug_printf("next %d\n",config_shuffle);
 								{
 									if (compare_ret < 0)
 									{
-										if ((!got_best) || (_viv_compare(&fd,&best_fd) > 0))
+										if ((!got_best) || (_viv_fd_compare(&fd,&best_fd) > 0))
 										{
 											string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
 											string_copy(fd.cFileName,search_wbuf);
@@ -5628,7 +5685,7 @@ debug_printf("next %d\n",config_shuffle);
 								{
 									if (compare_ret > 0)
 									{
-										if ((!got_best) || (_viv_compare(&fd,&best_fd) < 0))
+										if ((!got_best) || (_viv_fd_compare(&fd,&best_fd) < 0))
 										{
 											string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
 											string_copy(fd.cFileName,search_wbuf);
@@ -5642,7 +5699,7 @@ debug_printf("next %d\n",config_shuffle);
 							// compare with start..
 							if (prev)
 							{
-								if ((!got_start) || (_viv_compare(&fd,&start_fd) > 0))
+								if ((!got_start) || (_viv_fd_compare(&fd,&start_fd) > 0))
 								{
 									string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
 									string_copy(fd.cFileName,search_wbuf);
@@ -5653,7 +5710,7 @@ debug_printf("next %d\n",config_shuffle);
 							}
 							else
 							{
-								if ((!got_start) || (_viv_compare(&fd,&start_fd) < 0))
+								if ((!got_start) || (_viv_fd_compare(&fd,&start_fd) < 0))
 								{
 									string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
 									string_copy(fd.cFileName,search_wbuf);
@@ -5754,7 +5811,7 @@ static void _viv_home(int end,int is_preload)
 				{
 					if (end)
 					{
-						if ((!got_best) || (_viv_compare(&d->fd,&best_fd) > 0))
+						if ((!got_best) || (_viv_fd_compare(&d->fd,&best_fd) > 0))
 						{
 							os_copy_memory(&best_fd,&d->fd,sizeof(WIN32_FIND_DATA));
 							got_best = 1;
@@ -5762,7 +5819,7 @@ static void _viv_home(int end,int is_preload)
 					}
 					else
 					{
-						if ((!got_best) || (_viv_compare(&d->fd,&best_fd) < 0))
+						if ((!got_best) || (_viv_fd_compare(&d->fd,&best_fd) < 0))
 						{
 							os_copy_memory(&best_fd,&d->fd,sizeof(WIN32_FIND_DATA));
 							got_best = 1;
@@ -5805,7 +5862,7 @@ static void _viv_home(int end,int is_preload)
 						
 						if (end)
 						{
-							if ((!got_best) || (_viv_compare(&fd,&best_fd) > 0))
+							if ((!got_best) || (_viv_fd_compare(&fd,&best_fd) > 0))
 							{
 								string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
 								string_copy(fd.cFileName,search_wbuf);
@@ -5815,7 +5872,7 @@ static void _viv_home(int end,int is_preload)
 						}
 						else
 						{
-							if ((!got_best) || (_viv_compare(&fd,&best_fd) < 0))
+							if ((!got_best) || (_viv_fd_compare(&fd,&best_fd) < 0))
 							{
 								string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
 								string_copy(fd.cFileName,search_wbuf);
@@ -11979,11 +12036,6 @@ static LRESULT CALLBACK _viv_jumpto_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 				d = _viv_playlist_start;
 				while(d)
 				{
-					if (_viv_compare(&d->fd,_viv_current_fd) == 0)
-					{
-						cur_index = _viv_nav_item_count;
-					}
-				
 					_viv_nav_item_add(&d->fd);
 				
 					d = d->next;
@@ -12011,13 +12063,8 @@ static LRESULT CALLBACK _viv_jumpto_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 						if (_viv_is_valid_filename(&fd))
 						{
 							string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-							string_copy(fd.cFileName,search_wbuf);
+							string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
 							
-							if (_viv_compare(&fd,_viv_current_fd) == 0)
-							{
-								cur_index = _viv_nav_item_count;
-							}
-						
 							_viv_nav_item_add(&fd);
 						}
 						
@@ -12042,6 +12089,32 @@ static LRESULT CALLBACK _viv_jumpto_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 					*d++ = navitem;
 					
 					navitem = navitem->next;
+				}
+			}
+			
+			// sort by name 
+			os_qsort(_viv_nav_items,_viv_nav_item_count,_viv_nav_compare);
+			
+			// find current.
+			{
+				_viv_nav_item_t **p;
+				SIZE_T run;
+				int index;
+				
+				p = _viv_nav_items;
+				run = _viv_nav_item_count;
+				index = 0;
+				
+				while(run)
+				{
+					if (string_compare((*p)->fd.cFileName,_viv_current_fd->cFileName) == 0)
+					{
+						cur_index = index;
+					}
+				
+					index++;
+					p++;
+					run--;
 				}
 			}
 			
@@ -12156,6 +12229,11 @@ static void _viv_nav_item_add(WIN32_FIND_DATA *fd)
 	navitem->next = 0;
 	_viv_nav_item_last = navitem;
 	_viv_nav_item_count++;				
+}
+
+static int _viv_nav_compare(const _viv_nav_item_t *a,const _viv_nav_item_t *b)
+{
+	return _viv_fd_compare_name(&a->fd,&b->fd);
 }
 
 static INT_PTR CALLBACK _viv_search_everything_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
@@ -12945,27 +13023,37 @@ static HBITMAP _viv_get_mipmap(HBITMAP hbitmap,int image_wide,int image_high,int
 			*pmip = mem_alloc(sizeof(_viv_mipmap_t));
 			
 			screen_hdc = GetDC(0);
-			mem_hdc = CreateCompatibleDC(screen_hdc);
-			mem2_hdc = CreateCompatibleDC(screen_hdc);
+			if (screen_hdc)
+			{
+				mem_hdc = CreateCompatibleDC(screen_hdc);
+				if (mem_hdc)
+				{
+					mem2_hdc = CreateCompatibleDC(screen_hdc);
+					if (mem2_hdc)
+					{
+						(*pmip)->mipmap = NULL;
+						(*pmip)->hbitmap = CreateCompatibleBitmap(screen_hdc,mip_wide,mip_high);
+						
+						last_hbitmap = SelectObject(mem_hdc,(*pmip)->hbitmap);
+						last2_hbitmap = SelectObject(mem2_hdc,best_hbitmap);
+						
+						last_stretch_mode = SetStretchBltMode(mem_hdc,HALFTONE);
+						
+						StretchBlt(mem_hdc,0,0,mip_wide,mip_high,mem2_hdc,0,0,best_wide,best_high,SRCCOPY);
 
-			(*pmip)->mipmap = NULL;
-			(*pmip)->hbitmap = CreateCompatibleBitmap(screen_hdc,mip_wide,mip_high);
-			
-			last_hbitmap = SelectObject(mem_hdc,(*pmip)->hbitmap);
-			last2_hbitmap = SelectObject(mem2_hdc,best_hbitmap);
-			
-			last_stretch_mode = SetStretchBltMode(mem_hdc,HALFTONE);
-			
-			StretchBlt(mem_hdc,0,0,mip_wide,mip_high,mem2_hdc,0,0,best_wide,best_high,SRCCOPY);
+						SetStretchBltMode(mem_hdc,last_stretch_mode);
+						
+						SelectObject(mem_hdc,last_hbitmap);
+						SelectObject(mem2_hdc,last2_hbitmap);
 
-			SetStretchBltMode(mem_hdc,last_stretch_mode);
-			
-			SelectObject(mem_hdc,last_hbitmap);
-			SelectObject(mem2_hdc,last2_hbitmap);
-
-			DeleteDC(mem2_hdc);
-			DeleteDC(mem_hdc);
-			ReleaseDC(0,screen_hdc);
+						DeleteDC(mem2_hdc);
+					}
+					
+					DeleteDC(mem_hdc);
+				}
+				
+				ReleaseDC(0,screen_hdc);
+			}
 		}
 
 		best_wide = mip_wide;
@@ -13122,7 +13210,7 @@ debug_printf("activate preload\n");
 	
 	os_copy_memory(_viv_frame_fd,_viv_preload_fd,sizeof(WIN32_FIND_DATA));
 
-	_viv_clear_preload();
+	_viv_clear_preload_frames();
 	
 	*_viv_preload_fd->cFileName = 0;
 }
@@ -13254,10 +13342,12 @@ static void _viv_refresh(void)
 	_viv_clear_last();
 
 	// clear preload.
+	_viv_clear_loading_preload();
 	_viv_clear_preload();
 
 	_viv_clear();
 	_viv_start_first_frame();
+	_viv_process_pending_clear();
 
 	_viv_open(&fd,0);
 }

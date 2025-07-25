@@ -31,6 +31,7 @@ uintptr_t string_length(const wchar_t *text);
 wchar_t *string_alloc(const wchar_t *s);
 wchar_t *string_alloc_utf8(const utf8_t *s);
 void string_copy(wchar_t *d,const wchar_t *s);
+void string_copy_with_bufsize(wchar_t *d,SIZE_T bufsize,const wchar_t *s);
 void string_cat(wchar_t *buf,const wchar_t *s);
 int string_compare(const wchar_t *s1,const wchar_t *s2);
 int string_istartwith_lowercase_ascii(const wchar_t *s1,const char *lowercase_ascii_s2);

@@ -1280,3 +1280,21 @@ int os_statusbar_index_from_x(HWND statusbar_hwnd,int x)
 	
 	return -1;
 }
+
+int os_is_windows_7_or_later(void)
+{
+	if (os_major_version > 6)
+	{
+		return 1;
+	}
+	
+	if (os_major_version == 6)
+	{
+		if (os_minor_version >= 1)
+		{
+			return 1;
+		}
+	}
+	
+	return 0;
+}
