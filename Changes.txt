@@ -1,3 +1,9 @@
+Friday, 25 July 2025: Version 1.0.0.12
+	fixed a gdi leak when freeing mipmaps
+	fixed a gdi leak when refreshing
+	fixed an issue with loading the wrong next image after changing the sort
+	added natural sort
+
 Sunday, 20 July 2025: Version 1.0.0.11
 	fixed an issue with using the wrong association registry key
 	fixed a crash when interrupting the loading of a multi-frame image
