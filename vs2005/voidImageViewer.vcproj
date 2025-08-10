@@ -1988,6 +1988,22 @@
 				>
 			</File>
 			<File
+				RelativePath="..\src\safe_size.c"
+				>
+			</File>
+			<File
+				RelativePath="..\src\safe_size.h"
+				>
+			</File>
+			<File
+				RelativePath="..\src\small_pool.c"
+				>
+			</File>
+			<File
+				RelativePath="..\src\small_pool.h"
+				>
+			</File>
+			<File
 				RelativePath="..\src\string.c"
 				>
 			</File>
@@ -2057,10 +2073,6 @@
 			</File>
 			<File
 				RelativePath="..\res\prev.ico"
-				>
-			</File>
-			<File
-				RelativePath="..\res\resource"
 				>
 			</File>
 			<File
@@ -2580,6 +2592,10 @@
 				</File>
 			</Filter>
 		</Filter>
+		<File
+			RelativePath="..\res\resource"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>
