@@ -1622,6 +1622,8 @@
     <ClCompile Include="..\src\render_gdi.c" />
     <ClCompile Include="..\src\render_opengl.c" />
     <ClCompile Include="..\src\render_software.c" />
+    <ClCompile Include="..\src\safe_size.c" />
+    <ClCompile Include="..\src\small_pool.c" />
     <ClCompile Include="..\src\string.c" />
     <ClCompile Include="..\src\utf8.c" />
     <ClCompile Include="..\src\viv.c" />
@@ -1673,6 +1675,8 @@
     <ClInclude Include="..\src\render_gdi.h" />
     <ClInclude Include="..\src\render_opengl.h" />
     <ClInclude Include="..\src\render_software.h" />
+    <ClInclude Include="..\src\safe_size.h" />
+    <ClInclude Include="..\src\small_pool.h" />
     <ClInclude Include="..\src\string.h" />
     <ClInclude Include="..\src\utf8.h" />
     <ClInclude Include="..\src\version.h" />
