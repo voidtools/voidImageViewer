@@ -1,3 +1,11 @@
+Sunday, 10 August 2025: Version 1.0.0.13
+	fixed an issue with losing the image center on resize
+	fixed back/forward mouse buttons not working from toolbars
+	fixed an issue with loading the wrong next image when it was preloaded and changed externally
+	improved rendering performance
+	added left click action: move window
+	added auto size window GUI option
+
 Friday, 25 July 2025: Version 1.0.0.12
 	fixed a gdi leak when freeing mipmaps
 	fixed a gdi leak when refreshing
