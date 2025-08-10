@@ -84,7 +84,9 @@
 #define IDC_EVERYTHING_EDIT             1046
 #define IDC_WEBP                        1047
 #define IDC_PRELOAD_NEXT_IMAGE          1048
-#define IDC_CACHE_LAST_IMAGE			1049
+#define IDC_CACHE_LAST_IMAGE            1049
+#define IDC_AUTO_ZOOM                   1050
+#define IDC_COMBO4                      1051
 
 // Next default values for new objects
 // 
@@ -93,7 +95,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        130
 #define _APS_NEXT_COMMAND_VALUE         40048
-#define _APS_NEXT_CONTROL_VALUE         1050
+#define _APS_NEXT_CONTROL_VALUE         1052
 #define _APS_NEXT_SYMED_VALUE           109
 #endif
 #endif
