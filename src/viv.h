@@ -229,6 +229,8 @@ enum
 #include "ini.h"
 #include "config.h"
 #include "webp.h"
+#include "small_pool.h"
+#include "safe_size.h"
 
 #include "everything_ipc.h"
 

@@ -76,6 +76,10 @@ extern BYTE config_fill_window;
 extern BYTE config_fullscreen_fill_window;
 extern BYTE config_auto_zoom;
 extern BYTE config_auto_zoom_type;
+extern int config_auto_fit_wide_mul;
+extern int config_auto_fit_wide_div;
+extern int config_auto_fit_high_mul;
+extern int config_auto_fit_high_div;
 extern BYTE config_frame_minus;
 extern BYTE config_multiple_instances;
 extern BYTE config_show_status;
@@ -109,6 +113,10 @@ extern BYTE config_icm;
 extern BYTE config_show_menu;
 extern BYTE config_show_caption;
 extern BYTE config_show_thickframe;
+extern BYTE config_toolbar_move_window;
+extern BYTE config_windowed_hide_cursor;
+extern BYTE config_auto_zoom;
+extern BYTE config_pixel_info;
 
 #ifdef __cplusplus
 }

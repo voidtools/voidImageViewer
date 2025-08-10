@@ -82,6 +82,7 @@ static IShellItem *_os_get_shellitem(const ITEMIDLIST *pidl);
 HINSTANCE os_hinstance = 0;
 DWORD os_major_version = 0; // 4 = 9x/nt, 5 = xp,2k,server2k3, 6 = vista
 DWORD os_minor_version = 0;
+char os_is_nt = 0;
 BOOL (WINAPI *os_CreateTimerQueueTimer)(PHANDLE phNewTimer,HANDLE TimerQueue,WAITORTIMERCALLBACK Callback,PVOID Parameter,DWORD DueTime,DWORD Period,ULONG Flags) = 0;
 BOOL (WINAPI *os_DeleteTimerQueueTimer)(HANDLE TimerQueue,HANDLE Timer,HANDLE CompletionEvent) = 0;
 BOOL (WINAPI *_os_SetDllDirectoryW)(LPCTSTR lpPathName) = 0;
@@ -115,8 +116,10 @@ BOOL (STDAPICALLTYPE *os_IsUserAnAdmin)(void) = 0;
 HRESULT (__stdcall *os_EnableThemeDialogTexture)(HWND hwnd, DWORD dwFlags) = 0;
 static unsigned int (__cdecl *_os_controlfp)(unsigned int _NewValue,unsigned int _Mask) = 0;
 BOOL (WINAPI *os_ChangeWindowMessageFilterEx)(HWND hWnd,UINT message,DWORD action,void *pChangeFilterStruct) = 0;
+DWORD (WINAPI *os_GetLayout)(HDC hdc) = 0;
 static HMONITOR (WINAPI *_os_MonitorFromWindow)(HWND hwnd,DWORD dwFlags) = 0;
 static HMONITOR (WINAPI *_os_MonitorFromRect)(LPCRECT lprc,DWORD dwFlags) = 0;
+static HMONITOR (WINAPI *_os_MonitorFromPoint)(POINT pt,DWORD dwFlags) = 0;
 
 int os_logical_wide = 96;
 int os_logical_high = 96;
@@ -132,6 +135,7 @@ static HMODULE _os_user32_hmodule = 0;
 static HMODULE _os_UxTheme_hmodule = 0;
 static HMODULE _os_gdiplus_hmodule = 0;
 static HMODULE _os_ucrtbase_hmodule = 0;
+static HMODULE _os_gdi32_hmodule = 0;
 
 void os_zero_memory(void *data,int size)
 {
@@ -173,6 +177,16 @@ void os_make_rect_completely_visible(HWND hwnd,RECT *prect)
 	wide = prect->right - prect->left;
 	high = prect->bottom - prect->top;
 
+	if (wide > monitor_from_window_rect.right - monitor_from_window_rect.left)
+	{
+		wide = monitor_from_window_rect.right - monitor_from_window_rect.left;
+	}
+	
+	if (high > monitor_from_window_rect.bottom - monitor_from_window_rect.top)
+	{
+		high = monitor_from_window_rect.bottom - monitor_from_window_rect.top;
+	}
+	
 	// push the window 
 	if (prect->right > monitor_from_window_rect.right) 
 	{
@@ -228,8 +242,19 @@ void os_MonitorRectFromWindow(HWND hwnd,int is_fullscreen,RECT *out_monitor_rect
 	}
 	else
 	{
-		// work area
-		SystemParametersInfo(SPI_GETWORKAREA,0,(PVOID)out_monitor_rect,0);
+		if (is_fullscreen)
+		{
+			// full screen
+			out_monitor_rect->left = 0;
+			out_monitor_rect->top = 0;
+			out_monitor_rect->right = GetSystemMetrics(SM_CXFULLSCREEN);
+			out_monitor_rect->bottom = GetSystemMetrics(SM_CYFULLSCREEN);
+		}
+		else
+		{
+			// work area
+			SystemParametersInfo(SPI_GETWORKAREA,0,(PVOID)out_monitor_rect,0);
+		}
 	}
 }
 
@@ -261,8 +286,67 @@ void os_MonitorRectFromRect(RECT *window_rect,int is_fullscreen,RECT *out_monito
 	}
 	else
 	{
-		// work area
-		SystemParametersInfo(SPI_GETWORKAREA,0,(PVOID)out_monitor_rect,0);
+		if (is_fullscreen)
+		{
+			// full screen
+			out_monitor_rect->left = 0;
+			out_monitor_rect->top = 0;
+			out_monitor_rect->right = GetSystemMetrics(SM_CXFULLSCREEN);
+			out_monitor_rect->bottom = GetSystemMetrics(SM_CYFULLSCREEN);
+		}
+		else
+		{
+			// work area
+			SystemParametersInfo(SPI_GETWORKAREA,0,(PVOID)out_monitor_rect,0);
+		}
+	}
+}
+
+void os_MonitorRectFromCursor(int is_fullscreen,RECT *out_monitor_rect)
+{
+	HMONITOR hmonitor;
+	MONITORINFO mi;
+	
+	hmonitor = NULL;
+	
+	if (_os_MonitorFromPoint)
+	{
+		POINT cursor_pt;
+		
+		GetCursorPos(&cursor_pt);
+		
+		hmonitor = _os_MonitorFromPoint(cursor_pt,MONITOR_DEFAULTTOPRIMARY);
+	}
+	
+	if (hmonitor)
+	{
+		mi.cbSize = sizeof(MONITORINFO);
+		GetMonitorInfo(hmonitor,&mi);
+		
+		if (is_fullscreen)
+		{
+			CopyRect(out_monitor_rect,&mi.rcMonitor);
+		}
+		else
+		{
+			CopyRect(out_monitor_rect,&mi.rcWork);
+		}
+	}
+	else
+	{
+		if (is_fullscreen)
+		{
+			// full screen
+			out_monitor_rect->left = 0;
+			out_monitor_rect->top = 0;
+			out_monitor_rect->right = GetSystemMetrics(SM_CXFULLSCREEN);
+			out_monitor_rect->bottom = GetSystemMetrics(SM_CYFULLSCREEN);
+		}
+		else
+		{
+			// work area
+			SystemParametersInfo(SPI_GETWORKAREA,0,(PVOID)out_monitor_rect,0);
+		}
 	}
 }
 
@@ -723,6 +807,7 @@ void os_init(void)
 
 		os_major_version = (char)osvi.dwMajorVersion;
 		os_minor_version = (char)osvi.dwMinorVersion;
+		os_is_nt = (osvi.dwPlatformId == VER_PLATFORM_WIN32_NT);
 
 		debug_printf("os %d\n",os_major_version);
 	}
@@ -778,6 +863,7 @@ void os_init(void)
 		os_ChangeWindowMessageFilterEx = (void *)GetProcAddress(_os_user32_hmodule,"ChangeWindowMessageFilterEx");
 		_os_MonitorFromWindow = (void *)GetProcAddress(_os_user32_hmodule,"MonitorFromWindow");
 		_os_MonitorFromRect = (void *)GetProcAddress(_os_user32_hmodule,"MonitorFromRect");
+		_os_MonitorFromPoint = (void *)GetProcAddress(_os_user32_hmodule,"MonitorFromPoint");
 	}
 
 	_os_UxTheme_hmodule = LoadLibraryA("UxTheme.dll");
@@ -797,6 +883,12 @@ void os_init(void)
 			// _MCW_RC = 0x00000300
 			_os_controlfp(0x00000300,0x00000300);
 		}		
+	}
+
+	_os_gdi32_hmodule = LoadLibraryA("gdi32.dll");
+	if (_os_gdi32_hmodule)
+	{
+		os_GetLayout = (void *)GetProcAddress(_os_user32_hmodule,"GetLayout");
 	}
 
 	_os_gdiplus_hmodule = LoadLibraryA("gdiplus.dll");
@@ -839,6 +931,11 @@ void os_kill(void)
 		FreeLibrary(_os_shell32_hmodule);
 	}
 		
+	if (_os_gdi32_hmodule)
+	{
+		FreeLibrary(_os_gdi32_hmodule);
+	}
+	
 	if (_os_ucrtbase_hmodule)
 	{
 		FreeLibrary(_os_ucrtbase_hmodule);
@@ -1298,3 +1395,125 @@ int os_is_windows_7_or_later(void)
 	
 	return 0;
 }
+
+// windows creates funky regions if left > right
+HRGN os_CreateRectRgn(int left,int top,int right,int bottom)
+{
+	if (left >= right) return CreateRectRgn(0,0,0,0);
+	if (top >= bottom) return CreateRectRgn(0,0,0,0);
+	
+	return CreateRectRgn(left,top,right,bottom);
+}
+
+HRGN os_mirror_region(HRGN hrgn,int wide)
+{
+	HRGN new_hrgn;
+	DWORD i;
+	RGNDATA *region_data;
+	DWORD region_size;
+	small_pool_t small_pool;
+
+	small_pool_init(&small_pool);
+
+	region_size = GetRegionData(hrgn,0,0);
+
+	region_data = small_pool_alloc(&small_pool,region_size);
+
+	GetRegionData(hrgn,region_size,region_data);
+	
+	for(i=0;i<region_data->rdh.nCount;i++)
+	{
+		int left;
+		int right;
+		
+		right = wide - ((RECT *)region_data->Buffer)[i].left;
+		left = wide - ((RECT *)region_data->Buffer)[i].right;
+		
+		((RECT *)region_data->Buffer)[i].left = left;
+		((RECT *)region_data->Buffer)[i].right = right;
+	}
+	
+	new_hrgn = ExtCreateRegion(NULL,region_size,region_data);
+	
+	small_pool_kill(&small_pool);
+	
+	return new_hrgn;
+}
+
+// prect is out, pclip is in.
+void os_fill_clamped_rect(HDC hdc,int left,int top,int right,int bottom,int clamp_left,int clamp_top,int clamp_right,int clamp_bottom,HBRUSH hbrush)
+{
+	if (left < clamp_left)
+	{
+		left = clamp_left;
+	}
+
+	if (top < clamp_top)
+	{
+		top = clamp_top;
+	}
+	
+	if (right > clamp_right)
+	{
+		right = clamp_right;
+	}
+	
+	if (bottom > clamp_bottom)
+	{
+		bottom = clamp_bottom;
+	}
+	
+	os_fill_rect(hdc,left,top,right - left,bottom - top,hbrush);
+}
+
+void os_set_rect(RECT *rect,int x,int y,int wide,int high)
+{
+	rect->left = x;
+	rect->top = y;
+	rect->right = x + wide;
+	rect->bottom = y + high;
+}
+
+void os_fill_rect(HDC hdc,int x,int y,int wide,int high,HBRUSH hbrush)
+{
+	if ((wide > 0) && (high > 0))
+	{
+		RECT rect;
+		
+		os_set_rect(&rect,x,y,wide,high);
+
+		FillRect(hdc,&rect,hbrush);
+	}
+}
+
+// prect is out, pclip is in.
+void os_fill_clipped_rect(HDC hdc,int x,int y,int wide,int high,int clip_x,int clip_y,int clip_wide,int clip_high,HBRUSH hbrush)
+{
+	// make sure we have a rect with some size!
+	// otherwise we overdraw!
+	if ((wide > 0) && (high > 0))
+	{
+		int right;
+		int bottom;
+		int clip_right;
+		int clip_bottom;
+		
+		right = x + wide;
+		bottom = y + high;
+		clip_right = clip_x + clip_wide;
+		clip_bottom = clip_y + clip_high;
+		
+		// top
+		os_fill_clamped_rect(hdc,x,y,right,clip_y,x,y,right,bottom,hbrush);
+		
+		// left
+		os_fill_clamped_rect(hdc,x,clip_y,clip_x,clip_bottom,x,y,right,bottom,hbrush);
+		
+		// right
+		os_fill_clamped_rect(hdc,clip_right,clip_y,right,clip_bottom,x,y,right,bottom,hbrush);
+		
+		// bottom
+		os_fill_clamped_rect(hdc,x,clip_bottom,right,bottom,x,y,right,bottom,hbrush);
+	}	
+}
+

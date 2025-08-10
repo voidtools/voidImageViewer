@@ -47,6 +47,10 @@ BYTE config_fill_window = 0; // stretch the image to fill the window
 BYTE config_fullscreen_fill_window = 1; // same as fill_window, except this setting is used when we are fullscreen
 BYTE config_auto_zoom = 0; // automatically resize the window to fit the newly loaded image
 BYTE config_auto_zoom_type = 1; // 0 = 50%, 1 = 100%, 2 = 200%
+int config_auto_fit_wide_mul = 3;
+int config_auto_fit_wide_div = 5;
+int config_auto_fit_high_mul = 3;
+int config_auto_fit_high_div = 5;
 BYTE config_frame_minus = 0; // show frame counter or remaining frames in status bar
 BYTE config_multiple_instances = 0; // all multiple instances or use a single instance.
 BYTE config_show_status = 1;
@@ -55,7 +59,7 @@ BYTE config_prevent_sleep = 1;
 BYTE config_loop_animations_once = 1;
 BYTE config_mouse_wheel_action = 0; // 0 = zoom, 1 = next/prev, 2=prev/next
 BYTE config_ctrl_mouse_wheel_action = 0; // 0 = zoom, 1 = next/prev, 2=prev/next
-BYTE config_left_click_action = 0; // 0 = scroll, 1 = play/pause slideshow, 2 = play/pause animation, 3=zoom in, 4=next, 5=1:1 scroll
+BYTE config_left_click_action = 0; // 0 = scroll, 1 = play/pause slideshow, 2 = play/pause animation, 3=zoom in, 4=next, 5=1:1 scroll, 6=move-window
 BYTE config_right_click_action = 0; // 0 = context menu, 1=zoom out, 2=prev, 
 BYTE config_xbutton_action = 2; // 1=zoom, 2=next
 BYTE config_windowed_background_color_r = 255;
@@ -80,6 +84,9 @@ BYTE config_icm = 1;
 BYTE config_show_menu = 1;
 BYTE config_show_caption = 1;
 BYTE config_show_thickframe = 1;
+BYTE config_toolbar_move_window = 1;
+BYTE config_windowed_hide_cursor = 1;
+BYTE config_pixel_info = 0;
 
 static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 {
@@ -110,9 +117,14 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_show_thickframe = ini_get_int(ini,(const utf8_t *)"show_thickframe",config_show_thickframe);
 		config_show_menu = ini_get_int(ini,(const utf8_t *)"show_menu",config_show_menu);
 		config_show_status = ini_get_int(ini,(const utf8_t *)"show_status",config_show_status);
+		config_pixel_info = ini_get_int(ini,(const utf8_t *)"statusbar_pixel_info",config_pixel_info);
 		config_show_controls = ini_get_int(ini,(const utf8_t *)"show_controls",config_show_controls);
 		config_auto_zoom = ini_get_int(ini,(const utf8_t *)"auto_zoom",config_auto_zoom);
 		config_auto_zoom_type = ini_get_int(ini,(const utf8_t *)"auto_zoom_type",config_auto_zoom_type);
+		config_auto_fit_wide_mul = ini_get_int(ini,(const utf8_t *)"auto_fit_wide_mul",config_auto_fit_wide_mul);
+		config_auto_fit_wide_div = ini_get_int(ini,(const utf8_t *)"auto_fit_wide_div",config_auto_fit_wide_div);
+		config_auto_fit_high_mul = ini_get_int(ini,(const utf8_t *)"auto_fit_high_mul",config_auto_fit_high_mul);
+		config_auto_fit_high_div = ini_get_int(ini,(const utf8_t *)"auto_fit_high_div",config_auto_fit_high_div);
 		config_frame_minus = ini_get_int(ini,(const utf8_t *)"frame_minus",config_frame_minus);
 		config_mouse_wheel_action = ini_get_int(ini,(const utf8_t *)"mouse_wheel_action",config_mouse_wheel_action);
 		config_ctrl_mouse_wheel_action = ini_get_int(ini,(const utf8_t *)"ctrl_mouse_wheel_action",config_ctrl_mouse_wheel_action);
@@ -123,6 +135,7 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_windowed_background_color_r = ini_get_int(ini,(const utf8_t *)"windowed_background_color_r",config_windowed_background_color_r);
 		config_windowed_background_color_g = ini_get_int(ini,(const utf8_t *)"windowed_background_color_g",config_windowed_background_color_g);
 		config_windowed_background_color_b = ini_get_int(ini,(const utf8_t *)"windowed_background_color_b",config_windowed_background_color_b);
+		config_windowed_hide_cursor = ini_get_int(ini,(const utf8_t *)"windowed_hide_cursor",config_windowed_hide_cursor);
 		config_fullscreen_background_color_r = ini_get_int(ini,(const utf8_t *)"fullscreen_background_color_r",config_fullscreen_background_color_r);
 		config_fullscreen_background_color_g = ini_get_int(ini,(const utf8_t *)"fullscreen_background_color_g",config_fullscreen_background_color_g);
 		config_fullscreen_background_color_b = ini_get_int(ini,(const utf8_t *)"fullscreen_background_color_b",config_fullscreen_background_color_b);
@@ -141,6 +154,7 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_preload_next = ini_get_int(ini,(const utf8_t *)"preload_next",config_preload_next);
 		config_cache_last = ini_get_int(ini,(const utf8_t *)"cache_last",config_cache_last);
 		config_icm = ini_get_int(ini,(const utf8_t *)"icm",config_icm);
+		config_toolbar_move_window = ini_get_int(ini,(const utf8_t *)"toolbar_move_window",config_toolbar_move_window);
 
 		if (is_root)
 		{
@@ -284,9 +298,14 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"show_thickframe",config_show_thickframe);
 			_config_write_int(h,"show_menu",config_show_menu);
 			_config_write_int(h,"show_status",config_show_status);
+			_config_write_int(h,"statusbar_pixel_info",config_pixel_info);
 			_config_write_int(h,"show_controls",config_show_controls);
 			_config_write_int(h,"auto_zoom",config_auto_zoom);
 			_config_write_int(h,"auto_zoom_type",config_auto_zoom_type);
+			_config_write_int(h,"auto_fit_wide_mul",config_auto_fit_wide_mul);
+			_config_write_int(h,"auto_fit_wide_div",config_auto_fit_wide_div);
+			_config_write_int(h,"auto_fit_high_mul",config_auto_fit_high_mul);
+			_config_write_int(h,"auto_fit_high_div",config_auto_fit_high_div);
 			_config_write_int(h,"frame_minus",config_frame_minus);
 			_config_write_int(h,"mouse_wheel_action",config_mouse_wheel_action);
 			_config_write_int(h,"ctrl_mouse_wheel_action",config_ctrl_mouse_wheel_action);
@@ -297,6 +316,7 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"windowed_background_color_r",config_windowed_background_color_r);
 			_config_write_int(h,"windowed_background_color_g",config_windowed_background_color_g);
 			_config_write_int(h,"windowed_background_color_b",config_windowed_background_color_b);
+			_config_write_int(h,"windowed_hide_cursor",config_windowed_hide_cursor);
 			_config_write_int(h,"fullscreen_background_color_r",config_fullscreen_background_color_r);
 			_config_write_int(h,"fullscreen_background_color_g",config_fullscreen_background_color_g);
 			_config_write_int(h,"fullscreen_background_color_b",config_fullscreen_background_color_b);
@@ -315,6 +335,7 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"preload_next",config_preload_next);
 			_config_write_int(h,"cache_last",config_cache_last);
 			_config_write_int(h,"icm",config_icm);
+			_config_write_int(h,"toolbar_move_window",config_toolbar_move_window);
 		
 			// save keys
 			{
