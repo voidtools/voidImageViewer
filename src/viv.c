@@ -22,6 +22,16 @@
 // VoidImageViewer
 
 // TODO:
+// allow xbuttons to repeat
+// break POS and RGB into separate parts
+// maintain correct image aspect ratio when window is clipped on auto size.
+// orientation metadata for rotation.
+// move window action: I will trial scrolling if zoomed, then fallback to move window.
+// if we have a small image 64x64 and zoom right in, the image still fits inside our window -if we then go fullscreen the image is massive, we should check if Fill Window is triggered and disable the zoom in fullscreen mode.
+
+// pixel info doesn't work if shrinking. -we incorrectly get the pixel from the mipmap.
+// Undo option, after delete, undo the delete and re-add the image to the playlist.
+// delete crashes on win9x, might indicate a deeper issue..
 // fix horrible screen buffer mangling by Windows when resizing the window or auto fitting the window.
 // msi installer
 // ARM/ARM64 installer
@@ -439,7 +449,7 @@ static void _viv_increase_animation_rate(int dec);
 static void _viv_reset_animation_rate(void);
 static void _viv_timer_start(void);
 static void _viv_mousemove(void);
-static void _viv_update_src_pixel(void);
+static void _viv_update_src_pixel(int force,int update_statusbar);
 static void _viv_animation_pause(void);
 static void _viv_frame_step(void);
 static void _viv_frame_prev(void);
@@ -1878,6 +1888,7 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 				_viv_animation_timer_tick_start = os_get_tick_count();
 				_viv_timer_tick = 0;
 
+				_viv_update_src_pixel(1,0);
 				_viv_status_update();
 					
 				InvalidateRect(_viv_hwnd,NULL,FALSE);
@@ -1901,6 +1912,7 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 				_viv_animation_timer_tick_start = os_get_tick_count();
 				_viv_timer_tick = 0;
 
+				_viv_update_src_pixel(1,0);
 				_viv_status_update();
 					
 				InvalidateRect(_viv_hwnd,NULL,FALSE);
@@ -3251,6 +3263,7 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 //debug_printf("_viv_frame_position %u\n",_viv_frame_position);
 						if (invalidate)
 						{
+							_viv_update_src_pixel(1,0);
 							_viv_status_update();
 							InvalidateRect(hwnd,0,FALSE);
 							
@@ -3623,7 +3636,7 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 					break;					
 			}
 			
-			_viv_update_src_pixel();
+			_viv_update_src_pixel(0,1);
 			
 			break;
 			
@@ -4018,6 +4031,19 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			int high;
 			PAINTSTRUCT ps;
 
+			// paint the image.
+			//
+			// we get a list of RECTs that describe the update region.
+			// we only want to render inside these RECTs as they are likely to be small (scrolling)
+			// avoid stretching the entire image on each paint.
+			// 
+			// for shrink-stretching we set a HDC user clipping rect.
+			// StretchBlt appears to honor this clipping RECT, the whole image is not stretched and is much faster.
+			//
+			// for magnify-stretching we use our own stretch function that avoids 
+			// stretching the entire image.
+			// StretchBlt DOES NOT honor the clipping RECT when magnifying.
+			
 			GetClientRect(hwnd,&rect);
 			wide = rect.right - rect.left;
 			high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_controls_high();
@@ -4261,6 +4287,9 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 															{
 																// use our own stretch that only renders the clipping rect region.
 																// where as StretchBlt ignores the clipping region and renders the entire dst region.
+																//
+																// if the clipping region is the full area, just use stretchblt, which is likely faster.
+																// for now, we will use our implementation to avoid scaling inconsistancies.
 																_viv_stretch_blt(ps.hdc,rx,ry,rw,rh,mem_hdc,mip_wide,mip_high,rect_p->left,rect_p->top,rect_p->right - rect_p->left,rect_p->bottom - rect_p->top);
 															}
 															else
@@ -7416,6 +7445,7 @@ static void _viv_edit_rotate(int counterclockwise)
 				
 				_viv_view_set(_viv_view_x,_viv_view_y,1);
 				
+				_viv_update_src_pixel(1,0);
 				_viv_status_update();
 
 				InvalidateRect(_viv_hwnd,0,FALSE);
@@ -7576,6 +7606,7 @@ static void _viv_blank(void)
 	
 	_viv_current_fd->cFileName[0] = 0;
 
+	_viv_update_src_pixel(1,0);
 	_viv_status_update();
 	_viv_update_title();
 
@@ -8766,17 +8797,16 @@ static void _viv_mousemove(void)
 	_viv_mousemove_y = pt.y;
 }
 
-static void _viv_update_src_pixel(void)
+static void _viv_update_src_pixel(int force,int update_statusbar)
 {
-	POINT pt;
-	
-	GetCursorPos(&pt);
-
 	if (config_pixel_info)
 	{
 		POINT src_pixel_pt;
 		POINT client_pt;
 		RECT client_rect;
+		POINT pt;
+		
+		GetCursorPos(&pt);
 		
 		client_pt.x = pt.x;
 		client_pt.y = pt.y;
@@ -8793,7 +8823,7 @@ static void _viv_update_src_pixel(void)
 			src_pixel_pt.y = -1;
 		}
 
-		if ((src_pixel_pt.x != _viv_src_pixel_x) || (src_pixel_pt.y != _viv_src_pixel_y))
+		if ((force) || (src_pixel_pt.x != _viv_src_pixel_x) || (src_pixel_pt.y != _viv_src_pixel_y))
 		{
 			COLORREF src_pixel_rgb;
 			
@@ -8809,7 +8839,10 @@ static void _viv_update_src_pixel(void)
 			_viv_src_pixel_g = GetGValue(src_pixel_rgb);
 			_viv_src_pixel_b = GetBValue(src_pixel_rgb);
 
-			_viv_status_update();
+			if (update_statusbar)
+			{
+				_viv_status_update();
+			}
 		}
 	}
 	else
@@ -8846,6 +8879,7 @@ static void _viv_frame_step(void)
 			_viv_animation_timer_tick_start = os_get_tick_count();
 			_viv_timer_tick = 0;
 		
+			_viv_update_src_pixel(1,0);
 			_viv_status_update();
 			
 			InvalidateRect(_viv_hwnd,NULL,FALSE);
@@ -8877,6 +8911,7 @@ static void _viv_frame_prev(void)
 		_viv_animation_timer_tick_start = os_get_tick_count();
 		_viv_timer_tick = 0;
 		
+		_viv_update_src_pixel(1,0);
 		_viv_status_update();
 		
 		InvalidateRect(_viv_hwnd,NULL,FALSE);
@@ -9582,6 +9617,7 @@ static void _viv_frame_skip(int size)
 			}
 		}
 			
+		_viv_update_src_pixel(1,0);
 		_viv_status_update();
 		
 		InvalidateRect(_viv_hwnd,NULL,FALSE);
@@ -11226,8 +11262,8 @@ static void _viv_command_line_options(void)
 		"/dc\t\tSort by date created.\n"
 		"/ascending\tSort in ascending order.\n"
 		"/descending\tSort in descending order.\n"
-		"/everything <search> Open files from an Everything search.\n"
-		"/random <search>\tOpen random files from an Everything search.\n"
+//		"/everything <search> Open files from an Everything search.\n"
+//		"/random <search>\tOpen random files from an Everything search.\n"
 		"/shuffle\t\tShuffle playlist.\n"
 		"/<bmp|gif|ico|jpeg|jpg|png|tif|tiff|webp>\n"
 		"\t\tInstall association.\n"
@@ -13546,6 +13582,7 @@ static void _viv_start_first_frame(void)
 		_viv_timer_start();
 	}
 
+	_viv_update_src_pixel(1,0);
 	_viv_status_update();
 	
 	if (_viv_doing == _VIV_DOING_1TO1SCROLL)
@@ -14030,6 +14067,9 @@ static void _viv_center_listbox_item(HWND listbox_hwnd,int item_index)
 	}
 }											
 
+// stretch a src-HDC with a selected bitmap to a distination-HDC.
+// only stretch the specified clipping region (hopefully small from a scroll)
+// this way faster than StretchBlt as StretchBlt stretches the entire image, ignoring the clipping region.
 static void _viv_stretch_blt(HDC dst_hdc,int dst_x,int dst_y,int dst_wide,int dst_high,HDC src_hdc,int src_wide,int src_high,int clip_x,int clip_y,int clip_wide,int clip_high)
 {
 	// clamp clip rectangle inside dst region
@@ -14237,6 +14277,8 @@ static void _viv_stretch_blt(HDC dst_hdc,int dst_x,int dst_y,int dst_wide,int ds
 	}
 }
 
+// get the source pixel coordinate.
+// doesn't use mipmaps.
 static BOOL _viv_get_src_pixel_pos(int client_x,int client_y,POINT *out_pixel_pt)
 {
 	RECT client_rect;
@@ -14265,14 +14307,8 @@ static BOOL _viv_get_src_pixel_pos(int client_x,int client_y,POINT *out_pixel_pt
 		{
 			if ((client_x >= rx) && (client_y >= ry) && (client_x < rx + rw) && (client_y < ry + rh))
 			{
-				HBITMAP mip_hbitmap;
-				int mip_wide;
-				int mip_high;
-				
-				mip_hbitmap = _viv_get_mipmap(_viv_frames[_viv_frame_position].hbitmap,_viv_image_wide,_viv_image_high,rw,rh,&mip_wide,&mip_high,&_viv_frames[_viv_frame_position].mipmap);
-
-				out_pixel_pt->x = ((client_x - rx) * mip_wide) / rw;
-				out_pixel_pt->y = ((client_y - ry) * mip_high) / rh;
+				out_pixel_pt->x = ((client_x - rx) * _viv_image_wide) / rw;
+				out_pixel_pt->y = ((client_y - ry) * _viv_image_high) / rh;
 				
 				return TRUE;
 			}
@@ -14282,6 +14318,8 @@ static BOOL _viv_get_src_pixel_pos(int client_x,int client_y,POINT *out_pixel_pt
 	return FALSE;
 }
 
+// get the source pixel color from the specified position.
+// doesn't use mipmaps.
 static void _viv_get_src_pixel_rgb(int src_x,int src_y,COLORREF *out_colorref)
 {
 	RECT client_rect;
@@ -14317,24 +14355,15 @@ static void _viv_get_src_pixel_rgb(int src_x,int src_y,COLORREF *out_colorref)
 			mem_hdc = CreateCompatibleDC(screen_hdc);
 			if (mem_hdc)
 			{
-				HBITMAP mip_hbitmap;
-				int mip_wide;
-				int mip_high;
+				HGDIOBJ last_hbitmap;
 				
-				mip_hbitmap = _viv_get_mipmap(_viv_frames[_viv_frame_position].hbitmap,_viv_image_wide,_viv_image_high,rw,rh,&mip_wide,&mip_high,&_viv_frames[_viv_frame_position].mipmap);
+				last_hbitmap = SelectObject(mem_hdc,_viv_frames[_viv_frame_position].hbitmap);
 				
-				if (mip_hbitmap)
+				if (last_hbitmap)
 				{
-					HGDIOBJ last_hbitmap;
+					*out_colorref = GetPixel(mem_hdc,src_x,src_y);
 					
-					last_hbitmap = SelectObject(mem_hdc,mip_hbitmap);
-					
-					if (last_hbitmap)
-					{
-						*out_colorref = GetPixel(mem_hdc,src_x,src_y);
-						
-						SelectObject(mem_hdc,last_hbitmap);
-					}
+					SelectObject(mem_hdc,last_hbitmap);
 				}
 				
 				DeleteDC(mem_hdc);
