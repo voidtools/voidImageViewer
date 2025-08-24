@@ -25,7 +25,7 @@
 
 // fatal error, does not return
 // gives a UI message to the user and bails.
-void DECLSPEC_NORETURN debug_fatal(char *format,...)
+void DECLSPEC_NORETURN debug_fatal(const char *format,...)
 {
 	wchar_t wbuf[STRING_SIZE];
 	va_list args;
@@ -39,7 +39,7 @@ void DECLSPEC_NORETURN debug_fatal(char *format,...)
 }
 
 #ifdef _DEBUG
-void debug_printf(char *format,...)
+void debug_printf(const char *format,...)
 {
 	wchar_t wbuf[STRING_SIZE];
 	va_list args;

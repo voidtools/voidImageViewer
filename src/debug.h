@@ -25,10 +25,10 @@
 extern "C" {
 #endif
 
-void DECLSPEC_NORETURN debug_fatal(char *format,...);
+void DECLSPEC_NORETURN debug_fatal(const char *format,...);
 
 #ifdef _DEBUG
-void debug_printf(char *format,...);
+void debug_printf(const char *format,...);
 #else
 #define debug_printf(...)
 #endif							

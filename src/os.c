@@ -73,6 +73,32 @@ typedef struct _os_IFileOpenDialog_s
 
 }_os_IFileOpenDialog_t;
 
+typedef struct _os_PROPERTYKEY_s 
+{
+	GUID fmtid;
+	DWORD pid;
+	
+}_os_PROPERTYKEY_t;
+
+typedef struct _os_IPropertyStoreVtbl_s
+{
+	HRESULT (STDMETHODCALLTYPE *QueryInterface)(struct _os_IPropertyStore_s *property_store,REFIID riid,void **ppvObject);
+	ULONG (STDMETHODCALLTYPE *AddRef)(struct _os_IPropertyStore_s *property_store);
+	ULONG (STDMETHODCALLTYPE *Release)(struct _os_IPropertyStore_s *property_store);
+	HRESULT (STDMETHODCALLTYPE *GetCount)(struct _os_IPropertyStore_s *property_store,DWORD *cProps);
+	HRESULT (STDMETHODCALLTYPE *GetAt)(struct _os_IPropertyStore_s *property_store,DWORD iProp,void *pkey);
+	HRESULT (STDMETHODCALLTYPE *GetValue)(struct _os_IPropertyStore_s *property_store,_os_PROPERTYKEY_t *key,PROPVARIANT *pv);
+	HRESULT (STDMETHODCALLTYPE *SetValue)(struct _os_IPropertyStore_s *property_store,_os_PROPERTYKEY_t *key,void *propvar);
+	HRESULT (STDMETHODCALLTYPE *Commit)(struct _os_IPropertyStore_s *property_store);
+
+}_os_IPropertyStoreVtbl_t;
+
+typedef struct _os_IPropertyStore_s
+{
+	_os_IPropertyStoreVtbl_t *lpVtbl;
+
+}_os_IPropertyStore_t;
+
 static void _os_qsort_indexes_shortsort(void **lo,void **hi,int (*comp)(const void *,const void *));
 static FARPROC __os_get_proc_address(HMODULE hmodule,const char *name);
 static int CALLBACK _os_BrowseCallbackProc(HWND hwnd,UINT uMsg,LPARAM lParam,LPARAM lpData);
@@ -123,13 +149,15 @@ static HMONITOR (WINAPI *_os_MonitorFromPoint)(POINT pt,DWORD dwFlags) = 0;
 
 int os_logical_wide = 96;
 int os_logical_high = 96;
-static const IID _os_IID_IShellItem = {0x43826d1e,0xe718,0x42ee,{0xbc,0x55,0xa1,0xe2,0x61,0xc3,0x7b,0xfe}};
-static const IID _os_IID_IFileOpenDialog = {0xd57c7288,0xd4ad,0x4768,{0xbe,0x02,0x9d,0x96,0x95,0x32,0xd9,0x60}};
-static const IID _os_CLSID_FileOpenDialog = {0xdc1c5a9c,0xe88a,0x4dde,{0xa5,0xa1,0x60,0xf8,0x2a,0x20,0xae,0xf7}};
+static const GUID _os_IID_IShellItem = {0x43826d1e,0xe718,0x42ee,{0xbc,0x55,0xa1,0xe2,0x61,0xc3,0x7b,0xfe}};
+static const GUID _os_IID_IFileOpenDialog = {0xd57c7288,0xd4ad,0x4768,{0xbe,0x02,0x9d,0x96,0x95,0x32,0xd9,0x60}};
+static const GUID _os_CLSID_FileOpenDialog = {0xdc1c5a9c,0xe88a,0x4dde,{0xa5,0xa1,0x60,0xf8,0x2a,0x20,0xae,0xf7}};
+static const GUID _os_IID_IPropertyStore = {0x886d8eeb,0x8cf2,0x4446,{0x8d,0x02,0xcd,0xba,0x1d,0xbd,0xcf,0x99}};
+static const GUID _os_FMTID_ImageProperties = {0x14B81DA1,0x0135,0x4D31,{0x96,0xD9,0x6C,0xBF,0xC9,0x67,0x1A,0x99}};
 static HRESULT (WINAPI *_os_SHCreateItemFromIDList)(ITEMIDLIST *pidl,REFIID riid,void **ppv) = 0;
+static HRESULT (WINAPI *_os_SHGetPropertyStoreFromIDList)(ITEMIDLIST *pidl,int flags,REFIID riid,void **ppv) = 0;
 
 static COLORREF *_os_custom_colors = 0;
-static HMODULE _os_kernel32_hmodule = 0;
 static HMODULE _os_shell32_hmodule = 0;
 static HMODULE _os_user32_hmodule = 0;
 static HMODULE _os_UxTheme_hmodule = 0;
@@ -798,6 +826,8 @@ static FARPROC _os_get_proc_address(HMODULE hmodule,const char *name)
 
 void os_init(void)
 {
+	HMODULE kernel32_hmodule;
+
 	// OS Version
 	{
 		OSVERSIONINFOA osvi;
@@ -824,15 +854,15 @@ void os_init(void)
 		ReleaseDC(0,hdc);
 	}	
 	
-	_os_kernel32_hmodule = GetModuleHandleA("kernel32.dll");
-	if (_os_kernel32_hmodule)
+	kernel32_hmodule = GetModuleHandleA("kernel32.dll");
+	if (kernel32_hmodule)
 	{
-		os_CreateTimerQueueTimer  = (void *)GetProcAddress(_os_kernel32_hmodule,"CreateTimerQueueTimer");
-		os_DeleteTimerQueueTimer  = (void *)GetProcAddress(_os_kernel32_hmodule,"DeleteTimerQueueTimer");
-		_os_SetDllDirectoryW  = (void *)GetProcAddress(_os_kernel32_hmodule,"SetDllDirectoryW");
-		_os_SetDefaultDllDirectories = (void *)GetProcAddress(_os_kernel32_hmodule,"SetDefaultDllDirectories");
-		os_GetFileAttributesExW = (void *)GetProcAddress(_os_kernel32_hmodule,"GetFileAttributesExW");
-		_os_IsDebuggerPresent = (void *)GetProcAddress(_os_kernel32_hmodule,"IsDebuggerPresent");
+		os_CreateTimerQueueTimer  = (void *)GetProcAddress(kernel32_hmodule,"CreateTimerQueueTimer");
+		os_DeleteTimerQueueTimer  = (void *)GetProcAddress(kernel32_hmodule,"DeleteTimerQueueTimer");
+		_os_SetDllDirectoryW  = (void *)GetProcAddress(kernel32_hmodule,"SetDllDirectoryW");
+		_os_SetDefaultDllDirectories = (void *)GetProcAddress(kernel32_hmodule,"SetDefaultDllDirectories");
+		os_GetFileAttributesExW = (void *)GetProcAddress(kernel32_hmodule,"GetFileAttributesExW");
+		_os_IsDebuggerPresent = (void *)GetProcAddress(kernel32_hmodule,"IsDebuggerPresent");
 	}
 
 	// system dlls only.
@@ -855,6 +885,7 @@ void os_init(void)
 		os_SHOpenFolderAndSelectItems = (void *)GetProcAddress(_os_shell32_hmodule,"SHOpenFolderAndSelectItems");
 		os_IsUserAnAdmin = (void *)GetProcAddress(_os_shell32_hmodule,"IsUserAnAdmin");
 		_os_SHCreateItemFromIDList = (void *)GetProcAddress(_os_shell32_hmodule,"SHCreateItemFromIDList");
+		_os_SHGetPropertyStoreFromIDList = (void *)GetProcAddress(_os_shell32_hmodule,"SHGetPropertyStoreFromIDList");
 	}
 
 	_os_user32_hmodule = LoadLibraryA("user32.dll");
@@ -951,11 +982,6 @@ void os_kill(void)
 		FreeLibrary(_os_gdiplus_hmodule);
 	}
 	
-	if (_os_kernel32_hmodule)
-	{
-		FreeLibrary(_os_kernel32_hmodule);
-	}
-		
 	if (_os_custom_colors)
 	{
 		mem_free(_os_custom_colors);
@@ -1517,3 +1543,94 @@ void os_fill_clipped_rect(HDC hdc,int x,int y,int wide,int high,int clip_x,int c
 	}	
 }
 
+// #define PHOTO_ORIENTATION_NORMAL            1u
+// #define PHOTO_ORIENTATION_FLIPHORIZONTAL    2u
+// #define PHOTO_ORIENTATION_ROTATE180         3u
+// #define PHOTO_ORIENTATION_FLIPVERTICAL      4u
+// #define PHOTO_ORIENTATION_TRANSPOSE         5u
+// #define PHOTO_ORIENTATION_ROTATE270         6u
+// #define PHOTO_ORIENTATION_TRANSVERSE        7u
+// #define PHOTO_ORIENTATION_ROTATE90          8u
+int os_get_orientation(const wchar_t *filename)
+{
+	int ret;
+	HRESULT hr;
+	
+	ret = 0;
+	
+	__try
+	{
+		if (_os_SHGetPropertyStoreFromIDList)
+		{
+			ITEMIDLIST *pidl;
+			
+			pidl = os_ILCreateFromPath(filename);
+			
+			if (pidl)
+			{
+				_os_IPropertyStore_t *ps;
+				
+				// GPS_HANDLERPROPERTIESONLY	0x01
+				// GPS_OPENSLOWITEM	0x10 (offline files)
+				// GPS_BESTEFFORT 0x40
+
+				// without GPS_BESTEFFORT this returns 0x8007000d for some files.
+				hr = _os_SHGetPropertyStoreFromIDList(pidl,0x10|0x40,&_os_IID_IPropertyStore,&ps);
+				
+				if (SUCCEEDED(hr))
+				{
+					_os_PROPERTYKEY_t key;
+					PROPVARIANT pv;
+
+					PropVariantInit(&pv);
+					
+					//  Name:     System.Photo.Orientation -- PKEY_Photo_Orientation
+					os_copy_memory(&key.fmtid,&_os_FMTID_ImageProperties,sizeof(GUID));
+					key.pid = 274; // PropertyTagOrientation
+					
+					hr = ps->lpVtbl->GetValue(ps,&key,&pv);
+					if (SUCCEEDED(hr))
+					{
+						if (pv.vt == VT_UI2)
+						{
+							ret = pv.uiVal;
+						}
+						else
+						{
+	//						debug_error_printf((const utf8_t *)"%s: empty value\n",filename)	;
+						}
+					}
+					else
+					{
+						debug_printf("%S: GetValue %08x\n",filename,hr)	;
+					}
+
+					PropVariantClear(&pv);
+				
+					ps->lpVtbl->Release(ps);
+				}
+				else
+				{
+					debug_printf((const utf8_t *)"%s: SHGetPropertyStoreFromIDList %08x\n",filename,hr)	;
+				}
+
+				// free pidl allocated by ParseDisplayName
+				ILFree(pidl);		
+			}
+			else
+			{
+				debug_printf((const utf8_t *)"%s: no pidl\n",filename)	;
+			}
+		}
+		else
+		{
+			debug_printf((const utf8_t *)"no SHGetPropertyStoreFromIDList\n")	;
+		}
+	}
+	__except(EXCEPTION_EXECUTE_HANDLER)
+	{
+		debug_printf((const utf8_t *)"IPropertyStore::GetValue exception %08x\n",GetExceptionCode());
+	}
+	
+	return ret;
+}

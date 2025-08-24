@@ -87,6 +87,7 @@ BYTE config_show_thickframe = 1;
 BYTE config_toolbar_move_window = 1;
 BYTE config_windowed_hide_cursor = 1;
 BYTE config_pixel_info = 0;
+BYTE config_orientation = 1;
 
 static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 {
@@ -154,6 +155,7 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_preload_next = ini_get_int(ini,(const utf8_t *)"preload_next",config_preload_next);
 		config_cache_last = ini_get_int(ini,(const utf8_t *)"cache_last",config_cache_last);
 		config_icm = ini_get_int(ini,(const utf8_t *)"icm",config_icm);
+		config_orientation = ini_get_int(ini,(const utf8_t *)"orientation",config_orientation);
 		config_toolbar_move_window = ini_get_int(ini,(const utf8_t *)"toolbar_move_window",config_toolbar_move_window);
 
 		if (is_root)
@@ -335,6 +337,7 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"preload_next",config_preload_next);
 			_config_write_int(h,"cache_last",config_cache_last);
 			_config_write_int(h,"icm",config_icm);
+			_config_write_int(h,"orientation",config_orientation);
 			_config_write_int(h,"toolbar_move_window",config_toolbar_move_window);
 		
 			// save keys

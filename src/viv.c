@@ -22,14 +22,6 @@
 // VoidImageViewer
 
 // TODO:
-// allow xbuttons to repeat
-// break POS and RGB into separate parts
-// maintain correct image aspect ratio when window is clipped on auto size.
-// orientation metadata for rotation.
-// move window action: I will trial scrolling if zoomed, then fallback to move window.
-// if we have a small image 64x64 and zoom right in, the image still fits inside our window -if we then go fullscreen the image is massive, we should check if Fill Window is triggered and disable the zoom in fullscreen mode.
-
-// pixel info doesn't work if shrinking. -we incorrectly get the pixel from the mipmap.
 // Undo option, after delete, undo the delete and re-add the image to the playlist.
 // delete crashes on win9x, might indicate a deeper issue..
 // fix horrible screen buffer mangling by Windows when resizing the window or auto fitting the window.
@@ -91,6 +83,8 @@
 // when panning the image, clamp to the image edge, instead of the image center.
 // paste dib from clipboard CF_DIB
 // therube: Just to note...  Something like: voidImageViewer.exe "\my documents" or voidImageViewer.exe "\my documents\"  , will load "images" found in the \my documents\ directory.  Though somethig like: voidImageViewer.exe "\my documents\*" or voidImageViewer.exe "\my documents\*.*"  will load (I suppose it is) ALL images on your computer. voidImageViewer.exe "\my documents\*.jpg" works as expected. 
+// maintain correct image aspect ratio when window is clipped on auto size.
+// if we have a small image 64x64 and zoom right in, the image still fits inside our window -if we then go fullscreen the image is massive, we should check if Fill Window is triggered and disable the zoom in fullscreen mode.
 //
 // DONE:
 // *deleting the last image in a playlist does not clear the image.
@@ -200,6 +194,12 @@
 // *back/forward mouse buttons dont work on toolbars
 // *does viv update correct when we drop a folder on viv and then delete an image from that folder? does undelete show the file? -removed preload check so we always load the next image from disk, in case preload is stale. -dropping a folder creates a playlist, we will not monitor folders and we already delete from the playlist when deleting from viv.
 // *don't bother preloading if the next image is the last image.
+// 1.0.0.14
+// *break POS and RGB into separate parts
+// *allow xbuttons to repeat -noone does this.
+// *move window action: I will trial scrolling if zoomed, then fallback to move window.
+// *orientation metadata for rotation.
+// *pixel info doesn't work if shrinking. -we incorrectly get the pixel from the mipmap.
 
 #define _VIV_WM_REPLY							(WM_USER+1)
 #define _VIV_WM_RETRY_RANDOM_EVERYTHING_SEARCH	(WM_USER+2)
@@ -387,6 +387,7 @@ typedef struct _viv_webp_s
 	int frame_index;
 	DWORD frame_count;
 	DWORD last_delay;
+	int orientation;
 	
 }_viv_webp_t;
 
@@ -550,7 +551,7 @@ static int _viv_compare_id(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b);
 static int _viv_fd_compare_name(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b);
 static int _viv_fd_compare_path_and_name(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b);
 static void _viv_update_1to1_scroll(int x,int y);
-static HBITMAP _viv_rorate_hbitmap(HBITMAP hbitmap,int counterclockwise);
+static HBITMAP _viv_orientate_hbitmap(HBITMAP hbitmap,int counterclockwise);
 static void _viv_send_random_everything_search(void);
 static void _viv_do_mousewheel_action(int action,int delta,int x,int y);
 static void _viv_mipmap_free(_viv_mipmap_t *mipmap);
@@ -6372,7 +6373,7 @@ static void _viv_view_set(int view_x,int view_y,int invalidate)
 		}
 	}
 
-debug_printf("SETVIEW %d %d ix %d iy %d rw %d rh %d wide %d high %d\n",_viv_view_x,_viv_view_y,(int)(_viv_view_ix*100.0),(int)(_viv_view_iy*100.0),rw,rh,wide,high);
+//debug_printf("SETVIEW %d %d ix %d iy %d rw %d rh %d wide %d high %d\n",_viv_view_x,_viv_view_y,(int)(_viv_view_ix*100.0),(int)(_viv_view_iy*100.0),rw,rh,wide,high);
 
 	_viv_toolbar_update_buttons();
 }
@@ -6674,7 +6675,7 @@ static void _viv_get_render_size(int *prw,int *prh)
 		}
 	}
 
-	debug_printf("GET_RENDER_SIZE wide %d high %d rw %d rh %d fill_window %d\n",wide,high,rw,rh,fill_window);
+//	debug_printf("GET_RENDER_SIZE wide %d high %d rw %d rh %d fill_window %d\n",wide,high,rw,rh,fill_window);
 
 	if (!config_allow_shrinking)
 	{
@@ -7421,7 +7422,7 @@ static void _viv_edit_rotate(int counterclockwise)
 				{
 					HBITMAP new_hbitmap;
 					
-					new_hbitmap = _viv_rorate_hbitmap(_viv_frames[i].hbitmap,counterclockwise);
+					new_hbitmap = _viv_orientate_hbitmap(_viv_frames[i].hbitmap,counterclockwise ? 6 : 8);
 					
 					if (new_hbitmap)
 					{
@@ -7908,7 +7909,7 @@ static INT_PTR CALLBACK _viv_options_controls_proc(HWND hwnd,UINT msg,WPARAM wPa
 			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,(const utf8_t *)"Zoom In");
 			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,(const utf8_t *)"Next Image");
 			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,(const utf8_t *)"1:1 Scroll");
-			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,(const utf8_t *)"Move Window");
+			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,(const utf8_t *)"Scroll/Move Window");
 			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_LEFTCLICKACTION),config_left_click_action);
 			
 			os_ComboBox_AddString(hwnd,IDC_RIGHTCLICKACTION,(const utf8_t *)"Context Menu");
@@ -9793,6 +9794,18 @@ static int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 
 			SetDIBits(viv_webp->mem_hdc,hbitmap,0,viv_webp->high,pixels,&bmi,DIB_RGB_COLORS);
 
+			if (viv_webp->orientation > 1)
+			{
+				HBITMAP new_hbitmap;
+				
+				new_hbitmap = _viv_orientate_hbitmap(hbitmap,viv_webp->orientation);
+				if (new_hbitmap)
+				{
+					DeleteObject(hbitmap);
+					hbitmap = new_hbitmap;
+				}
+			}
+			
 			if (viv_webp->frame_index == 0)
 			{
 				_viv_reply_load_image_first_frame_t first_frame;
@@ -9862,8 +9875,8 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 
 	ret = 0;
 	stream = NULL;
-
-//	debug_printf("%s %S...\n",_viv_load_is_preload ? "PRELOAD" : "LOAD",_viv_load_image_filename);
+	
+	debug_printf("%s %S...\n",_viv_load_is_preload ? "PRELOAD" : "LOAD",_viv_load_image_filename);
 	
 	{
 		HANDLE h;
@@ -9978,8 +9991,21 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 
 	if (stream)
 	{
+		int orientation;
+		
 		debug_printf("stream %d\n",stream);
 		
+		if (config_orientation)
+		{
+			orientation = os_get_orientation(_viv_load_image_filename);
+
+			debug_printf("orientation %d\n",orientation);
+		}
+		else
+		{
+			orientation = 0;
+		}
+
 //		if (!_viv_load_image_terminate)
 		{
 			void *image;
@@ -10011,6 +10037,30 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 						if (os_GdipGetImageHeight(image,&first_frame.high) == 0)
 						{
 							UINT count;
+							int load_wide;
+							int load_high;
+							
+							load_wide = first_frame.wide;
+							load_high = first_frame.high;
+							
+							// apply orientation.
+							switch (orientation)
+							{
+								case 2: // #define PHOTO_ORIENTATION_FLIPHORIZONTAL    2u
+									break;
+									
+								case 5: // #define PHOTO_ORIENTATION_TRANSPOSE         5u
+								case 6: // #define PHOTO_ORIENTATION_ROTATE270         6u
+								case 7: // #define PHOTO_ORIENTATION_TRANSVERSE        7u
+								case 8: // #define PHOTO_ORIENTATION_ROTATE90          8u
+									{
+										int temp;
+										temp = first_frame.wide;
+										first_frame.wide = first_frame.high;
+										first_frame.high = temp;
+									}
+									break;
+							}
 
 							//First of all we should get the number of frame dimensions
 							//Images considered by GDI+ as:
@@ -10083,7 +10133,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 													break;
 												}
 												
-												hbitmap = CreateCompatibleBitmap(screen_hdc,first_frame.wide,first_frame.high);
+												hbitmap = CreateCompatibleBitmap(screen_hdc,load_wide,load_high);
 												if (hbitmap)
 												{
 													UINT image_flags;
@@ -10110,8 +10160,8 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 																	
 																	rect.left = 0;
 																	rect.top = 0;
-																	rect.right = first_frame.wide;
-																	rect.bottom = first_frame.high;
+																	rect.right = load_wide;
+																	rect.bottom = load_high;
 
 																	FillRect(mem_hdc,&rect,hbrush);
 																	
@@ -10136,13 +10186,25 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 															// Gdiplus::SmoothingModeNone
 															os_GdipSetSmoothingMode(g,3);
 
-															draw_ret = os_GdipDrawImageRectI(g,image,0,0,first_frame.wide,first_frame.high);
+															draw_ret = os_GdipDrawImageRectI(g,image,0,0,load_wide,load_high);
 															if (draw_ret != 0)
 															{
 																debug_printf("DrawImage failed %d\n",draw_ret);
 															}
 															
 															os_GdipDeleteGraphics(g);
+														}
+													}
+
+													if (orientation > 1)
+													{
+														HBITMAP new_hbitmap;
+														
+														new_hbitmap = _viv_orientate_hbitmap(hbitmap,orientation);
+														if (new_hbitmap)
+														{
+															DeleteObject(hbitmap);
+															hbitmap = new_hbitmap;
 														}
 													}
 													
@@ -10226,6 +10288,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 				viv_webp.mem_hdc = NULL;
 				viv_webp.frame_index = 0;
 				viv_webp.last_delay = 0;
+				viv_webp.orientation = orientation;
 				
 				if (webp_load(stream,&viv_webp,_viv_webp_info_proc,_viv_webp_frame_proc))
 				{
@@ -10543,25 +10606,28 @@ static void _viv_status_update(void)
 {
 	if (_viv_status_hwnd)
 	{
-		int part_array[5];
+		int part_array[6];
 		RECT rect;
 		wchar_t widebuf[STRING_SIZE];
 		wchar_t highbuf[STRING_SIZE];
 		wchar_t dimension_buf[STRING_SIZE];
 		wchar_t frame_buf[STRING_SIZE];
-		wchar_t pixel_info_buf[STRING_SIZE];
+		wchar_t pixel_pos_buf[STRING_SIZE];
+		wchar_t pixel_rgb_buf[STRING_SIZE];
 		const wchar_t *preload_buf;
 		HDC hdc;
 		int dimension_wide;
 		int frame_wide;
 		int preload_wide;
-		int pixel_info_wide;
+		int pixel_pos_wide;
+		int pixel_rgb_wide;
 		int minwide;
 		
 		GetClientRect(_viv_hwnd,&rect);
 		
 		preload_buf = 0;
-		*pixel_info_buf = 0;
+		*pixel_pos_buf = 0;
+		*pixel_rgb_buf = 0;
 		
 		if ((_viv_image_wide) && (_viv_image_high))
 		{
@@ -10649,14 +10715,16 @@ static void _viv_status_update(void)
 		{
 			if ((_viv_src_pixel_x >= 0) && (_viv_src_pixel_y >= 0))
 			{		
-				string_printf(pixel_info_buf,"POS: %d,%d RGB: %d,%d,%d",_viv_src_pixel_x,_viv_src_pixel_y,_viv_src_pixel_r,_viv_src_pixel_g,_viv_src_pixel_b);
+				string_printf(pixel_pos_buf,"POS: %d,%d",_viv_src_pixel_x,_viv_src_pixel_y);
+				string_printf(pixel_rgb_buf,"RGB: %d,%d,%d",_viv_src_pixel_r,_viv_src_pixel_g,_viv_src_pixel_b);
 			}
 		}
 		
 		dimension_wide = 0;
 		frame_wide = 0;
 		preload_wide = 0;
-		pixel_info_wide = 0;
+		pixel_pos_wide = 0;
+		pixel_rgb_wide = 0;
 		minwide = (72 * os_logical_wide) / 96;
 
 		hdc = GetDC(_viv_status_hwnd);
@@ -10703,11 +10771,19 @@ static void _viv_status_update(void)
 					}
 				}
 
-				if (*pixel_info_buf)
+				if (*pixel_pos_buf)
 				{
-					if (GetTextExtentPoint32(hdc,pixel_info_buf,string_length(pixel_info_buf),&size))
+					if (GetTextExtentPoint32(hdc,pixel_pos_buf,string_length(pixel_pos_buf),&size))
 					{
-						pixel_info_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
+						pixel_pos_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
+					}
+				}
+
+				if (*pixel_rgb_buf)
+				{
+					if (GetTextExtentPoint32(hdc,pixel_rgb_buf,string_length(pixel_rgb_buf),&size))
+					{
+						pixel_rgb_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
 					}
 				}
 
@@ -10725,7 +10801,7 @@ static void _viv_status_update(void)
 			int part_wide;
 			
 			parti = 0;
-			part_wide = (rect.right - rect.left) - dimension_wide - frame_wide - preload_wide - pixel_info_wide;
+			part_wide = (rect.right - rect.left) - dimension_wide - frame_wide - preload_wide - pixel_pos_wide - pixel_rgb_wide;
 
 			part_array[parti] = part_wide;
 			if (part_array[parti] < 0)
@@ -10741,9 +10817,16 @@ static void _viv_status_update(void)
 				parti++;
 			}
 			
-			if (pixel_info_buf)
+			if (pixel_pos_buf)
 			{
-				part_wide += pixel_info_wide;
+				part_wide += pixel_pos_wide;
+				part_array[parti] = part_wide;
+				parti++;
+			}
+			
+			if (pixel_rgb_buf)
+			{
+				part_wide += pixel_rgb_wide;
 				part_array[parti] = part_wide;
 				parti++;
 			}
@@ -10802,9 +10885,15 @@ static void _viv_status_update(void)
 				parti++;
 			}
 			
-			if (pixel_info_buf)
+			if (pixel_pos_buf)
 			{
-				_viv_status_set(parti,pixel_info_buf);
+				_viv_status_set(parti,pixel_pos_buf);
+				parti++;
+			}
+			
+			if (pixel_rgb_buf)
+			{
+				_viv_status_set(parti,pixel_rgb_buf);
 				parti++;
 			}
 			
@@ -13034,7 +13123,15 @@ static void _viv_update_1to1_scroll(int x,int y)
 	InvalidateRect(_viv_hwnd,0,FALSE);
 }
 
-static HBITMAP _viv_rorate_hbitmap(HBITMAP hbitmap,int counterclockwise)
+// #define PHOTO_ORIENTATION_NORMAL            1u
+// #define PHOTO_ORIENTATION_FLIPHORIZONTAL    2u
+// #define PHOTO_ORIENTATION_ROTATE180         3u
+// #define PHOTO_ORIENTATION_FLIPVERTICAL      4u
+// #define PHOTO_ORIENTATION_TRANSPOSE         5u
+// #define PHOTO_ORIENTATION_ROTATE270         6u
+// #define PHOTO_ORIENTATION_TRANSVERSE        7u
+// #define PHOTO_ORIENTATION_ROTATE90          8u
+static HBITMAP _viv_orientate_hbitmap(HBITMAP hbitmap,int orientation)
 {
 	BITMAP bitmap;
 	HBITMAP ret_hbitmap;
@@ -13053,7 +13150,26 @@ static HBITMAP _viv_rorate_hbitmap(HBITMAP hbitmap,int counterclockwise)
 			mem_hdc = CreateCompatibleDC(screen_hdc);
 			if (mem_hdc)
 			{
-				ret_hbitmap = CreateCompatibleBitmap(screen_hdc,bitmap.bmHeight,bitmap.bmWidth);
+				int ret_wide;
+				int ret_high;
+				
+				ret_wide = bitmap.bmWidth;
+				ret_high = bitmap.bmHeight;
+				
+				switch(orientation)
+				{
+					case 5: // #define PHOTO_ORIENTATION_TRANSPOSE         5u
+					case 6: // #define PHOTO_ORIENTATION_ROTATE270         6u
+					case 7: // #define PHOTO_ORIENTATION_TRANSVERSE        7u
+					case 8: // #define PHOTO_ORIENTATION_ROTATE90          8u
+						
+						ret_wide = bitmap.bmHeight;
+						ret_high = bitmap.bmWidth;
+						
+						break;
+				}
+				
+				ret_hbitmap = CreateCompatibleBitmap(screen_hdc,ret_wide,ret_high);
 				if (ret_hbitmap)
 				{
 					int ret;
@@ -13072,46 +13188,123 @@ static HBITMAP _viv_rorate_hbitmap(HBITMAP hbitmap,int counterclockwise)
 					bi.biCompression = BI_RGB;
 										
 					old_pixels = mem_alloc(bitmap.bmWidth * bitmap.bmHeight * sizeof(DWORD));
-					new_pixels = mem_alloc(bitmap.bmHeight * bitmap.bmWidth * sizeof(DWORD));
+					new_pixels = mem_alloc(ret_wide * ret_high * sizeof(DWORD));
 				
 					if (GetDIBits(mem_hdc,hbitmap,0,bitmap.bmHeight,old_pixels,(BITMAPINFO *)&bi,DIB_RGB_COLORS))
 					{
 						int y;
 
-						if (counterclockwise)
+						switch(orientation)
 						{
-							for(y=0;y<bitmap.bmWidth;y++)
-							{
-								int x;
-								
-								for(x=0;x<bitmap.bmHeight;x++)
+							case 2: // #define PHOTO_ORIENTATION_FLIPHORIZONTAL    2u
+							
+								for(y=0;y<bitmap.bmHeight;y++)
 								{
-									new_pixels[x + (y * bitmap.bmHeight)] = old_pixels[(bitmap.bmWidth-y-1) + (x * bitmap.bmWidth)];
+									int x;
+									
+									for(x=0;x<bitmap.bmWidth;x++)
+									{
+										new_pixels[x + (y * ret_wide)] = old_pixels[bitmap.bmWidth - x - 1 + (y * bitmap.bmWidth)];
+									}
 								}
-							}
-						}
-						else
-						{
-							for(y=0;y<bitmap.bmWidth;y++)
-							{
-								int x;
 								
-								for(x=0;x<bitmap.bmHeight;x++)
+								break;
+							
+							case 3: // #define PHOTO_ORIENTATION_ROTATE180         3u
+							
+								for(y=0;y<bitmap.bmHeight;y++)
 								{
-									new_pixels[x + (y * bitmap.bmHeight)] = old_pixels[y + ((bitmap.bmHeight-x-1) * bitmap.bmWidth)];
+									int x;
+									
+									for(x=0;x<bitmap.bmWidth;x++)
+									{
+										new_pixels[x + (y * ret_wide)] = old_pixels[bitmap.bmWidth - x - 1 + ((bitmap.bmHeight - y - 1) * bitmap.bmWidth)];
+									}
 								}
-							}
+								
+								break;
+								
+							case 4: // #define PHOTO_ORIENTATION_FLIPVERTICAL      4u
+							
+								for(y=0;y<bitmap.bmHeight;y++)
+								{
+									int x;
+									
+									for(x=0;x<bitmap.bmWidth;x++)
+									{
+										new_pixels[x + (y * ret_wide)] = old_pixels[x + ((bitmap.bmHeight - y - 1) * bitmap.bmWidth)];
+									}
+								}
+								
+								break;
+								
+							case 5: // #define PHOTO_ORIENTATION_TRANSPOSE         5u
+								
+								for (y = 0; y < bitmap.bmWidth; y++)
+								{
+									int x;
+									
+									for (x = 0; x < bitmap.bmHeight; x++)
+									{
+										// Transpose: new(x, y) = old(y, x)
+										new_pixels[x + (y * ret_wide)] = old_pixels[y + (x * bitmap.bmWidth)];
+									}
+								}
+
+								break;
+								
+							case 6: // #define PHOTO_ORIENTATION_ROTATE270         6u
+								
+								for(y=0;y<bitmap.bmWidth;y++)
+								{
+									int x;
+									
+									for(x=0;x<bitmap.bmHeight;x++)
+									{
+										new_pixels[x + (y * ret_wide)] = old_pixels[y + ((bitmap.bmHeight-x-1) * bitmap.bmWidth)];
+									}
+								}		
+								
+								break;
+	
+							case 7: // #define PHOTO_ORIENTATION_TRANSVERSE        7u
+								
+								for (y = 0; y < bitmap.bmWidth; y++)
+								{
+									int x;
+									
+									for (x = 0; x < bitmap.bmHeight; x++)
+									{
+										new_pixels[x + (y * ret_wide)] = old_pixels[(bitmap.bmWidth - 1 - y) + ((bitmap.bmHeight - 1 - x) * bitmap.bmWidth)];
+									}
+								}
+
+								break;
+								
+							case 8: // #define PHOTO_ORIENTATION_ROTATE90          8u
+							
+								for(y=0;y<bitmap.bmWidth;y++)
+								{
+									int x;
+									
+									for(x=0;x<bitmap.bmHeight;x++)
+									{
+										new_pixels[x + (y * ret_wide)] = old_pixels[(bitmap.bmWidth-y-1) + (x * bitmap.bmWidth)];
+									}
+								}
+
+								break;
 						}
 						
 						os_zero_memory(&bi,sizeof(BITMAPINFOHEADER));
 						bi.biSize = sizeof(BITMAPINFOHEADER);
-						bi.biWidth = bitmap.bmHeight;
-						bi.biHeight = -bitmap.bmWidth;
+						bi.biWidth = ret_wide;
+						bi.biHeight = -ret_high;
 						bi.biPlanes = 1;
 						bi.biBitCount = 32;
 						bi.biCompression = BI_RGB;
 						
-						if (SetDIBits(mem_hdc,ret_hbitmap,0,bitmap.bmWidth,new_pixels,(BITMAPINFO *)&bi,DIB_RGB_COLORS))
+						if (SetDIBits(mem_hdc,ret_hbitmap,0,ret_high,new_pixels,(BITMAPINFO *)&bi,DIB_RGB_COLORS))
 						{
 							ret = 1;
 						}
@@ -13993,6 +14186,30 @@ static void _viv_do_left_click_action(int action)
 			break;
 
 		case 6: // move-window
+		
+			{
+				RECT rect;
+				int wide;
+				int high;
+				int rw;
+				int rh;
+				
+				GetClientRect(_viv_hwnd,&rect);
+				wide = rect.right - rect.left;
+				high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_controls_high();
+
+				_viv_get_render_size(&rw,&rh);
+
+//debug_printf("MOVEWINDOW %d %d\n",rw,wide);
+				
+				if ((rw > wide) || (rh > high))
+				{
+					// scroll
+					_viv_do_left_click_action(0);
+	
+					return;
+				}
+			}
 		
 			if (_viv_doing == _VIV_DOING_NOTHING)
 			{

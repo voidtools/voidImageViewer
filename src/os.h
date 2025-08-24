@@ -79,6 +79,7 @@ void os_fill_clamped_rect(HDC hdc,int left,int top,int right,int bottom,int clam
 void os_fill_clipped_rect(HDC hdc,int x,int y,int wide,int high,int clip_x,int clip_y,int clip_wide,int clip_high,HBRUSH hbrush);
 void os_fill_rect(HDC hdc,int x,int y,int wide,int high,HBRUSH hbrush);
 void os_set_rect(RECT *rect,int x,int y,int wide,int high);
+int os_get_orientation(const wchar_t *filename);
 
 extern HINSTANCE os_hinstance;
 extern DWORD os_major_version;

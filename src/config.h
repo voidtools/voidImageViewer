@@ -117,6 +117,7 @@ extern BYTE config_toolbar_move_window;
 extern BYTE config_windowed_hide_cursor;
 extern BYTE config_auto_zoom;
 extern BYTE config_pixel_info;
+extern BYTE config_orientation;
 
 #ifdef __cplusplus
 }

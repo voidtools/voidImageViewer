@@ -293,9 +293,9 @@ int string_to_int(wchar_t *s)
 }
 
 // %s = utf8, %S = wchar, %f == 0.3f
-void string_vprintf(wchar_t *wbuf,char *format,va_list argptr)
+void string_vprintf(wchar_t *wbuf,const char *format,va_list argptr)
 {
-	char *fp;
+	const char *fp;
 	wchar_t *d;
 	wchar_t *e;
 	
@@ -500,7 +500,7 @@ void string_vprintf(wchar_t *wbuf,char *format,va_list argptr)
 	*d = 0;
 }
 
-void string_printf(wchar_t *wbuf,char *format,...)
+void string_printf(wchar_t *wbuf,const char *format,...)
 {
 	va_list args;
 	
