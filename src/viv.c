@@ -22,6 +22,7 @@
 // VoidImageViewer
 
 // TODO:
+// When loading items from different paths, use the full path and name in the window caption. -This could also be made smarter by removing the common prefix. -eg: no need to show C:\PC if all images are from C:\PC, just show Pictures\screenshot_20250723-153714.png or another-subfolder\other.jpg
 // Undo option, after delete, undo the delete and re-add the image to the playlist.
 // delete crashes on win9x, might indicate a deeper issue..
 // fix horrible screen buffer mangling by Windows when resizing the window or auto fitting the window.
