@@ -20,7 +20,7 @@
 // SOFTWARE.
 //
 // OpenGL renderer
-// abandoned due stitching texture concerns
+// abandoned due to stitching texture concerns
 
 #if 0
 

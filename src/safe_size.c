@@ -64,11 +64,11 @@ SIZE_T safe_size_mul_sizeof_pointer(SIZE_T a)
 	c = safe_size_add(a,a); // x2
 	c = safe_size_add(c,c); // x4
 	
-#if SIZE_MAX == 0xFFFFFFFFFFFFFFFFUI64
+#if SIZE_MAX == VIV_UINT64_MAX
 
 	c = safe_size_add(c,c); // x8
 
-#elif SIZE_MAX == 0xFFFFFFFF
+#elif SIZE_MAX == VIV_DWORD_MAX
 
 #else
 

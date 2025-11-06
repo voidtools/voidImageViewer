@@ -46,8 +46,12 @@ extern "C" {
 #define COBJMACROS // c object interface please
 #define CINTERFACE // c interface only
 
+#define VIV_UINT64_MAX	0xFFFFFFFFFFFFFFFFUI64
+#define VIV_DWORD_MAX	0xffffffff
+
 typedef unsigned char utf8_t;
-typedef unsigned __int64 QWORD;
+
+typedef unsigned __int64 VIV_UINT64;
 
 #include <windows.h>
 #include <windowsx.h>
@@ -61,7 +65,7 @@ typedef unsigned __int64 QWORD;
 #include <commdlg.h> // OPENFILENAME
 #include <Shellapi.h> // ShellExecute
 #include <uxtheme.h>
-#include <process.h> // _beginthreadex
+//#include <process.h> // _beginthreadex
 #include <shlobj.h> // DROPFILES
 
 enum

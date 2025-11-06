@@ -22,6 +22,12 @@
 // VoidImageViewer
 
 // TODO:
+// [HIGH] check the viv icon is being used for webp.
+// [HIGH] prevent screen saver on slideshow
+// [HIGH] wben going full screen, check if the image is currently smaller than it would be full screen, if it is, set a flag to restore the zoom, save the zoom and set the zoom to 0.
+// compile on mingw
+// rename qword to uint64
+// review jump-to focus
 // option to show full path like MPC
 // Undo option, after delete, undo the delete and re-add the image to the playlist.
 // delete crashes on win9x, might indicate a deeper issue..
@@ -201,6 +207,8 @@
 // *move window action: I will trial scrolling if zoomed, then fallback to move window.
 // *orientation metadata for rotation.
 // *pixel info doesn't work if shrinking. -we incorrectly get the pixel from the mipmap.
+// *webp alpha using wrong background color 
+// re-enabled WEBP_MSC_SSE41 
 
 #define _VIV_WM_REPLY							(WM_USER+1)
 #define _VIV_WM_RETRY_RANDOM_EVERYTHING_SEARCH	(WM_USER+2)
@@ -627,9 +635,9 @@ static int _viv_frame_position = 0; // the current frame position
 static BYTE _viv_frame_looped = 0; // all frames have been displayed for this animation
 static BYTE _viv_is_slideshow_timeup = 0; // the slideshow timer has expired, but we are still showing an animation at least once.
 static _viv_frame_t *_viv_frames = 0; // the frames that make up an image, could be more than one for animations.
-static QWORD _viv_timer_tick = 0; // the current tick for the current frame.
+static VIV_UINT64 _viv_timer_tick = 0; // the current tick for the current frame.
 static BYTE _viv_is_animation_timer = 0; // animation timer started?
-static QWORD _viv_animation_timer_tick_start = 0; // the current start tick
+static VIV_UINT64 _viv_animation_timer_tick_start = 0; // the current start tick
 static BYTE _viv_doing = _VIV_DOING_NOTHING; // current mouse action, such as drag to scroll image
 static int _viv_doing_x;
 static int _viv_doing_y;
@@ -1115,6 +1123,7 @@ const WORD _viv_association_dlg_item_id[] =
 #define _VIV_ASSOCIATION_COUNT	(sizeof(_viv_association_extensions) / sizeof(const wchar_t *))
 
 // load unicode for windows 95/98
+// TODO: do this for x86 only
 HMODULE LoadUnicowsProc(void);
 
 extern FARPROC _PfnLoadUnicows = (FARPROC) &LoadUnicowsProc;
@@ -3164,10 +3173,10 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 				{
 					if ((_viv_is_animation_timer) && (_viv_frame_count))
 					{
-						QWORD elapsed;
-						QWORD tick;
+						VIV_UINT64 elapsed;
+						VIV_UINT64 tick;
 						int invalidate;
-						QWORD freq;
+						VIV_UINT64 freq;
 						
 						invalidate = 0;
 						
@@ -3196,7 +3205,7 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 							for(;;)
 							{
 								DWORD delay;
-								QWORD performance_counter_delay;
+								VIV_UINT64 performance_counter_delay;
 
 								delay = _viv_frames[_viv_frame_position].delay * (1.0f/_viv_animation_rates[_viv_animation_rate_pos]);
 								
@@ -9683,18 +9692,18 @@ static int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 					int b;
 					int a;
 
-					b = p[0];
+					r = p[0];
 					g = p[1];
-					r = p[2];
+					b = p[2];
 					a = p[3];
 					
 					b = config_windowed_background_color_b + ((b - config_windowed_background_color_b) * a) / 255;
 					g = config_windowed_background_color_g + ((g - config_windowed_background_color_g) * a) / 255;
 					r = config_windowed_background_color_r + ((r - config_windowed_background_color_r) * a) / 255;
 					
-					p[0] = b;
+					p[0] = r;
 					p[1] = g;
-					p[2] = r;
+					p[2] = b;
 					p[3] = 255;
 					
 					p += 4;
@@ -14287,7 +14296,7 @@ static void _viv_center_listbox_item(HWND listbox_hwnd,int item_index)
 
 // stretch a src-HDC with a selected bitmap to a distination-HDC.
 // only stretch the specified clipping region (hopefully small from a scroll)
-// this way faster than StretchBlt as StretchBlt stretches the entire image, ignoring the clipping region.
+// this is way faster than StretchBlt as StretchBlt stretches the entire image, ignoring the clipping region.
 static void _viv_stretch_blt(HDC dst_hdc,int dst_x,int dst_y,int dst_wide,int dst_high,HDC src_hdc,int src_wide,int src_high,int clip_x,int clip_y,int clip_wide,int clip_high)
 {
 	// clamp clip rectangle inside dst region

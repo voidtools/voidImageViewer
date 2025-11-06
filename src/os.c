@@ -1326,7 +1326,7 @@ int os_browse_for_folder(HWND parent,wchar_t *filename)
 }
 
 // returns tick
-QWORD os_get_tick_count(void)
+VIV_UINT64 os_get_tick_count(void)
 {
 	ULARGE_INTEGER tick;
 		
@@ -1339,7 +1339,7 @@ QWORD os_get_tick_count(void)
 	return 0;
 }
 
-QWORD os_get_tick_freq(void)
+VIV_UINT64 os_get_tick_freq(void)
 {
 	ULARGE_INTEGER freq;
 	
