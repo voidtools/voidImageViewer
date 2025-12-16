@@ -115,6 +115,7 @@ BOOL (WINAPI *_os_SetDllDirectoryW)(LPCTSTR lpPathName) = 0;
 BOOL (WINAPI *_os_SetDefaultDllDirectories)(DWORD DirectoryFlags) = 0;
 BOOL (WINAPI *os_GetFileAttributesExW)(LPCWSTR lpFileName,GET_FILEEX_INFO_LEVELS fInfoLevelId,LPVOID lpFileInformation) = NULL;
 BOOL (WINAPI *_os_IsDebuggerPresent)(void) = 0;
+EXECUTION_STATE (WINAPI *_os_SetThreadExecutionState)(  EXECUTION_STATE esFlags) = NULL;
 HRESULT (WINAPI *os_SHOpenFolderAndSelectItems)(LPCITEMIDLIST pidlFolder,UINT cidl,LPCITEMIDLIST *apidl,DWORD dwFlags) = 0;
 int (WINAPI *os_GdiplusStartup)(OUT ULONG_PTR *token,const os_GdiplusStartupInput_t *input,void *output) = 0;
 VOID (WINAPI *os_GdiplusShutdown)(ULONG_PTR token) = 0;
@@ -863,6 +864,7 @@ void os_init(void)
 		_os_SetDefaultDllDirectories = (void *)GetProcAddress(kernel32_hmodule,"SetDefaultDllDirectories");
 		os_GetFileAttributesExW = (void *)GetProcAddress(kernel32_hmodule,"GetFileAttributesExW");
 		_os_IsDebuggerPresent = (void *)GetProcAddress(kernel32_hmodule,"IsDebuggerPresent");
+		_os_SetThreadExecutionState = (void *)GetProcAddress(kernel32_hmodule,"SetThreadExecutionState");
 	}
 
 	// system dlls only.
@@ -1422,6 +1424,24 @@ int os_is_windows_7_or_later(void)
 	return 0;
 }
 
+int os_is_windows_8_or_later(void)
+{
+	if (os_major_version > 6)
+	{
+		return 1;
+	}
+	
+	if (os_major_version == 6)
+	{
+		if (os_minor_version >= 2)
+		{
+			return 1;
+		}
+	}
+	
+	return 0;
+}
+
 // windows creates funky regions if left > right
 HRGN os_CreateRectRgn(int left,int top,int right,int bottom)
 {
@@ -1634,3 +1654,52 @@ int os_get_orientation(const wchar_t *filename)
 	
 	return ret;
 }
+
+__declspec(noinline) DWORD os_get_window_style(HWND hwnd) 
+{ 
+	return GetWindowLong(hwnd,GWL_STYLE); 
+}
+
+__declspec(noinline) DWORD os_get_window_ex_style(HWND hwnd) 
+{ 
+	return GetWindowLong(hwnd,GWL_EXSTYLE); 
+}
+
+void os_adjust_window_rect(HWND hwnd,RECT *window_rect,int window_x,int window_y,int client_wide,int client_high)
+{
+	BOOL is_menu;
+	DWORD style;
+	
+	window_rect->left = 0;
+	window_rect->top = 0;
+	window_rect->right = client_wide;
+	window_rect->bottom = client_high;
+	
+	is_menu = FALSE;
+	style = os_get_window_style(hwnd);
+	
+	if (!(style & WS_CHILD))
+	{
+		if (GetMenu(hwnd))
+		{
+			is_menu = TRUE;
+		}
+	}
+
+//	debug_printf("GetWindowLong(hwnd,GWL_EXSTYLE) %08x\n",GetWindowLong(hwnd,GWL_EXSTYLE));
+	AdjustWindowRectEx(window_rect,style,is_menu,os_get_window_ex_style(hwnd));
+	
+//DEBUG:
+//debug_printf((const utf8_t *)"%d %d %d %d\n",window_rect->left,window_rect->top,window_rect->right,window_rect->bottom);
+	
+	window_rect->right -= window_rect->left;
+	window_rect->bottom -= window_rect->top;
+	window_rect->left = window_x;
+	window_rect->top = window_y;
+	window_rect->right += window_x;
+	window_rect->bottom += window_y;
+
+//DEBUG:
+//debug_printf((const utf8_t *)"%d %d %d %d\n",window_rect->left,window_rect->top,window_rect->right,window_rect->bottom);
+}
+

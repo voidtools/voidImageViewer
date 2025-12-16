@@ -770,3 +770,21 @@ int string_get_appdata_voidimageviewer_path(wchar_t *wbuf)
 	return 0;
 }
 
+BOOL string_is_dot(const wchar_t *s)
+{
+	const wchar_t *p;
+	
+	p = s;
+	
+	while(*p)
+	{
+		if (*p == '.')
+		{
+			return TRUE;
+		}
+		
+		p++;
+	}
+	
+	return FALSE;
+}

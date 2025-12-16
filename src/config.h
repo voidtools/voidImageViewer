@@ -118,6 +118,7 @@ extern BYTE config_windowed_hide_cursor;
 extern BYTE config_auto_zoom;
 extern BYTE config_pixel_info;
 extern BYTE config_orientation;
+extern BYTE config_title_bar_format;
 
 #ifdef __cplusplus
 }

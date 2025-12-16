@@ -73,6 +73,7 @@ void os_get_monitor_rect_from_window(HWND hwnd,RECT *monitor_rect,int fullscreen
 WNDPROC os_set_window_proc(HWND hwnd,WNDPROC proc);
 int os_statusbar_index_from_x(HWND statusbar_hwnd,int x);
 int os_is_windows_7_or_later(void);
+int os_is_windows_8_or_later(void);
 HRGN os_CreateRectRgn(int left,int top,int right,int bottom);
 HRGN os_mirror_region(HRGN hrgn,int wide);
 void os_fill_clamped_rect(HDC hdc,int left,int top,int right,int bottom,int clamp_left,int clamp_top,int clamp_right,int clamp_bottom,HBRUSH hbrush);
@@ -80,6 +81,9 @@ void os_fill_clipped_rect(HDC hdc,int x,int y,int wide,int high,int clip_x,int c
 void os_fill_rect(HDC hdc,int x,int y,int wide,int high,HBRUSH hbrush);
 void os_set_rect(RECT *rect,int x,int y,int wide,int high);
 int os_get_orientation(const wchar_t *filename);
+void os_adjust_window_rect(HWND hwnd,RECT *window_rect,int window_x,int window_y,int client_wide,int client_high);
+DWORD os_get_window_style(HWND hwnd);
+DWORD os_get_window_ex_style(HWND hwnd);
 
 extern HINSTANCE os_hinstance;
 extern DWORD os_major_version;
@@ -115,6 +119,7 @@ extern BOOL (STDAPICALLTYPE *os_IsUserAnAdmin)(void);
 extern HRESULT (__stdcall *os_EnableThemeDialogTexture)(HWND hwnd, DWORD dwFlags);
 extern BOOL (WINAPI *os_ChangeWindowMessageFilterEx)(HWND hWnd,UINT message,DWORD action,void *pChangeFilterStruct);
 extern DWORD (WINAPI *os_GetLayout)(HDC hdc);
+extern EXECUTION_STATE (WINAPI *_os_SetThreadExecutionState)(  EXECUTION_STATE esFlags);
 extern int os_logical_wide;
 extern int os_logical_high;
 

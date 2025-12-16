@@ -22,11 +22,8 @@
 // VoidImageViewer
 
 // TODO:
-// [HIGH] check the viv icon is being used for webp.
-// [HIGH] prevent screen saver on slideshow
-// [HIGH] wben going full screen, check if the image is currently smaller than it would be full screen, if it is, set a flag to restore the zoom, save the zoom and set the zoom to 0.
+// add UI option for config_title_bar_format.
 // compile on mingw
-// rename qword to uint64
 // review jump-to focus
 // option to show full path like MPC
 // Undo option, after delete, undo the delete and re-add the image to the playlist.
@@ -34,7 +31,6 @@
 // fix horrible screen buffer mangling by Windows when resizing the window or auto fitting the window.
 // msi installer
 // ARM/ARM64 installer
-// preserve center when changing size/fullscreen/windowed.
 // install for current user only option, install to %LocalAppData%\Programs
 // dark mode (nothing in viv has Microsoft dark theme support -I will have to render ALL controls myself)
 // Use Direct3D to render images when shrinking.
@@ -126,11 +122,11 @@
 // *Ctrl+C Ctrl+X = Copy/Move the current displayed image file (for copying/moving to other location in Explorer, for cases you need to do it just once)
 // *Ctrl+V = Add images to ImagePool (Instead of dropping, you can do Crtl+C in Explorer and then Ctrl+V in PhotoSIft)
 // *Open Location of file (Show in Explorer).
-// *Clear – This command needs a Hotkey (Maybe Crtl+W like in Word), and Dialog Box to approve. -added as close ctrl + W
+// *Clear ΓÇô This command needs a Hotkey (Maybe Crtl+W like in Word), and Dialog Box to approve. -added as close ctrl + W
 // *Write the Dimensions (weight height) of each pic and the speed of animation.
 // *Voidimageviewer has a nice feature of controlling the animation rate (speed), to make it fast/slower.
 // *open clipboard to view image in clipboard? -no must be file based for now
-// *Mousewheel up/down – Most of image viewers use these keys for one of two actions: 1. Next image / Previous image 2. Zoom in / Zoom out -keyboard shortcut to toggle between the two.
+// *Mousewheel up/down ΓÇô Most of image viewers use these keys for one of two actions: 1. Next image / Previous image 2. Zoom in / Zoom out -keyboard shortcut to toggle between the two.
 // *print -using preview to print ..
 // *play gifs atleast once.
 // *separate setting for filter quality when fullscreen/windowed. -why?
@@ -208,7 +204,14 @@
 // *orientation metadata for rotation.
 // *pixel info doesn't work if shrinking. -we incorrectly get the pixel from the mipmap.
 // *webp alpha using wrong background color 
-// re-enabled WEBP_MSC_SSE41 
+// *re-enabled WEBP_MSC_SSE41 
+// *-switches -don't just use /switch, allow -switch command line options.
+// *fixed rotating the wrong way.
+// *correct tracking of center pixel when zooming/resizing.
+// *when going full screen, check if the image is currently smaller than it would be full screen, if it is, set a flag to restore the zoom, save the zoom and set the zoom to 0.
+// *D:\Misc\Game Data\Aladdin\Aladdin-RugRide.png doesn't render correctly on some zooms 85129x224 -converted int to __int64
+// *check the viv icon is being used for webp. -it does, but you have to open a webp file first and allow voidimageviewer to open.
+// *prevent screen saver on slideshow
 
 #define _VIV_WM_REPLY							(WM_USER+1)
 #define _VIV_WM_RETRY_RANDOM_EVERYTHING_SEARCH	(WM_USER+2)
@@ -245,6 +248,8 @@
 
 #define VIV_YEAR_STRING2(x)	#x
 #define VIV_YEAR_STRING(x)	VIV_YEAR_STRING2(x)	
+
+#define _VIV_STRETCH_BLT_STITCH_SIZE		1024
 
 #include "viv.h"
 
@@ -477,6 +482,7 @@ static INT_PTR CALLBACK _viv_custom_rate_proc(HWND hwnd,UINT msg,WPARAM wParam,L
 static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 static void _viv_update_frame(void);
 static void _viv_update_ontop(void);
+static void _viv_update_prevent_sleep(void);
 static void _viv_dst_pos_set(int x,int y);
 static void _viv_dst_zoom_set(int x,int y);
 static void _viv_frame_skip(int size);
@@ -593,8 +599,15 @@ static void _viv_start_move_window(void);
 static int _viv_ceil(double x);
 static void _viv_center_listbox_item(HWND listbox_hwnd,int item_index);
 static void _viv_stretch_blt(HDC dst_hdc,int dst_x,int dst_y,int dst_wide,int dst_high,HDC src_hdc,int src_wide,int src_high,int clip_x,int clip_y,int clip_wide,int clip_high);
+static BOOL _viv_StretchBltStitch(HDC hdcDest,int xDest,int yDest,int wDest,int hDest,HDC hdcSrc,int xSrc,int ySrc,int wSrc,int hSrc,DWORD rop,int clip_x,int clip_y,int clip_wide,int clip_high);
 static BOOL _viv_get_src_pixel_pos(int client_x,int client_y,POINT *out_src_pt);
 static void _viv_get_src_pixel_rgb(int src_x,int src_y,COLORREF *out_colorref);
+static int _viv_clamp_zoom_pos(int zoom_pos);
+static void _viv_open_preload(void);
+//static void _viv_get_tooltip(void);
+//static void _viv_tooltip_hide(void);
+//static void _viv_tooltip_update(void);
+//static void _viv_tooltip_update_track_position(void);
 
 static HMODULE _viv_stobject_hmodule = 0;
 static _viv_playlist_t *_viv_playlist_start = 0;
@@ -607,6 +620,7 @@ static HWND _viv_hwnd = 0;
 static HWND _viv_status_hwnd = 0;
 static HWND _viv_toolbar_hwnd = 0;
 static HWND _viv_rebar_hwnd = 0;
+//static HWND _viv_tooltip_hwnd = 0;
 static HIMAGELIST _viv_toolbar_image_list = 0;
 static HANDLE _viv_mutex = 0;
 //static float _viv_animation_rates[] = {0.085899f,0.107374f,0.134218f,0.167772f,0.209715f,0.262144f,0.327680f,0.409600f,0.512000f,0.640000f,0.800000f,1.000000f,1.250000f,1.562500f,1.953125f,2.441406f,3.051758f,3.814697f,4.768372f,5.960464f,7.450581f,9.313226f}; // natural curve.
@@ -646,6 +660,7 @@ static int _viv_mdoing_y;
 static BYTE _viv_fullscreen_is_maxed = 0;
 static BYTE _viv_is_fullscreen = 0;
 static RECT _viv_fullscreen_rect;
+static int _viv_fullscreen_zoom_offset = 0;
 static BYTE _viv_is_slideshow = 0;
 static BYTE _viv_is_hide_cursor_timer = 0;
 static CLIPFORMAT _viv_CF_PREFERREDDROPEFFECT = 0; // copy or move? clipboard operation
@@ -729,6 +744,8 @@ static int _viv_src_pixel_y = -1;
 static BYTE _viv_src_pixel_r = 0;
 static BYTE _viv_src_pixel_g = 0;
 static BYTE _viv_src_pixel_b = 0;
+static BYTE _viv_is_prevent_sleep = 0;
+//static BYTE _viv_is_alt = 0;
 
 // MF_OWNERDRAW = don't show in menu.
 static _viv_command_t _viv_commands[] = 
@@ -1152,8 +1169,22 @@ static void _viv_update_title(void)
 	const wchar_t *filename;
 
 	window_title[0] = 0;
+	filename = L"";
 
-	filename = string_get_filename_part(_viv_current_fd->cFileName);
+	switch(config_title_bar_format)
+	{
+		case 0: // full path
+			filename = _viv_current_fd->cFileName;
+			break;
+
+		case 1: // filename only
+		default:
+			filename = string_get_filename_part(_viv_current_fd->cFileName);
+			break;
+			
+		case 2: // none
+			break;
+	}
 	
 	if (*filename)
 	{
@@ -1414,73 +1445,7 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 	else
 	if ((!is_preload) && (_viv_load_is_preload) && (*_viv_preload_fd->cFileName) && (string_compare(_viv_preload_fd->cFileName,fd->cFileName) == 0))
 	{
-		os_copy_memory(_viv_current_fd,_viv_preload_fd,sizeof(WIN32_FIND_DATA));
-		
-		_viv_update_title();
-		
-		if (_viv_preload_state == 0)
-		{
-			// loading...
-			// do we have the first frame?
-			if (_viv_preload_frame_loaded_count)
-			{
-				// save current image to last image.
-				viv_copy_current_image_to_last_image();
-
-				// switch now..
-				_viv_load_is_preload = 0;
-				_viv_activate_preload();
-				_viv_status_update();
-			}
-			else
-			{
-				// still loading...
-				// wait...
-				if (!_viv_should_activate_preload_on_load)
-				{
-					_viv_should_activate_preload_on_load = 1;
-				
-					// show loading...
-					_viv_status_update();
-				}
-				
-				debug_printf("STILL LOADING...\n");
-			}
-		}
-		else
-		if (_viv_preload_state == 1)
-		{
-			// save current image to last image.
-			viv_copy_current_image_to_last_image();
-
-			// loaded
-			// preload next below..
-			_viv_load_is_preload = 0;
-			_viv_status_update();
-			
-			_viv_activate_preload();
-			
-			_viv_preload_next();
-		}
-		else
-		{
-			// save current image to last image.
-			viv_copy_current_image_to_last_image();
-
-			// failed.
-			// preload next below..
-			_viv_load_failed = 1;
-			_viv_load_is_preload = 0;
-			_viv_status_update();
-			
-			_viv_clear();
-			
-			_viv_start_first_frame();
-			
-			_viv_process_pending_clear();
-			
-			_viv_preload_next();
-		}	
+		_viv_open_preload();
 
 		return;
 	}
@@ -1618,38 +1583,20 @@ static void _viv_on_size(void)
 		}
 		
 		{
+		
 			int rw;
 			int rh;
 			double new_view_x;
 			double new_view_y;
-			
+
 			_viv_get_render_size(&rw,&rh);
-			
-			new_view_x = _viv_view_ix * (double)(wide - rw);
-			new_view_y = _viv_view_iy * (double)(high - rh);
-			
-			// round away from 0
-			if (new_view_x >= 0.0)
-			{
-				new_view_x += 0.5;
-			}
-			else
-			{
-				new_view_x -= 0.5;
-			}
-			
-			if (new_view_y >= 0.0)
-			{
-				new_view_y += 0.5;
-			}
-			else
-			{
-				new_view_y -= 0.5;
-			}
-			
-	debug_printf("RESTORE VIEW x %d y %d ix %d iy %d rw %d rh %d wide %d high %d\n",(int)(new_view_x),(int)(new_view_y),(int)(_viv_view_ix * 100),(int)(_viv_view_iy * 100),rw,rh,wide,high)		;
+		
+			new_view_x = (int)(((_viv_view_ix * rw) / _viv_image_wide) + 0.5) + ((_viv_dst_pos_x * wide) / 1000) - (wide / 2) - (rw / 2);
+			new_view_y = (int)(((_viv_view_iy * rh) / _viv_image_high) + 0.5) + ((_viv_dst_pos_y * high) / 1000) - (high / 2) - (rh / 2);
+	
+	debug_printf("RESTORE VIEW x %d y %d ix %d iy %d rw %d rh %d wide %d high %d\n",(int)(new_view_x),(int)(new_view_y),(int)_viv_view_ix,(int)_viv_view_iy,rw,rh,wide,high)		;
 	//		_viv_view_set((int)(_viv_view_ix * (double)rw),(int)(_viv_view_iy * (double)rh),1);
-			_viv_view_set((int)(new_view_x),(int)(new_view_y),1);
+			_viv_view_set((int)new_view_x,(int)new_view_y,1);
 		}
 
 		_viv_toolbar_update_buttons();
@@ -3414,6 +3361,17 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 				{
 					if (_viv_context_menu_items[i] > _VIV_MENU_COUNT)
 					{
+						switch (_viv_context_menu_items[i])
+						{
+							case VIV_ID_FILE_PREVIEW:
+								// this doesn't exist on Windows 8 or later.
+								if (os_is_windows_8_or_later())
+								{
+									continue;
+								}
+								break;
+						}
+						
 						if ((_viv_context_menu_items[i] != VIV_ID_VIEW_MENU) || (!config_show_menu))
 						{
 							int command_index;
@@ -3569,7 +3527,9 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			}
 			
 			_viv_show_cursor();
-			
+//			_viv_tooltip_hide();
+			_viv_update_src_pixel(0,1);
+
 			break;
 			
 		case WM_MOUSEMOVE:
@@ -3592,7 +3552,7 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			_viv_is_mouseover = 1;
 							
 			_viv_mousemove();
-
+			
 			switch(_viv_doing)
 			{
 				case _VIV_DOING_MSCROLL:
@@ -4258,28 +4218,6 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 															{
 																if (SelectClipRgn(ps.hdc,clip_hrgn) != ERROR)
 																{
-
-						/*
-																if (GetAsyncKeyState(VK_LBUTTON) & 0x8000)
-																{
-															
-											{
-												HBRUSH hbrush;
-												
-												hbrush = CreateSolidBrush(RGB(rand(),rand(),rand()));
-												
-												if (hbrush)
-												{
-													os_fill_rect(ps.hdc,rect.left,rect.top,rect.right - rect.left,rect.bottom - rect.top,hbrush);
-												
-													DeleteObject(hbrush);
-												}
-											}
-											
-																}
-																else
-															*/
-
 																	if (StretchBlt(ps.hdc,rx,ry,rw,rh,mem_hdc,0,0,mip_wide,mip_high,SRCCOPY))
 																	{
 																	}
@@ -4296,12 +4234,59 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 														{
 															if (is_mag)
 															{
-																// use our own stretch that only renders the clipping rect region.
-																// where as StretchBlt ignores the clipping region and renders the entire dst region.
-																//
-																// if the clipping region is the full area, just use stretchblt, which is likely faster.
-																// for now, we will use our implementation to avoid scaling inconsistancies.
-																_viv_stretch_blt(ps.hdc,rx,ry,rw,rh,mem_hdc,mip_wide,mip_high,rect_p->left,rect_p->top,rect_p->right - rect_p->left,rect_p->bottom - rect_p->top);
+																int paint_left;
+																int paint_right;
+																int paint_wide;
+																int paint_top;
+																int paint_bottom;
+																int paint_high;
+																
+																paint_left = rx;
+																paint_right = rx + rw;
+																paint_top = ry;
+																paint_bottom = ry + rh;
+																
+																if (paint_left < 0)
+																{
+																	paint_left = 0;
+																}
+																
+																if (paint_right > wide)
+																{
+																	paint_right = wide;
+																}
+																
+																if (paint_top < 0)
+																{
+																	paint_top = 0;
+																}
+																
+																if (paint_bottom > high)
+																{
+																	paint_bottom = high;
+																}
+																
+																paint_wide = paint_right - paint_left;
+																paint_high = paint_bottom - paint_top;
+																
+																// are we drawing the whole thing?
+																if ((rect_p->right - rect_p->left >= paint_wide) && (rect_p->bottom - rect_p->top >= paint_high))
+																{
+																	// if the clipping region is the full area, just use stretchblt, which is faster.
+																	if (_viv_StretchBltStitch(ps.hdc,rx,ry,rw,rh,mem_hdc,0,0,mip_wide,mip_high,SRCCOPY,rect_p->left,rect_p->top,rect_p->right - rect_p->left,rect_p->bottom - rect_p->top))
+																	{
+																	}
+																	else
+																	{
+																		debug_printf("StretchBlt failed %d\n",GetLastError());
+																	}
+																}
+																else
+																{
+																	// use our own stretch that only renders the clipping rect region.
+																	// where as StretchBlt ignores the clipping region and renders the entire dst region.
+																	_viv_stretch_blt(ps.hdc,rx,ry,rw,rh,mem_hdc,mip_wide,mip_high,rect_p->left,rect_p->top,rect_p->right - rect_p->left,rect_p->bottom - rect_p->top);
+																}
 															}
 															else
 															{
@@ -4383,6 +4368,32 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 			
 		case WM_ERASEBKGND:
 			return 1;
+			
+		case WM_GETMINMAXINFO:
+
+			{
+				int wide;
+				int high;
+				RECT rect;
+				BOOL is_menu;
+				
+				wide = _viv_toolbar_get_wide();
+				high = _viv_get_status_high() + _viv_get_controls_high();
+				
+				is_menu = GetMenu(_viv_hwnd) ? TRUE : FALSE;
+			
+				rect.left = 0;
+				rect.top = 0;
+				rect.right = wide;
+				rect.bottom = high;
+				
+				AdjustWindowRectEx(&rect,os_get_window_style(hwnd),is_menu,os_get_window_ex_style(hwnd));
+
+				((MINMAXINFO *)lParam)->ptMinTrackSize.x = rect.right - rect.left; 
+				((MINMAXINFO *)lParam)->ptMinTrackSize.y = rect.bottom - rect.top;
+			}
+
+			break;
 	}
 	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
@@ -4417,7 +4428,7 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 
 	p = string_skip_ws(cl);
 	
-	// skip filename
+	// skip exe filename
 	p = string_get_word(p,buf);
 	p = string_skip_ws(p);
 
@@ -4427,6 +4438,7 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 	for(;;)
 	{
 		wchar_t *bufstart;
+		BOOL was_quote;
 		
 		// no more text?
 		if (!*p)
@@ -4434,12 +4446,20 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 			break;
 		}
 		
+		was_quote = FALSE;
+		if (*p == '"')
+		{
+			was_quote = TRUE;
+		}
+		
 		p = string_get_word(p,buf);
 		p = string_skip_ws(p);
 		
 		bufstart = buf;
 		
-		if (*bufstart == '/')
+		// treat switches with a '.' as a filename.
+		// eg: voidimageviewer.exe -my-image.png
+		if ((!was_quote) && ((*bufstart == '/') || (*bufstart == '-')) && (!string_is_dot(buf)))
 		{
 			bufstart++;
 			
@@ -4705,7 +4725,7 @@ static void _viv_process_command_line(wchar_t *cl)
 	
 	p = string_skip_ws(p);
 	
-	// skip filename
+	// skip exe filename
 	p = string_get_word(p,buf);
 	p = string_skip_ws(p);
 
@@ -4713,18 +4733,27 @@ static void _viv_process_command_line(wchar_t *cl)
 	for(;;)
 	{
 		wchar_t *bufstart;
+		BOOL was_quote;
+
 		// no more text?
 		if (!*p)
 		{
 			break;
 		}
 		
+		was_quote = FALSE;
+		if (*p == '"')
+		{
+			was_quote = TRUE;
+		}
+
 		p = string_get_word(p,buf);
 		p = string_skip_ws(p);
 		
 		bufstart = buf;
 		
-		if (*bufstart == '/')
+		// treat switches with a '.' as a filename.
+		if ((!was_quote) && ((*bufstart == '/') || (*bufstart == '-')) && (!string_is_dot(buf)))
 		{
 			bufstart++;
 			
@@ -5353,6 +5382,7 @@ static void _viv_kill(void)
 
 	_viv_status_show(0);
 	_viv_controls_show(0);
+//	_viv_tooltip_hide();
 
 	if (_viv_hwnd)
 	{
@@ -5701,6 +5731,8 @@ debug_printf("_viv_next %d %d\n",prev,is_preload);
 
 	if ((!is_preload) && (_viv_load_image_thread) && ((_viv_load_frame_count <= 1) || (_viv_load_image_terminate)) && (wait_for_current_load))
 	{
+		//_viv_open_preload();
+		
 		// still loading.
 		// wait for current load to finish.
 		return 0;
@@ -6200,64 +6232,86 @@ static int _viv_is_msg(MSG *msg)
 				
 		case WM_SYSKEYDOWN:
 		case WM_KEYDOWN:
-		{
-			int key_flags;
-		
-			key_flags = _viv_get_current_key_mod_flags();
 			
-			if (msg->hwnd == _viv_hwnd)
 			{
-				int key_index;
-
-				// cancel action
-				if ((key_flags == 0) && (msg->wParam == VK_ESCAPE))
-				{
-					if (_viv_doing)
-					{
-						_viv_doing_cancel();
-					
-						return 1;
-					}
-
-					if (_viv_is_fullscreen)
-					{
-						_viv_toggle_fullscreen();
-						
-						// also pause slideshow
-						if (_viv_is_slideshow)
-						{
-							_viv_pause();
-						}
-					
-						return 1;
-					}
-				}
+				int key_flags;
+			
+				key_flags = _viv_get_current_key_mod_flags();
 				
-				// find the key.
-				for(key_index=0;key_index<_VIV_COMMAND_COUNT;key_index++)
+				if (msg->hwnd == _viv_hwnd)
 				{
-					config_key_t *k;
-					
-					k = _viv_key_list->start[key_index];
-					while(k)
+					int key_index;
+
+/*
+					if (msg->wParam == VK_MENU)
 					{
-						if ((k->key & CONFIG_KEYFLAG_MOD_MASK) == key_flags)
+						_viv_is_alt = 1;
+						_viv_update_show_cursor();
+						_viv_update_src_pixel(0,1);
+					}
+*/					
+					// cancel action
+					if ((key_flags == 0) && (msg->wParam == VK_ESCAPE))
+					{
+						if (_viv_doing)
 						{
-							if ((k->key & CONFIG_KEYFLAG_VK_MASK) == msg->wParam)
+							_viv_doing_cancel();
+						
+							return 1;
+						}
+
+						if (_viv_is_fullscreen)
+						{
+							_viv_toggle_fullscreen();
+							
+							// also pause slideshow
+							if (_viv_is_slideshow)
 							{
-								_viv_command_with_is_key_repeat(_viv_commands[key_index].command_id,(msg->lParam & 0x40000000) ? 1 : 0);
-								
-								return 1;
+								_viv_pause();
 							}
-						}
 						
-						k = k->next;
+							return 1;
+						}
+					}
+					
+					// find the key.
+					for(key_index=0;key_index<_VIV_COMMAND_COUNT;key_index++)
+					{
+						config_key_t *k;
+						
+						k = _viv_key_list->start[key_index];
+						while(k)
+						{
+							if ((k->key & CONFIG_KEYFLAG_MOD_MASK) == key_flags)
+							{
+								if ((k->key & CONFIG_KEYFLAG_VK_MASK) == msg->wParam)
+								{
+									_viv_command_with_is_key_repeat(_viv_commands[key_index].command_id,(msg->lParam & 0x40000000) ? 1 : 0);
+									
+									return 1;
+								}
+							}
+							
+							k = k->next;
+						}
 					}
 				}
-				
-				break;
 			}
-		}
+			
+			break;
+
+/*			
+		case WM_KEYUP:
+		case WM_SYSKEYUP:
+		
+			if (msg->wParam == VK_MENU)
+			{
+				_viv_is_alt = 0;
+				_viv_update_show_cursor();
+				_viv_update_src_pixel(0,1);
+			}
+			break;
+			*/
 	}
 
 	return 0;
@@ -6268,8 +6322,6 @@ static void _viv_view_set(int view_x,int view_y,int invalidate)
 	RECT rect;
 	int wide;
 	int high;
-	int rx;
-	int ry;
 	int rw;
 	int rh;
 	
@@ -6288,88 +6340,105 @@ static void _viv_view_set(int view_x,int view_y,int invalidate)
 			}
 		}
 */
-		
-	rx = (wide / 2) - (rw / 2) - view_x;
-	ry = (high / 2) - (rh / 2) - view_y;
 
-	if (config_keep_centered)
 	{
-		if (rw > wide)
-		{
-			if (rx > 0)
-			{
-				view_x = (wide / 2) - (rw / 2);
-			}
+		int rx;
+		int ry;
+			
+		rx = (wide / 2) - (rw / 2) - view_x;
+		ry = (high / 2) - (rh / 2) - view_y;
 
-			if (rx + rw < wide)
+		if (config_keep_centered)
+		{
+			if (rw > wide)
 			{
-				// rx = wide - rw;
-				view_x = (wide / 2) - (rw / 2) - (wide - rw);
+				if (rx > 0)
+				{
+					view_x = (wide / 2) - (rw / 2);
+				}
+
+				if (rx + rw < wide)
+				{
+					// rx = wide - rw;
+					view_x = (wide / 2) - (rw / 2) - (wide - rw);
+				}
+			}
+			else
+			{
+				view_x = 0;
+			}
+		
+			if (rh > high)
+			{
+				if (ry > 0)
+				{
+					view_y = (high / 2) - (rh / 2);
+				}
+
+				if (ry + rh < high)
+				{
+					view_y = (high / 2) - (rh / 2) - (high - rh);
+				}
+			}
+			else
+			{
+				view_y = 0;
 			}
 		}
 		else
 		{
-			view_x = 0;
-		}
-	
-		if (rh > high)
-		{
-			if (ry > 0)
+		
+			if (rx + rw - 1 < 0)
 			{
-				view_y = (high / 2) - (rh / 2);
+				view_x = (wide / 2) - (rw / 2) + rw - 1;
 			}
+			
+			if (rx > wide-1)
+			{
+				view_x = (wide / 2) - (rw / 2) - (wide-1);
+			}
+			
+			if (ry + rh - 1 < 0)
+			{
+				view_y = (high / 2) - (rh / 2) + rh - 1;
+			}
+			
+			if (ry > high-1)
+			{
+				view_y = (high / 2) - (rh / 2) - (high-1);
+			}
+			
+		}
+	}
+	
+	if (rw)
+	{
+		int rx;
 
-			if (ry + rh < high)
-			{
-				view_y = (high / 2) - (rh / 2) - (high - rh);
-			}
-		}
-		else
-		{
-			view_y = 0;
-		}
+		rx = ((_viv_dst_pos_x * wide) / 1000) - (rw / 2) - view_x;
+
+		// make sure the multiple is done as __int64 to avoid overflows
+		_viv_view_ix = (((wide / 2) - rx) * (__int64)_viv_image_wide) / (double)rw;
 	}
 	else
 	{
-	
-		if (rx + rw - 1 < 0)
-		{
-			view_x = (wide / 2) - (rw / 2) + rw - 1;
-		}
-		
-		if (rx > wide-1)
-		{
-			view_x = (wide / 2) - (rw / 2) - (wide-1);
-		}
-		
-		if (ry + rh - 1 < 0)
-		{
-			view_y = (high / 2) - (rh / 2) + rh - 1;
-		}
-		
-		if (ry > high-1)
-		{
-			view_y = (high / 2) - (rh / 2) - (high-1);
-		}
-		
-	}
-	
-	if (wide - rw)
-	{
-		_viv_view_ix = (double)view_x / (double)(wide - rw);
-	}
-	else
-	{
-		_viv_view_ix = 0;
+		// don't set to 0, just use last value.
+//		_viv_view_ix = 0.0;
 	}
 
-	if (high - rh)
+	if (rh)
 	{
-		_viv_view_iy = (double)view_y / (double)(high - rh);
+		int ry;
+
+		ry = ((_viv_dst_pos_y * high) / 1000) - (rh / 2) - view_y;
+		
+		// make sure the multiple is done as __int64 to avoid overflows
+		_viv_view_iy = (((high / 2) - ry) * (__int64)_viv_image_high) / (double)rh;
 	}
 	else
 	{
-		_viv_view_iy = 0;
+		// don't set to 0, just use last value.
+//		_viv_view_iy = 0;
 	}
 
 	if ((_viv_view_x != view_x) || (_viv_view_y != view_y))
@@ -6383,7 +6452,7 @@ static void _viv_view_set(int view_x,int view_y,int invalidate)
 		}
 	}
 
-//debug_printf("SETVIEW %d %d ix %d iy %d rw %d rh %d wide %d high %d\n",_viv_view_x,_viv_view_y,(int)(_viv_view_ix*100.0),(int)(_viv_view_iy*100.0),rw,rh,wide,high);
+debug_printf("SETVIEW %d %d ix %d iy %d rw %d rh %d wide %d high %d\n",_viv_view_x,_viv_view_y,(int)(_viv_view_ix),(int)(_viv_view_iy),rw,rh,wide,high);
 
 	_viv_toolbar_update_buttons();
 }
@@ -6391,7 +6460,33 @@ static void _viv_view_set(int view_x,int view_y,int invalidate)
 static void _viv_toggle_fullscreen(void)
 {
 	DWORD style;
+	int old_rw;
+	int old_rh;
+	int zoom_wide_array[_VIV_ZOOM_MAX];
+	int zoom_high_array[_VIV_ZOOM_MAX];
 	
+	_viv_get_render_size(&old_rw,&old_rh);
+
+	// precalculate all zoom levels for comparison later to find the zoom offset.
+	{
+		int backup_zoom;
+
+		backup_zoom = _viv_zoom_pos;
+		
+		for(_viv_zoom_pos=0;_viv_zoom_pos<_VIV_ZOOM_MAX;_viv_zoom_pos++)
+		{
+			int rw;
+			int rh;
+			
+			_viv_get_render_size(&rw,&rh);
+			
+			zoom_wide_array[_viv_zoom_pos] = rw;
+			zoom_high_array[_viv_zoom_pos] = rh;
+		}
+		
+		_viv_zoom_pos = backup_zoom;
+	}
+				
 	_viv_prevent_on_size = 1;
 
 debug_printf("toggle fullscreen %d\n",!_viv_is_fullscreen);
@@ -6444,6 +6539,9 @@ debug_printf("toggle fullscreen %d\n",!_viv_is_fullscreen);
 		{	
 			ShowWindow(_viv_hwnd,SW_MAXIMIZE);
 		}
+		
+		_viv_zoom_pos += _viv_fullscreen_zoom_offset;
+		_viv_zoom_pos = _viv_clamp_zoom_pos(_viv_zoom_pos);
 	}
 	else
 	{
@@ -6453,21 +6551,6 @@ debug_printf("toggle fullscreen %d\n",!_viv_is_fullscreen);
 		_viv_is_fullscreen = 1;
 			
 		os_MonitorRectFromWindow(_viv_hwnd,1,&monitor_rect);
-		
-		// clear zooming if the current render size is smaller than the full screen size.
-		/*
-		if (_viv_zoom_pos)
-		{
-			int rw;
-			int rh;
-			
-			_viv_get_render_size(&rw,&rh);
-			
-			if ((rw <= monitor_rect.right - monitor_rect.left) &&  (rh <= monitor_rect.bottom - monitor_rect.top))
-			{
-				_viv_zoom_pos = 0;
-			}
-		}*/
 		
 		SetWindowLong(_viv_hwnd,GWL_STYLE,style & ~(WS_CAPTION|WS_THICKFRAME));
 		
@@ -6515,14 +6598,78 @@ debug_printf("toggle fullscreen %d\n",!_viv_is_fullscreen);
 			SetForegroundWindow(fullscreen_hwnd);
 
 			DestroyWindow(fullscreen_hwnd);
-		}	
+		}
 
+		// find zoom offset.
+		{
+			int zoom_index;
+			
+			_viv_fullscreen_zoom_offset = 0;
+			
+			if (config_fullscreen_fill_window)
+			{
+				for(zoom_index=0;zoom_index<_VIV_ZOOM_MAX;zoom_index++)
+				{
+					// debug_printf("%d %d\n",zoom_wide_array[zoom_index] , monitor_rect.right - monitor_rect.left);
+				
+					if ((zoom_wide_array[zoom_index] > monitor_rect.right - monitor_rect.left) || (zoom_high_array[zoom_index] > monitor_rect.bottom - monitor_rect.top))
+					{
+						break;
+					}
+							
+					_viv_fullscreen_zoom_offset = zoom_index;
+				}	
+				
+				if (_viv_fullscreen_zoom_offset > _viv_zoom_pos)
+				{
+					_viv_fullscreen_zoom_offset = _viv_zoom_pos;
+				}
+			}
+			else
+			if (config_fill_window)
+			{
+				int backup_zoom_pos;
+				
+				backup_zoom_pos = _viv_zoom_pos;
+				
+				for(_viv_zoom_pos=0;_viv_zoom_pos<_VIV_ZOOM_MAX;_viv_zoom_pos++)
+				{
+					int rw;
+					int rh;
+					
+					_viv_get_render_size(&rw,&rh);
+					
+					// debug_printf("%d %d\n",zoom_wide_array[zoom_index] , monitor_rect.right - monitor_rect.left);
+				
+					if ((rw > old_rw) || (rh > old_rh))
+					{
+						break;
+					}
+							
+					_viv_fullscreen_zoom_offset = -_viv_zoom_pos;
+				}
+
+				_viv_zoom_pos = backup_zoom_pos;
+				
+				if (_viv_fullscreen_zoom_offset < -(_VIV_ZOOM_MAX-1-_viv_zoom_pos))
+				{
+					_viv_fullscreen_zoom_offset = -(_VIV_ZOOM_MAX-1-_viv_zoom_pos);
+				}
+			}
+			
+//			debug_printf("ZOOM OFFSET %d\n",_viv_fullscreen_zoom_offset);
+		}
+	
+		_viv_zoom_pos -= _viv_fullscreen_zoom_offset;
+		_viv_zoom_pos = _viv_clamp_zoom_pos(_viv_zoom_pos);
+		
 		_viv_prevent_on_deactivate = 0;
 	}
 	
 	_viv_prevent_on_size = 0;
 
 	_viv_on_size();
+	
 //	InvalidateRect(_viv_hwnd,0,FALSE);
 
 	// update mouseover
@@ -6577,6 +6724,7 @@ static void _viv_slideshow(void)
 		_viv_status_update();
 		_viv_toolbar_update_buttons();
 		_viv_update_ontop();
+		_viv_update_prevent_sleep();
 	}
 }
 
@@ -6635,7 +6783,7 @@ static void _viv_get_render_size(int *prw,int *prh)
 			// tall image.
 			// add  _viv_image_high - 1 so when we resize the window to 50% it stretches to the screen edges correctly.
 			rh = high;
-			rw = ((high * _viv_image_wide) + _viv_image_high - 1) / _viv_image_high;
+			rw = ((high * (__int64)_viv_image_wide) + _viv_image_high - 1) / _viv_image_high;
 
 			// make sure we have some width.			
 			if (rw <= 0)
@@ -6648,7 +6796,7 @@ static void _viv_get_render_size(int *prw,int *prh)
 			// long image.
 			// add _viv_image_wide - 1 so when we resize the window to 50% it stretches to the screen edges correctly.
 			rw = wide;
-			rh = ((wide * _viv_image_high) + _viv_image_wide - 1) / _viv_image_wide;
+			rh = ((wide * (__int64)_viv_image_high) + _viv_image_wide - 1) / _viv_image_wide;
 
 			// make sure we have some height	
 			if (rh <= 0)
@@ -6749,8 +6897,8 @@ static void _viv_get_render_size(int *prw,int *prh)
 	*/
 	if (_viv_zoom_pos)
 	{
-		rw = rw + (max_zoom_wide - rw) * _viv_zoom_presets[_viv_zoom_pos];
-		rh = rh + (max_zoom_high - rh) * _viv_zoom_presets[_viv_zoom_pos];
+		rw = rw + (int)((max_zoom_wide - rw) * _viv_zoom_presets[_viv_zoom_pos]);
+		rh = rh + (int)((max_zoom_high - rh) * _viv_zoom_presets[_viv_zoom_pos]);
 	}
 	
 	*prw = rw;
@@ -7304,19 +7452,18 @@ static void _viv_pause(void)
 		KillTimer(_viv_hwnd,VIV_ID_SLIDESHOW_TIMER);
 		
 		_viv_is_slideshow = 0;
-		_viv_status_update();
-		_viv_toolbar_update_buttons();
-		_viv_update_ontop();
 	}
 	else
 	{
 		SetTimer(_viv_hwnd,VIV_ID_SLIDESHOW_TIMER,config_slideshow_rate,0);
 		
 		_viv_is_slideshow = 1;
-		_viv_status_update();
-		_viv_toolbar_update_buttons();
-		_viv_update_ontop();
 	}
+
+	_viv_status_update();
+	_viv_toolbar_update_buttons();
+	_viv_update_ontop();
+	_viv_update_prevent_sleep();
 }
 
 static void _viv_increase_rate(int dec)
@@ -7432,7 +7579,8 @@ static void _viv_edit_rotate(int counterclockwise)
 				{
 					HBITMAP new_hbitmap;
 					
-					new_hbitmap = _viv_orientate_hbitmap(_viv_frames[i].hbitmap,counterclockwise ? 6 : 8);
+					// i do the reverse to reverse the orientation.
+					new_hbitmap = _viv_orientate_hbitmap(_viv_frames[i].hbitmap,counterclockwise ? 8 : 6);
 					
 					if (new_hbitmap)
 					{
@@ -8783,6 +8931,8 @@ static void _viv_timer_start(void)
 		{
 			SetTimer(_viv_hwnd,VIV_ID_ANIMATION_TIMER,USER_TIMER_MINIMUM,0);
 		}
+		
+		_viv_update_prevent_sleep();
 	}
 }
 
@@ -8810,6 +8960,7 @@ static void _viv_mousemove(void)
 
 static void _viv_update_src_pixel(int force,int update_statusbar)
 {
+//	if ((config_pixel_info) || ((_viv_is_alt) && (_viv_is_tracking_mouse)))
 	if (config_pixel_info)
 	{
 		POINT src_pixel_pt;
@@ -8854,6 +9005,16 @@ static void _viv_update_src_pixel(int force,int update_statusbar)
 			{
 				_viv_status_update();
 			}
+			
+/*
+			if ((src_pixel_pt.x != -1) && (src_pixel_pt.y != -1))
+			{
+				_viv_tooltip_update();
+			}
+			else
+			{
+				_viv_tooltip_hide();
+			}*/
 		}
 	}
 	else
@@ -8861,6 +9022,17 @@ static void _viv_update_src_pixel(int force,int update_statusbar)
 		_viv_src_pixel_x = -1;
 		_viv_src_pixel_y = -1;
 	}
+
+/*	
+	if ((_viv_is_alt) && (_viv_is_tracking_mouse))
+	{
+		_viv_tooltip_update_track_position();
+	}
+	else
+	{
+		_viv_tooltip_hide();
+	}
+	*/
 }
 
 static void _viv_animation_pause(void)
@@ -9245,6 +9417,8 @@ static void _viv_timer_stop(void)
 		{
 			KillTimer(_viv_hwnd,VIV_ID_ANIMATION_TIMER);
 		}
+
+		_viv_update_prevent_sleep();
 	}
 }
 
@@ -9367,7 +9541,7 @@ static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 			os_SetDlgItemText(hwnd,IDC_ABOUTVOIDIMAGEVIEWER,(const utf8_t *)"void Image Viewer");
 			string_printf(version_wbuf,"%d.%d.%d.%d%s %s",VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD,VERSION_TYPE,VERSION_TARGET_MACHINE);
 			SetDlgItemText(hwnd,IDC_ABOUTVERSION,version_wbuf);
-			os_SetDlgItemText(hwnd,IDC_ABOUTCOPYRIGHT,(const utf8_t *)"Copyright © " VIV_YEAR_STRING(VERSION_YEAR) " David Carpenter");
+			os_SetDlgItemText(hwnd,IDC_ABOUTCOPYRIGHT,(const utf8_t *)"Copyright ┬⌐ " VIV_YEAR_STRING(VERSION_YEAR) " David Carpenter");
 			os_SetDlgItemText(hwnd,IDC_ABOUTEMAIL,(const utf8_t *)"david.carpenter@voidtools.com");
 			os_SetDlgItemText(hwnd,IDC_ABOUTWEBSITE,(const utf8_t *)"www.voidtools.com");
 			
@@ -9519,6 +9693,32 @@ static void _viv_update_ontop(void)
 	}
 
 	SetWindowPos(_viv_hwnd,is_top_most ? HWND_TOPMOST : HWND_NOTOPMOST,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE|SWP_NOACTIVATE);
+}
+
+static void _viv_update_prevent_sleep(void)
+{
+	BYTE _is_prevent_sleep;
+	
+	_is_prevent_sleep = 0;
+	
+	if (config_prevent_sleep)
+	{
+		if ((_viv_is_slideshow) || (_viv_is_animation_timer))
+		{
+			_is_prevent_sleep = 1;
+		}
+	}
+	
+	// _is_prevent_sleep changed?
+	if (!!_viv_is_prevent_sleep != !!_is_prevent_sleep)
+	{
+		if (_os_SetThreadExecutionState)
+		{	
+			_os_SetThreadExecutionState(_is_prevent_sleep ? (ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED) : ES_CONTINUOUS);
+		}
+		
+		_viv_is_prevent_sleep = _is_prevent_sleep;
+	}
 }
 
 static void _viv_dst_pos_set(int x,int y)
@@ -14067,7 +14267,10 @@ static int _viv_should_show_cursor(void)
 					{
 						if ((_viv_is_fullscreen) || (config_windowed_hide_cursor))
 						{
-							return 0;
+							// if (!((_viv_is_alt) && (_viv_is_tracking_mouse)))
+							{
+								return 0;
+							}
 						}
 					}
 				}
@@ -14329,179 +14532,150 @@ static void _viv_stretch_blt(HDC dst_hdc,int dst_x,int dst_y,int dst_wide,int ds
 		int src_clip_y;
 		int src_clip_wide;
 		int src_clip_high;
-		BYTE *src_dib_pixels;
-		HBITMAP src_dib_hbitmap;
-
-		src_clip_x = ((clip_x - dst_x) * src_wide) / dst_wide;
-		src_clip_y = ((clip_y - dst_y) * src_high) / dst_high;
-		src_clip_wide = (((clip_wide - 1 + clip_x - dst_x) * src_wide) / dst_wide) + 1 - src_clip_x;
-		src_clip_high = (((clip_high - 1 + clip_y - dst_y) * src_high) / dst_high) + 1 - src_clip_y;
-
-//debug_printf("%d %d %d %d - %d %d %d %d\n",src_clip_x,src_clip_y,src_clip_wide,src_clip_high,clip_x,clip_y,clip_wide,clip_high);
-
-		// create a src DIB of the clipped region we need.
-		{
-			BITMAPINFO bmi;
-			
-			os_zero_memory(&bmi,sizeof(BITMAPINFO));
-			
-			bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-			bmi.bmiHeader.biWidth = src_clip_wide;
-			bmi.bmiHeader.biHeight = -src_clip_high; // top-down
-			bmi.bmiHeader.biPlanes = 1;
-			bmi.bmiHeader.biBitCount = 32;
-			bmi.bmiHeader.biCompression = BI_RGB;
-
-			src_dib_hbitmap = CreateDIBSection(NULL,&bmi,DIB_RGB_COLORS,&src_dib_pixels,NULL,0);
-		}
+		HDC dst_mem_hdc;
 		
-		if (src_dib_hbitmap)
+		src_clip_x = ((clip_x - dst_x) * (__int64)src_wide) / dst_wide;
+		src_clip_y = ((clip_y - dst_y) * (__int64)src_high) / dst_high;
+		src_clip_wide = (((clip_wide - 1 + clip_x - dst_x) * (__int64)src_wide) / dst_wide) + 1 - src_clip_x;
+		src_clip_high = (((clip_high - 1 + clip_y - dst_y) * (__int64)src_high) / dst_high) + 1 - src_clip_y;
+		
+	//debug_printf("%d %d %d %d - %d %d %d %d\n",src_clip_x,src_clip_y,src_clip_wide,src_clip_high,clip_x,clip_y,clip_wide,clip_high);
+			
+		dst_mem_hdc = CreateCompatibleDC(dst_hdc);
+		if (dst_mem_hdc)
 		{
-			HDC src_dib_hdc;
+			HBITMAP dst_hbitmap;
 
-			// create memory dc for src dib
-			src_dib_hdc = CreateCompatibleDC(src_hdc);
-			if (src_dib_hdc)
+			dst_hbitmap = CreateCompatibleBitmap(dst_hdc,clip_wide,clip_high);
+			if (dst_hbitmap)
 			{
-				HGDIOBJ last_src_dib_hbitmap;
+				HGDIOBJ last_dst_hbitmap;
 
-				last_src_dib_hbitmap = SelectObject(src_dib_hdc,src_dib_hbitmap);
-
-				// get the needed src pixels.
-				if (BitBlt(src_dib_hdc,0,0,src_clip_wide,src_clip_high,src_hdc,src_clip_x,src_clip_y,SRCCOPY))
+				last_dst_hbitmap = SelectObject(dst_mem_hdc,dst_hbitmap);
+				
+				// debug_printf("STRETCH %d %d %d %d - %d %d clip %d %d\n",dst_x-clip_x,dst_y-clip_y,dst_wide,dst_high,src_wide,src_high,clip_wide,clip_high);
+//						StretchBlt(dst_hdc,dst_x,dst_y,dst_wide,dst_high,src_hdc,0,0,src_wide,src_high,SRCCOPY);
+			
+				SetStretchBltMode(dst_mem_hdc,GetStretchBltMode(dst_hdc));
+			
+				if (_viv_StretchBltStitch(dst_mem_hdc,dst_x-clip_x,dst_y-clip_y,dst_wide,dst_high,src_hdc,0,0,src_wide,src_high,SRCCOPY,0,0,clip_wide,clip_high))
 				{
-					SIZE_T dst_pixels_size;
-					BYTE *dst_pixels;
-
-					// calc dst pixel size.
-					dst_pixels_size = safe_size_mul(clip_wide,clip_high);
-					dst_pixels_size = safe_size_mul(dst_pixels_size,4);
-
-					dst_pixels = mem_alloc(dst_pixels_size);
-					if (dst_pixels)
-					{
-						int *srcX4_array;
-						
-						srcX4_array = mem_alloc(safe_size_mul(clip_wide,sizeof(int)));
-						if (srcX4_array)
-						{
-							// precompute srcX
-							
-							{
-								int x;
-								int line_dst_x;
-								
-								line_dst_x = (clip_x - dst_x) * src_wide;
-								
-								for (x = 0; x < clip_wide; x++)
-								{
-									srcX4_array[x] = ((line_dst_x / dst_wide) - src_clip_x) * 4;
-									
-									line_dst_x += src_wide;
-								}
-							}
-						
-							// stretch with nearest neighbor
-							
-							{
-								int y;
-								BYTE *dst_line;
-								int line_dst_y;
-								int src_clip_wide4;
-								int clip_wide4;
-//tickstart = os_get_tick_count();
-								
-								dst_line = dst_pixels;
-								line_dst_y = (clip_y - dst_y) * src_high;
-								src_clip_wide4 = src_clip_wide * 4;
-								clip_wide4 = clip_wide * 4;
-							    
-								for (y = 0; y < clip_high; y++)
-								{
-									BYTE *dst_d;
-									BYTE *src_line;
-									int x;
-									int srcY;
-									
-									srcY = (line_dst_y / dst_high) - src_clip_y;
-									src_line = src_dib_pixels + (srcY * src_clip_wide4);
-									
-									dst_d = dst_line;
-
-									for (x = 0; x < clip_wide; x++)
-									{
-										*(DWORD *)dst_d = *(DWORD *)(src_line + srcX4_array[x]);
-										
-										dst_d += 4;
-									}
-
-									dst_line += clip_wide4;
-									line_dst_y += src_high;
-								}
-
-//debug_printf("stretch in %d microseconds\n",((os_get_tick_count() - tickstart) * 1000000) / os_get_tick_freq());
-							}
-
-							// blit to screen
-							
-							{
-								HDC dst_mem_hdc;
-								
-								dst_mem_hdc = CreateCompatibleDC(dst_hdc);
-								if (dst_mem_hdc)
-								{
-									HBITMAP dst_hbitmap;
-
-									dst_hbitmap = CreateCompatibleBitmap(dst_hdc,clip_wide,clip_high);
-									if (dst_hbitmap)
-									{
-										HGDIOBJ last_dst_hbitmap;
-
-										last_dst_hbitmap = SelectObject(dst_mem_hdc,dst_hbitmap);
-
-										// set pixels.
-										
-										{
-											BITMAPINFO bmi;
-							
-											os_zero_memory(&bmi,sizeof(BITMAPINFO));
-											
-											bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-											bmi.bmiHeader.biWidth = clip_wide;
-											bmi.bmiHeader.biHeight = -clip_high;
-											bmi.bmiHeader.biPlanes = 1;
-											bmi.bmiHeader.biBitCount = 32;
-											bmi.bmiHeader.biCompression = BI_RGB;
-
-											SetDIBits(dst_mem_hdc,dst_hbitmap,0,clip_high,dst_pixels,&bmi,DIB_RGB_COLORS);
-										}
-
-										// blit to screen
-										BitBlt(dst_hdc,clip_x,clip_y,clip_wide,clip_high,dst_mem_hdc,0,0,SRCCOPY);
-
-										SelectObject(dst_mem_hdc,last_dst_hbitmap);
-										DeleteObject(dst_hbitmap);
-									}
-		
-									DeleteDC(dst_mem_hdc);
-								}
-							}
-							
-							mem_free(srcX4_array);
-						}
-
-						// Cleanup
-						mem_free(dst_pixels);
-					}
+				}
+				else
+				{
+					debug_printf("StretchBlt %d %d %d %d %d %d failed %u",dst_x-clip_x,dst_y-clip_y,dst_wide,dst_high,src_wide,src_high,GetLastError());
+				}
+				
+				if (BitBlt(dst_hdc,clip_x,clip_y,clip_wide,clip_high,dst_mem_hdc,0,0,SRCCOPY))
+				{
+					
+				}
+				else
+				{
+					debug_printf("BitBlt %d %d %d %d failed %u",clip_x,clip_y,clip_wide,clip_high,GetLastError());
 				}
 
-				SelectObject(src_dib_hdc,last_src_dib_hbitmap);
-				DeleteDC(src_dib_hdc);
+				SelectObject(dst_mem_hdc,last_dst_hbitmap);
+				
+				// Cleanup
+				DeleteObject(dst_hbitmap);
 			}
 
-			DeleteObject(src_dib_hbitmap);
+			DeleteDC(dst_mem_hdc);
 		}
 	}
+}
+
+// stitch multiple 1024x1024 stretches together.
+static BOOL _viv_StretchBltStitch(HDC hdcDest,int xDest,int yDest,int wDest,int hDest,HDC hdcSrc,int xSrc,int ySrc,int wSrc,int hSrc,DWORD rop,int clip_x,int clip_y,int clip_wide,int clip_high)
+{
+//debug_printf("STRETCHBLT1024 %d %d %d %d SRC %d %d %d %d\n",xDest,yDest,wDest,hDest,xSrc,ySrc,wSrc,hSrc);
+
+	if ((wDest < 32768) && (hDest < 32768))
+	{
+		return StretchBlt(hdcDest,xDest,yDest,wDest,hDest,hdcSrc,xSrc,ySrc,wSrc,hSrc,rop);
+	}
+	else
+	if ((wDest>0) && (hDest>0) && (wSrc>0) && (hSrc>0))
+	{
+		int src_y;
+		int src_yrun;
+		int dst_y;
+		int clip_right;
+		int clip_bottom;
+		
+		dst_y = yDest;
+		src_y = ySrc;
+		src_yrun = hSrc;
+		clip_right = clip_x + clip_wide;
+		clip_bottom = clip_y + clip_high;
+		
+		while(src_yrun)
+		{
+			int src_high;
+			int dst_y2;
+			
+			if (dst_y >= clip_bottom)
+			{
+				break;
+			}
+			
+			src_high = src_yrun > _VIV_STRETCH_BLT_STITCH_SIZE ? _VIV_STRETCH_BLT_STITCH_SIZE : src_yrun;
+
+			dst_y2 = (((src_y + src_high) * (__int64)hDest) / hSrc) + yDest;
+
+			if (dst_y2 >= clip_y)
+			{
+				int src_x;
+				int src_xrun;
+				int dst_x;
+				int dst_high;
+
+				dst_x = xDest;
+				dst_high = dst_y2 - dst_y;
+				
+				src_x = xSrc;
+				src_xrun = wSrc;
+				
+				while(src_xrun)
+				{
+					int dst_x2;
+					int dst_wide;
+					int src_wide;
+					
+					src_wide = src_xrun > _VIV_STRETCH_BLT_STITCH_SIZE ? _VIV_STRETCH_BLT_STITCH_SIZE : src_xrun;
+					
+					dst_x2 = (((src_x + src_wide) * (__int64)wDest) / wSrc) + xDest;
+					
+					dst_wide = dst_x2 - dst_x;
+					
+					if (dst_x >= clip_right)
+					{
+						break;
+					}
+
+					if (dst_x2 > clip_x)
+					{
+	//debug_printf("DST %d %d %d %d SRC %d %d %d %d CLIP %d %d\n",dst_x,dst_y,dst_wide,dst_high,src_x,src_y,src_wide,src_high,dst_x2,clip_x);
+						if (!StretchBlt(hdcDest,dst_x,dst_y,dst_wide,dst_high,hdcSrc,src_x,src_y,src_wide,src_high,rop))
+						{
+							return FALSE;
+						}
+					}
+					
+					dst_x = dst_x2;
+					src_x += src_wide;
+					src_xrun -= src_wide;
+				}
+			}
+			
+			dst_y = dst_y2;
+			src_y += src_high;
+			src_yrun -= src_high;
+		}
+	}
+	
+	return TRUE;
 }
 
 // get the source pixel coordinate.
@@ -14534,8 +14708,8 @@ static BOOL _viv_get_src_pixel_pos(int client_x,int client_y,POINT *out_pixel_pt
 		{
 			if ((client_x >= rx) && (client_y >= ry) && (client_x < rx + rw) && (client_y < ry + rh))
 			{
-				out_pixel_pt->x = ((client_x - rx) * _viv_image_wide) / rw;
-				out_pixel_pt->y = ((client_y - ry) * _viv_image_high) / rh;
+				out_pixel_pt->x = ((client_x - rx) * (__int64)_viv_image_wide) / rw;
+				out_pixel_pt->y = ((client_y - ry) * (__int64)_viv_image_high) / rh;
 				
 				return TRUE;
 			}
@@ -14600,3 +14774,173 @@ static void _viv_get_src_pixel_rgb(int src_x,int src_y,COLORREF *out_colorref)
 		}
 	}
 }
+
+static int _viv_clamp_zoom_pos(int zoom_pos)
+{
+	if (zoom_pos > _VIV_ZOOM_MAX-1)
+	{
+		return _VIV_ZOOM_MAX-1;
+	}
+
+	if (zoom_pos < 0)
+	{
+		return 0;
+	}
+	
+	return zoom_pos;
+}
+
+static void _viv_open_preload(void)
+{
+	os_copy_memory(_viv_current_fd,_viv_preload_fd,sizeof(WIN32_FIND_DATA));
+		
+	_viv_update_title();
+	
+	if (_viv_preload_state == 0)
+	{
+		// loading...
+		// do we have the first frame?
+		if (_viv_preload_frame_loaded_count)
+		{
+			// save current image to last image.
+			viv_copy_current_image_to_last_image();
+
+			// switch now..
+			_viv_load_is_preload = 0;
+			_viv_activate_preload();
+			_viv_status_update();
+		}
+		else
+		{
+			// still loading...
+			// wait...
+			if (!_viv_should_activate_preload_on_load)
+			{
+				_viv_should_activate_preload_on_load = 1;
+			
+				// show loading...
+				_viv_status_update();
+			}
+			
+			debug_printf("STILL LOADING...\n");
+		}
+	}
+	else
+	if (_viv_preload_state == 1)
+	{
+		// save current image to last image.
+		viv_copy_current_image_to_last_image();
+
+		// loaded
+		// preload next below..
+		_viv_load_is_preload = 0;
+		_viv_status_update();
+		
+		_viv_activate_preload();
+		
+		_viv_preload_next();
+	}
+	else
+	{
+		// save current image to last image.
+		viv_copy_current_image_to_last_image();
+
+		// failed.
+		// preload next below..
+		_viv_load_failed = 1;
+		_viv_load_is_preload = 0;
+		_viv_status_update();
+		
+		_viv_clear();
+		
+		_viv_start_first_frame();
+		
+		_viv_process_pending_clear();
+		
+		_viv_preload_next();
+	}	
+}
+
+/*
+static void _viv_get_tooltip(void)
+{
+	if (_viv_tooltip_hwnd)
+	{
+		return;
+	}
+	
+	_viv_tooltip_hwnd = CreateWindowExA(
+		WS_EX_TOPMOST|WS_EX_NOACTIVATE,
+		(const utf8_t *)TOOLTIPS_CLASSA,
+		(const utf8_t *)"",
+		WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX | TTS_NOANIMATE | WS_GROUP,
+		0,0,0,0,
+		0,0,os_hinstance,0);
+		
+	SendMessage(_viv_tooltip_hwnd,TTM_SETDELAYTIME,TTDT_INITIAL,MAKELONG(0,0));
+}
+
+static void _viv_tooltip_hide(void)
+{
+	if (_viv_tooltip_hwnd)
+	{
+		DestroyWindow(_viv_tooltip_hwnd);
+		
+		_viv_tooltip_hwnd = 0;
+	}
+}
+
+static void _viv_tooltip_update(void)
+{	
+	wchar_t pixel_info_buf[STRING_SIZE];
+
+	_viv_get_tooltip();
+	
+	string_printf(pixel_info_buf,"%d,%d: %d,%d,%d",_viv_src_pixel_x,_viv_src_pixel_y,_viv_src_pixel_r,_viv_src_pixel_g,_viv_src_pixel_b);
+
+	if (_viv_tooltip_hwnd)
+	{
+		TOOLINFO ti;
+		DWORD message_id;
+		
+		os_zero_memory(&ti,sizeof(TOOLINFO));
+		ti.cbSize = sizeof(TOOLINFO);
+		ti.uFlags = TTF_SUBCLASS | TTF_TRANSPARENT | TTF_IDISHWND;
+		ti.hwnd = _viv_hwnd;
+		ti.uId = (UINT_PTR)_viv_hwnd;
+		
+		if (SendMessage(_viv_tooltip_hwnd,TTM_GETTOOLINFO,0,(LPARAM)&ti))
+		{
+			message_id = TTM_UPDATETIPTEXTW;
+		}
+		else
+		{
+			message_id = TTM_ADDTOOLW;
+		}
+
+		os_zero_memory(&ti,sizeof(TOOLINFO));
+		ti.cbSize = sizeof(TOOLINFO);
+		ti.uFlags = TTF_SUBCLASS | TTF_TRANSPARENT | TTF_IDISHWND;
+		ti.hwnd = _viv_hwnd;
+		ti.uId = (UINT_PTR)_viv_hwnd;
+		ti.lpszText = pixel_info_buf;
+
+		SendMessage(_viv_tooltip_hwnd,message_id,0,(LPARAM)&ti);
+		SendMessage(_viv_tooltip_hwnd,TTM_TRACKACTIVATE,TRUE,(LPARAM)&ti);
+		
+		_viv_tooltip_update_track_position();
+	}
+}
+
+static void _viv_tooltip_update_track_position(void)
+{
+	if (_viv_tooltip_hwnd)
+	{
+		POINT cursor_point;
+
+		GetCursorPos(&cursor_point);
+		
+		SendMessage(_viv_tooltip_hwnd,TTM_TRACKPOSITION,0,(LPARAM)MAKELONG(cursor_point.x,cursor_point.y));
+	}
+}
+*/
