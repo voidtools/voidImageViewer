@@ -203,8 +203,8 @@ IDI_BESTFIT             ICON                    "bestfit.ico"
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,0,13
- PRODUCTVERSION 1,0,0,13
+ FILEVERSION 1,0,0,14
+ PRODUCTVERSION 1,0,0,14
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -220,12 +220,12 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "FileDescription", "voidImageViewer"
-            VALUE "FileVersion", "1.0.0.13"
+            VALUE "FileVersion", "1.0.0.14"
             VALUE "InternalName", "voidImageViewer"
             VALUE "LegalCopyright", "Copyright © 2025 voidtools"
             VALUE "OriginalFilename", "voidImageViewer.exe"
             VALUE "ProductName", "voidImageViewer"
-            VALUE "ProductVersion", "1.0.0.13"
+            VALUE "ProductVersion", "1.0.0.14"
         END
     END
     BLOCK "VarFileInfo"
