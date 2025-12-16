@@ -9541,7 +9541,7 @@ static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 			os_SetDlgItemText(hwnd,IDC_ABOUTVOIDIMAGEVIEWER,(const utf8_t *)"void Image Viewer");
 			string_printf(version_wbuf,"%d.%d.%d.%d%s %s",VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD,VERSION_TYPE,VERSION_TARGET_MACHINE);
 			SetDlgItemText(hwnd,IDC_ABOUTVERSION,version_wbuf);
-			os_SetDlgItemText(hwnd,IDC_ABOUTCOPYRIGHT,(const utf8_t *)"Copyright ┬⌐ " VIV_YEAR_STRING(VERSION_YEAR) " David Carpenter");
+			os_SetDlgItemText(hwnd,IDC_ABOUTCOPYRIGHT,(const utf8_t *)"Copyright © " VIV_YEAR_STRING(VERSION_YEAR) " David Carpenter");
 			os_SetDlgItemText(hwnd,IDC_ABOUTEMAIL,(const utf8_t *)"david.carpenter@voidtools.com");
 			os_SetDlgItemText(hwnd,IDC_ABOUTWEBSITE,(const utf8_t *)"www.voidtools.com");
 			
