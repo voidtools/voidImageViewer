@@ -1,3 +1,16 @@
+Tuesday, 16 December 2025: Version 1.0.0.14
+	fixed an issue with webp using the wrong background color.
+	fixed an issue with tracking the center of the image when resizing.
+	fixed an issue with rendering images larger than 65536x65536.
+	fixed an issue with screen saver not being prevented in slide show mode or when there is an animation.
+	improved rendering performance.
+	improved zooming of small images when going fullscreen.
+	move window action will now scroll if zoomed.
+	re-enabled WEBP_MSC_SSE41 
+	added title_bar_format ini setting.
+	added System.Photo.Orientation support.
+	added - command line switch support. Escape with "" or include a . in your switch.
+
 Sunday, 10 August 2025: Version 1.0.0.13
 	fixed an issue with losing the image center on resize
 	fixed back/forward mouse buttons not working from toolbars
