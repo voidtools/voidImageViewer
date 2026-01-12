@@ -1,3 +1,7 @@
+Monday, 12 January 2026: Version 1.0.0.15
+	fixed an issue with scrolling large images.
+	improved position offset when using numpad keys.
+
 Tuesday, 16 December 2025: Version 1.0.0.14
 	fixed an issue with webp using the wrong background color.
 	fixed an issue with tracking the center of the image when resizing.
