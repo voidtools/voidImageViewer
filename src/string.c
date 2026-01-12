@@ -399,6 +399,16 @@ void string_vprintf(wchar_t *wbuf,const char *format,va_list argptr)
 					uintptr_t lz;
 
 					num = (int)(va_arg(argptr,double) * 1000.0f);
+					
+					if (num < 0)
+					{
+						if (d < e)
+						{
+							*d++ = '-';
+						}
+						
+						num = -num;
+					}
 
 					string_format_number(numbuf,num / 1000);
 					

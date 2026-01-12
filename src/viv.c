@@ -212,6 +212,10 @@
 // *D:\Misc\Game Data\Aladdin\Aladdin-RugRide.png doesn't render correctly on some zooms 85129x224 -converted int to __int64
 // *check the viv icon is being used for webp. -it does, but you have to open a webp file first and allow voidimageviewer to open.
 // *prevent screen saver on slideshow
+// 1.0.0.15
+// *fixed _viv_dst_pos_x/_viv_dst_pos_y (doubled offsets to match mpchc)
+// *zooming in AND numpad+6 zooming breaks for largish images. (black bars on scrolling) -pan and zoom was overflowing, set stitch size to 512 to fix.
+// In "1:1" mode, use shortcut keys to move a big picture(larger than the screen resolution), it will stop halfway. Perhaps it has something to do with the movement of the small images? -mpc does the whole image.
 
 #define _VIV_WM_REPLY							(WM_USER+1)
 #define _VIV_WM_RETRY_RANDOM_EVERYTHING_SEARCH	(WM_USER+2)
@@ -249,7 +253,8 @@
 #define VIV_YEAR_STRING2(x)	#x
 #define VIV_YEAR_STRING(x)	VIV_YEAR_STRING2(x)	
 
-#define _VIV_STRETCH_BLT_STITCH_SIZE		1024
+// _VIV_STRETCH_BLT_STITCH_SIZE * 3.1 (pan+zoom) * 16 (zoom) MUST BE < 32768
+#define _VIV_STRETCH_BLT_STITCH_SIZE		512
 
 #include "viv.h"
 
@@ -898,7 +903,7 @@ static _viv_command_t _viv_commands[] =
 	{0,MF_SEPARATOR,_VIV_MENU_NAVIGATE,0},
 	{"S&ort",MF_POPUP,_VIV_MENU_NAVIGATE,_VIV_MENU_NAVIGATE_SORT},
 	{"&Name",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,VIV_ID_NAV_SORT_NAME},
-	{"Full &Path and Filename",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,VIV_ID_NAV_SORT_FULL_PATH_AND_FILENAME},
+	{"Full &Path",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,VIV_ID_NAV_SORT_FULL_PATH},
 	{"&Size",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,VIV_ID_NAV_SORT_SIZE},
 	{"Date &Modified",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,VIV_ID_NAV_SORT_DATE_MODIFIED},
 	{"Date &Created",MF_STRING|MFT_RADIOCHECK,_VIV_MENU_NAVIGATE_SORT,VIV_ID_NAV_SORT_DATE_CREATED},
@@ -1045,7 +1050,7 @@ WORD _viv_context_menu_items[] =
 	0,
 	_VIV_MENU_NAVIGATE_SORT,
 	VIV_ID_NAV_SORT_NAME,
-	VIV_ID_NAV_SORT_FULL_PATH_AND_FILENAME,
+	VIV_ID_NAV_SORT_FULL_PATH,
 	VIV_ID_NAV_SORT_SIZE,
 	VIV_ID_NAV_SORT_DATE_MODIFIED,
 	VIV_ID_NAV_SORT_DATE_CREATED,
@@ -1591,8 +1596,8 @@ static void _viv_on_size(void)
 
 			_viv_get_render_size(&rw,&rh);
 		
-			new_view_x = (int)(((_viv_view_ix * rw) / _viv_image_wide) + 0.5) + ((_viv_dst_pos_x * wide) / 1000) - (wide / 2) - (rw / 2);
-			new_view_y = (int)(((_viv_view_iy * rh) / _viv_image_high) + 0.5) + ((_viv_dst_pos_y * high) / 1000) - (high / 2) - (rh / 2);
+			new_view_x = (int)(((_viv_view_ix * rw) / _viv_image_wide) + 0.5) + (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (wide / 2) - (rw / 2);
+			new_view_y = (int)(((_viv_view_iy * rh) / _viv_image_high) + 0.5) + (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (high / 2) - (rh / 2);
 	
 	debug_printf("RESTORE VIEW x %d y %d ix %d iy %d rw %d rh %d wide %d high %d\n",(int)(new_view_x),(int)(new_view_y),(int)_viv_view_ix,(int)_viv_view_iy,rw,rh,wide,high)		;
 	//		_viv_view_set((int)(_viv_view_ix * (double)rw),(int)(_viv_view_iy * (double)rh),1);
@@ -1629,7 +1634,7 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			break;
 	
 		case VIV_ID_HELP_HELP:
-			ShellExecuteA(_viv_hwnd,NULL,"http://www.voidtools.com/support/voidimageviewer/",NULL,NULL,SW_SHOWNORMAL);
+			ShellExecuteA(_viv_hwnd,NULL,"https://www.voidtools.com/support/voidimageviewer/",NULL,NULL,SW_SHOWNORMAL);
 			break;
 			
 		case VIV_ID_HELP_COMMAND_LINE_OPTIONS:
@@ -1637,7 +1642,7 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			break;
 			
 		case VIV_ID_HELP_DONATE:
-			ShellExecuteA(_viv_hwnd,NULL,"http://www.voidtools.com/donate/",NULL,NULL,SW_SHOWNORMAL);
+			ShellExecuteA(_viv_hwnd,NULL,"https://www.voidtools.com/donate/",NULL,NULL,SW_SHOWNORMAL);
 			break;
 			
 		case VIV_ID_HELP_ABOUT:
@@ -1645,7 +1650,7 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			break;
 			
 		case VIV_ID_HELP_WEBSITE:
-			ShellExecuteA(_viv_hwnd,NULL,"http://www.voidtools.com/",NULL,NULL,SW_SHOWNORMAL);
+			ShellExecuteA(_viv_hwnd,NULL,"https://www.voidtools.com/",NULL,NULL,SW_SHOWNORMAL);
 			break;
 			
 		case VIV_ID_FILE_EXIT:
@@ -1699,7 +1704,7 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 		case VIV_ID_NAV_SORT_SIZE:
 		case VIV_ID_NAV_SORT_DATE_MODIFIED:
 		case VIV_ID_NAV_SORT_DATE_CREATED:
-		case VIV_ID_NAV_SORT_FULL_PATH_AND_FILENAME:
+		case VIV_ID_NAV_SORT_FULL_PATH:
 
 			if (config_nav_sort == command_id - VIV_ID_NAV_SORT_NAME)
 			{
@@ -1714,7 +1719,7 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 						config_nav_sort_ascending = 1;
 						break;
 
-					case VIV_ID_NAV_SORT_FULL_PATH_AND_FILENAME:
+					case VIV_ID_NAV_SORT_FULL_PATH:
 						config_nav_sort = CONFIG_NAV_SORT_FULL_PATH_AND_FILENAME;
 						config_nav_sort_ascending = 1;
 						break;
@@ -4098,8 +4103,8 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 						}
 			#endif
 						
-						rx = ((_viv_dst_pos_x * wide) / 1000) - (rw / 2) - _viv_view_x;
-						ry = ((_viv_dst_pos_y * high) / 1000) - (rh / 2) - _viv_view_y;
+						rx = (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (rw / 2) - _viv_view_x;
+						ry = (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (rh / 2) - _viv_view_y;
 						
 			//			rh += (-dst_left_offset + dst_right_offset) * wide / 1000;
 			//			rh += (-dst_top_offset + dst_bottom_offset) * high / 1000;
@@ -6415,7 +6420,7 @@ static void _viv_view_set(int view_x,int view_y,int invalidate)
 	{
 		int rx;
 
-		rx = ((_viv_dst_pos_x * wide) / 1000) - (rw / 2) - view_x;
+		rx = (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (rw / 2) - view_x;
 
 		// make sure the multiple is done as __int64 to avoid overflows
 		_viv_view_ix = (((wide / 2) - rx) * (__int64)_viv_image_wide) / (double)rw;
@@ -6430,7 +6435,7 @@ static void _viv_view_set(int view_x,int view_y,int invalidate)
 	{
 		int ry;
 
-		ry = ((_viv_dst_pos_y * high) / 1000) - (rh / 2) - view_y;
+		ry = (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (rh / 2) - view_y;
 		
 		// make sure the multiple is done as __int64 to avoid overflows
 		_viv_view_iy = (((high / 2) - ry) * (__int64)_viv_image_high) / (double)rh;
@@ -7072,7 +7077,7 @@ static void _viv_check_menus(HMENU hmenu)
 	CheckMenuItem(hmenu,VIV_ID_NAV_SHUFFLE,config_shuffle ? MF_CHECKED : MF_UNCHECKED);
 	
 	CheckMenuItem(hmenu,VIV_ID_NAV_SORT_NAME,config_nav_sort == CONFIG_NAV_SORT_NAME ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,VIV_ID_NAV_SORT_FULL_PATH_AND_FILENAME,config_nav_sort == CONFIG_NAV_SORT_FULL_PATH_AND_FILENAME ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_NAV_SORT_FULL_PATH,config_nav_sort == CONFIG_NAV_SORT_FULL_PATH_AND_FILENAME ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 	CheckMenuItem(hmenu,VIV_ID_NAV_SORT_SIZE,config_nav_sort == CONFIG_NAV_SORT_SIZE ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 	CheckMenuItem(hmenu,VIV_ID_NAV_SORT_DATE_MODIFIED,config_nav_sort == CONFIG_NAV_SORT_DATE_MODIFIED ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 	CheckMenuItem(hmenu,VIV_ID_NAV_SORT_DATE_CREATED,config_nav_sort == CONFIG_NAV_SORT_DATE_CREATED ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
@@ -9785,6 +9790,30 @@ static void _viv_dst_zoom_set(int x,int y)
 	}
 
 	_viv_status_update_temp_pos_zoom();	
+	/*
+	{
+		RECT rect;
+		int wide;
+		int high;
+		int rw;
+		int rh;
+		double new_view_x;
+		double new_view_y;
+
+		
+		GetClientRect(_viv_hwnd,&rect);
+		wide = rect.right - rect.left;
+		high = rect.bottom - rect.top;	
+		_viv_get_render_size(&rw,&rh);
+	
+		new_view_x = (int)(((_viv_view_ix * rw) / _viv_image_wide) + 0.5) + (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (wide / 2) - (rw / 2);
+		new_view_y = (int)(((_viv_view_iy * rh) / _viv_image_high) + 0.5) + (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (high / 2) - (rh / 2);
+
+debug_printf("RESTORE VIEW x %d y %d ix %d iy %d rw %d rh %d wide %d high %d\n",(int)(new_view_x),(int)(new_view_y),(int)_viv_view_ix,(int)_viv_view_iy,rw,rh,wide,high)		;
+//		_viv_view_set((int)(_viv_view_ix * (double)rw),(int)(_viv_view_iy * (double)rh),1);
+		_viv_view_set((int)new_view_x,(int)new_view_y,1);
+	}
+	*/
 }
 
 static void _viv_frame_skip(int size)
@@ -11465,8 +11494,32 @@ static void _viv_status_set_temp_text(wchar_t *text)
 static void _viv_status_update_temp_pos_zoom(void)
 {
 	wchar_t wbuf[STRING_SIZE];
+	double x;
+	double y;
+	
+	x = (double)((_viv_dst_pos_x - 500) / 500.0f);
+	
+	if (x < 0)
+	{
+		x -= 0.0005;
+	}
+	else
+	{	
+		x += 0.0005;
+	}
 
-	string_printf(wbuf,"Pos %0.3f %0.3f, Zoom %0.3f %0.3f, Aspect Ratio %0.3f",(float)_viv_dst_pos_x / 1000.0f,(float)_viv_dst_pos_y / 1000.0f,(float)_viv_dst_zoom_values[_viv_dst_zoom_x_pos],(float)_viv_dst_zoom_values[_viv_dst_zoom_y_pos],(_viv_dst_zoom_values[_viv_dst_zoom_x_pos] * (float)_viv_image_wide) / (_viv_dst_zoom_values[_viv_dst_zoom_y_pos] * (float)_viv_image_high));
+	y = (float)((_viv_dst_pos_y - 500) / 500.0f);
+	
+	if (y < 0)
+	{
+		y -= 0.0005;
+	}
+	else
+	{	
+		y += 0.0005;
+	}
+
+	string_printf(wbuf,"Pos %0.3f %0.3f, Zoom %0.3f %0.3f, Aspect Ratio %0.3f",x,y,(float)_viv_dst_zoom_values[_viv_dst_zoom_x_pos],(float)_viv_dst_zoom_values[_viv_dst_zoom_y_pos],(_viv_dst_zoom_values[_viv_dst_zoom_x_pos] * (float)_viv_image_wide) / (_viv_dst_zoom_values[_viv_dst_zoom_y_pos] * (float)_viv_image_high));
 			
 	_viv_status_set_temp_text(wbuf);
 }
@@ -11555,7 +11608,7 @@ static void _viv_command_line_options(void)
 		"\t\tSet the Window position and size.\n"
 		"/rate <rate>\tSet the slideshow rate in milliseconds.\n"
 		"/name\t\tSort by name.\n"
-		"/path\t\tSort by full path and filename.\n"
+		"/path\t\tSort by full path.\n"
 		"/size\t\tSort by size.\n"
 		"/dm\t\tSort by date modified.\n"
 		"/dc\t\tSort by date created.\n"
@@ -14587,11 +14640,13 @@ static void _viv_stretch_blt(HDC dst_hdc,int dst_x,int dst_y,int dst_wide,int ds
 }
 
 // stitch multiple 1024x1024 stretches together.
+// required to render images over 32768x32768
+// only works if using COLORONCOLOR
 static BOOL _viv_StretchBltStitch(HDC hdcDest,int xDest,int yDest,int wDest,int hDest,HDC hdcSrc,int xSrc,int ySrc,int wSrc,int hSrc,DWORD rop,int clip_x,int clip_y,int clip_wide,int clip_high)
 {
-//debug_printf("STRETCHBLT1024 %d %d %d %d SRC %d %d %d %d\n",xDest,yDest,wDest,hDest,xSrc,ySrc,wSrc,hSrc);
+debug_printf("STRETCHBLT1024 %d %d %d %d SRC %d %d %d %d\n",xDest,yDest,wDest,hDest,xSrc,ySrc,wSrc,hSrc);
 
-	if ((wDest < 32768) && (hDest < 32768))
+	if ((wDest < 32768) && (hDest < 32768) && (wSrc < 32768) && (hSrc < 32768))
 	{
 		return StretchBlt(hdcDest,xDest,yDest,wDest,hDest,hdcSrc,xSrc,ySrc,wSrc,hSrc,rop);
 	}
@@ -14656,7 +14711,7 @@ static BOOL _viv_StretchBltStitch(HDC hdcDest,int xDest,int yDest,int wDest,int 
 
 					if (dst_x2 > clip_x)
 					{
-	//debug_printf("DST %d %d %d %d SRC %d %d %d %d CLIP %d %d\n",dst_x,dst_y,dst_wide,dst_high,src_x,src_y,src_wide,src_high,dst_x2,clip_x);
+	debug_printf("DST %d %d %d %d SRC %d %d %d %d CLIP %d %d\n",dst_x,dst_y,dst_wide,dst_high,src_x,src_y,src_wide,src_high,dst_x2,clip_x);
 						if (!StretchBlt(hdcDest,dst_x,dst_y,dst_wide,dst_high,hdcSrc,src_x,src_y,src_wide,src_high,rop))
 						{
 							return FALSE;
@@ -14701,8 +14756,8 @@ static BOOL _viv_get_src_pixel_pos(int client_x,int client_y,POINT *out_pixel_pt
 		rw = (int)(rw * _viv_dst_zoom_values[_viv_dst_zoom_x_pos]);
 		rh = (int)(rh * _viv_dst_zoom_values[_viv_dst_zoom_y_pos]);
 
-		rx = ((_viv_dst_pos_x * wide) / 1000) - (rw / 2) - _viv_view_x;
-		ry = ((_viv_dst_pos_y * high) / 1000) - (rh / 2) - _viv_view_y;
+		rx = (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (rw / 2) - _viv_view_x;
+		ry = (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (rh / 2) - _viv_view_y;
 		
 		if ((rw) && (rh))
 		{
@@ -14750,8 +14805,8 @@ static void _viv_get_src_pixel_rgb(int src_x,int src_y,COLORREF *out_colorref)
 			rw = (int)(rw * _viv_dst_zoom_values[_viv_dst_zoom_x_pos]);
 			rh = (int)(rh * _viv_dst_zoom_values[_viv_dst_zoom_y_pos]);
 
-			rx = ((_viv_dst_pos_x * wide) / 1000) - (rw / 2) - _viv_view_x;
-			ry = ((_viv_dst_pos_y * high) / 1000) - (rh / 2) - _viv_view_y;
+			rx = (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (rw / 2) - _viv_view_x;
+			ry = (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (rh / 2) - _viv_view_y;
 			
 			mem_hdc = CreateCompatibleDC(screen_hdc);
 			if (mem_hdc)
