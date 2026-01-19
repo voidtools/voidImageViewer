@@ -7,7 +7,7 @@
 //
 // Generated from the TEXTINCLUDE 2 resource.
 //
-#include "afxres.h"
+#include <winres.h>
 
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
@@ -222,7 +222,7 @@ BEGIN
             VALUE "FileDescription", "voidImageViewer"
             VALUE "FileVersion", "1.0.0.15"
             VALUE "InternalName", "voidImageViewer"
-            VALUE "LegalCopyright", "Copyright © 2026 voidtools"
+            VALUE "LegalCopyright", "Copyright Â© 2026 voidtools"
             VALUE "OriginalFilename", "voidImageViewer.exe"
             VALUE "ProductName", "voidImageViewer"
             VALUE "ProductVersion", "1.0.0.15"
