@@ -11917,10 +11917,12 @@ int viv_menu_name_to_ini_name(utf8_t *buf,int command_index)
 static void _viv_get_menu_display_name(wchar_t *buf,const utf8_t *menu_name)
 {
 	wchar_t *d;
-	const utf8_t  *p;
+	const wchar_t *p;
+
+	string_copy_utf8(buf,menu_name);
 	
 	d = buf;
-	p = menu_name;
+	p = buf;
 	
 	while(*p)
 	{

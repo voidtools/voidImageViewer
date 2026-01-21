@@ -185,7 +185,7 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"https://www.voidtools.com/", // LOCALIZATION_ID_HELP_WEBSITE_URL,
 	
 	// Dialog strings
-	"选项 - Void Image Viewer", // LOCALIZATION_ID_OPTIONS_TITLE,
+	"选项 - void Image Viewer", // LOCALIZATION_ID_OPTIONS_TITLE,
 	"常规", // LOCALIZATION_ID_GENERAL,
 	"视图", // LOCALIZATION_ID_VIEW_DIALOG,
 	"控件", // LOCALIZATION_ID_CONTROLS_DIALOG,
@@ -218,7 +218,7 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"删除(&V)", // LOCALIZATION_ID_REMOVE,
 	"设置自定义速率", // LOCALIZATION_ID_SET_CUSTOM_RATE,
 	"自定义速率(&C):", // LOCALIZATION_ID_CUSTOM_RATE,
-	"关于 Void Image Viewer", // LOCALIZATION_ID_ABOUT_TITLE,
+	"关于 void Image Viewer", // LOCALIZATION_ID_ABOUT_TITLE,
 	"重命名", // LOCALIZATION_ID_RENAME_TITLE,
 	"跳转到", // LOCALIZATION_ID_JUMP_TO_TITLE,
 	"搜索 Everything", // LOCALIZATION_ID_SEARCH_EVERYTHING,
