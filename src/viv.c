@@ -24,10 +24,8 @@
 // TODO:
 // SVG support -Librsvg?
 // GDI/GDI+ is limited to 2GB (wide*high*4), work out a workaround for large images.
-// add UI option for config_title_bar_format.
 // compile on mingw
 // review jump-to focus
-// option to show full path like MPC
 // Undo option, after delete, undo the delete and re-add the image to the playlist.
 // delete crashes on win9x, might indicate a deeper issue..
 // fix horrible screen buffer mangling by Windows when resizing the window or auto fitting the window.
@@ -92,6 +90,8 @@
 // if we have a small image 64x64 and zoom right in, the image still fits inside our window -if we then go fullscreen the image is massive, we should check if Fill Window is triggered and disable the zoom in fullscreen mode.
 //
 // DONE:
+// *add UI option for config_title_bar_format. (by hesphoros)
+// *option to show full path like MPC. (by hesphoros)
 // *deleting the last image in a playlist does not clear the image.
 // *added xbutton action
 // *dont invalidate when zooming out when we are already zoomed out the most.
@@ -8224,6 +8224,11 @@ static INT_PTR CALLBACK _viv_options_view_proc(HWND hwnd,UINT msg,WPARAM wParam,
 			{
 				ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_COMBO2),0);
 			}
+
+			os_ComboBox_AddString(hwnd,IDC_TITLE_BAR_FORMAT,(const utf8_t *)"Full Path");
+			os_ComboBox_AddString(hwnd,IDC_TITLE_BAR_FORMAT,(const utf8_t *)"Filename Only");
+			os_ComboBox_AddString(hwnd,IDC_TITLE_BAR_FORMAT,(const utf8_t *)"None");
+			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_TITLE_BAR_FORMAT),config_title_bar_format);
 					
 			CheckDlgButton(hwnd,IDC_AUTO_ZOOM,config_auto_zoom ? BST_CHECKED : BST_UNCHECKED);
 			
@@ -8591,50 +8596,53 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 							InvalidateRect(_viv_hwnd,0,FALSE);
 						}
 
-						config_auto_zoom = IsDlgButtonChecked(view_page,IDC_AUTO_ZOOM) == BST_CHECKED ? 1 : 0;
-						config_auto_zoom_type = ComboBox_GetCurSel(GetDlgItem(view_page,IDC_COMBO4));
-						config_loop_animations_once = IsDlgButtonChecked(view_page,IDC_LOOP_ANIMATIONS_ONCE) == BST_CHECKED ? 1 : 0;
-						config_preload_next = IsDlgButtonChecked(view_page,IDC_PRELOAD_NEXT_IMAGE) == BST_CHECKED ? 1 : 0;
-						config_cache_last = IsDlgButtonChecked(view_page,IDC_CACHE_LAST_IMAGE) == BST_CHECKED ? 1 : 0;
-						
-						// copy keys.
-						_viv_key_list_copy(_viv_key_list,(_viv_key_list_t *)GetWindowLongPtr(GetDlgItem(controls_page,IDC_COMMANDS_LIST),GWLP_USERDATA));
-						
-						// reinit menu.
-						{
-							HMENU new_hmenu;
-							
-							new_hmenu = _viv_create_menu();
-							
-							if (GetMenu(_viv_hwnd))
-							{
-								SetMenu(_viv_hwnd,new_hmenu);
-							}
-							
-							if (_viv_hmenu)
-							{
-								DestroyMenu(_viv_hmenu);
-							}
-							
-							_viv_hmenu = new_hmenu;
-						}
-						
-						// do admin commands.
-						if (*params)
-						{	
-							wchar_t exe_filename[STRING_SIZE];
-							
-							_viv_get_exe_filename(exe_filename);
-							
-							os_shell_execute(0,exe_filename,1,NULL,params);
-						}
+					config_title_bar_format = ComboBox_GetCurSel(GetDlgItem(view_page,IDC_TITLE_BAR_FORMAT));
+					_viv_update_title();
 
-						// save settings to disk						
-						config_save_settings(config_appdata);
+					config_auto_zoom = IsDlgButtonChecked(view_page,IDC_AUTO_ZOOM) == BST_CHECKED ? 1 : 0;
+					config_auto_zoom_type = ComboBox_GetCurSel(GetDlgItem(view_page,IDC_COMBO4));
+					config_loop_animations_once = IsDlgButtonChecked(view_page,IDC_LOOP_ANIMATIONS_ONCE) == BST_CHECKED ? 1 : 0;
+					config_preload_next = IsDlgButtonChecked(view_page,IDC_PRELOAD_NEXT_IMAGE) == BST_CHECKED ? 1 : 0;
+					config_cache_last = IsDlgButtonChecked(view_page,IDC_CACHE_LAST_IMAGE) == BST_CHECKED ? 1 : 0;
+					
+					// copy keys.
+					_viv_key_list_copy(_viv_key_list,(_viv_key_list_t *)GetWindowLongPtr(GetDlgItem(controls_page,IDC_COMMANDS_LIST),GWLP_USERDATA));
+					
+					// reinit menu.
+					{
+						HMENU new_hmenu;
+						
+						new_hmenu = _viv_create_menu();
+						
+						if (GetMenu(_viv_hwnd))
+						{
+							SetMenu(_viv_hwnd,new_hmenu);
+						}
+						
+						if (_viv_hmenu)
+						{
+							DestroyMenu(_viv_hmenu);
+						}
+						
+						_viv_hmenu = new_hmenu;
 					}
-				
-					EndDialog(hwnd,0);
-					break;
+					
+					// do admin commands.
+					if (*params)
+					{	
+						wchar_t exe_filename[STRING_SIZE];
+						
+						_viv_get_exe_filename(exe_filename);
+						
+						os_shell_execute(0,exe_filename,1,NULL,params);
+					}
+
+					// save settings to disk						
+					config_save_settings(config_appdata);
+				}
+			
+				EndDialog(hwnd,0);
+				break;
 			}
 
 			break;
