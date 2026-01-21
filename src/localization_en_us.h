@@ -206,4 +206,6 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	" Seconds", // LOCALIZATION_ID_SECONDS,
 	"1 Minute", // LOCALIZATION_ID_MINUTE,
 	" Minutes", // LOCALIZATION_ID_MINUTES,
+	
+	"Everything not available", // LOCALIZATION_ID_EVERYTHING_NOT_AVAILABLE_MESSAGE,
 };

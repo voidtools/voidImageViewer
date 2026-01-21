@@ -206,4 +206,6 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	" 秒", // LOCALIZATION_ID_SECONDS,
 	"1 分钟", // LOCALIZATION_ID_MINUTE,
 	" 分钟", // LOCALIZATION_ID_MINUTES,
+
+	"Everything not available", // LOCALIZATION_ID_EVERYTHING_NOT_AVAILABLE_MESSAGE,
 };

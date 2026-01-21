@@ -63,8 +63,7 @@ void localization_init(void)
 	// 0x0804 = Chinese (Simplified, PRC)
 	// 0x0404 = Chinese (Traditional, Taiwan)
 	// 0x0C04 = Chinese (Traditional, Hong Kong)
-	//if ((langid == 0x0804) || (langid == 0x0404) || (langid == 0x0C04))
-	if (1)
+	if ((langid == 0x0804) || (langid == 0x0404) || (langid == 0x0C04))
 	{
 		_localization_language = LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED;
 	}

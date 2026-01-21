@@ -21,16 +21,8 @@
 //
 // Language/Localization support
 
-#ifndef LANGUAGE_H
-#define LANGUAGE_H
-
 #ifdef __cplusplus
 extern "C" {
-#endif
-
-// Define utf8_t if not already defined (to avoid circular dependency with viv.h)
-#ifndef utf8_t
-typedef unsigned char utf8_t;
 #endif
 
 enum
@@ -47,12 +39,6 @@ typedef BYTE localization_id_t;
 // Get localized string for a command name
 // Returns UTF-8 encoded string
 const utf8_t *localization_get_string(localization_id_t localization_id);
-
-// Get current language
-int language_get_current(void);
-
-// Set language (0 = English, 1 = Chinese Simplified)
-void language_set(int lang);
 
 // Initialize language system (detects system language)
 void localization_init(void);
@@ -242,8 +228,12 @@ enum
 	LOCALIZATION_ID_SECONDS,
 	LOCALIZATION_ID_MINUTE,
 	LOCALIZATION_ID_MINUTES,
+
+	// Everything
+	LOCALIZATION_ID_EVERYTHING_NOT_AVAILABLE_MESSAGE,
+//	"Add Everything Search" : "Load Everything Search"
 	
-	LOCALIZATION_ID_COUNT
+	LOCALIZATION_ID_COUNT,
 };
 
 extern BYTE localization_language;
@@ -252,4 +242,3 @@ extern BYTE localization_language;
 }
 #endif
 
-#endif // LANGUAGE_H

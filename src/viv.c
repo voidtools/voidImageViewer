@@ -13365,9 +13365,9 @@ static int _viv_send_everything_search(HWND hwnd,int add,int randomize,const wch
 			wchar_t *text_wbuf;
 			wchar_t caption_wbuf[STRING_SIZE];
 			
-			text_wbuf = string_alloc_utf8("Everything not available");
+			text_wbuf = string_alloc_utf8(localization_get_string(LOCALIZATION_ID_EVERYTHING_NOT_AVAILABLE_MESSAGE));
 				
-			string_copy_utf8(caption_wbuf,"void Image Viewer");
+			string_copy_utf8(caption_wbuf,localization_get_string(LOCALIZATION_ID_APP_NAME));
 
 			// MB_ICONQUESTION avoids the messagebeep.
 			MessageBox(hwnd,text_wbuf,caption_wbuf,MB_OK|MB_ICONERROR);
