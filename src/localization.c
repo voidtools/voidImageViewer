@@ -20,11 +20,6 @@
 // SOFTWARE.
 //
 // Language/Localization support implementation
-// NOTE: This file must be saved with UTF-8 encoding (with or without BOM)
-
-#if defined(_MSC_VER) && _MSC_VER >= 1600
-#pragma execution_character_set("utf-8")
-#endif
 
 #include "viv.h"
 #include "localization_en_us.h"
@@ -32,11 +27,11 @@
 
 static const utf8_t **_localization_language_array[LOCALIZATION_LANGUAGE_COUNT] = 
 {
-	_localization_string_array_en_us,
-	_localization_string_array_zh_cn,
+	_localization_string_array_en_us, // LOCALIZATION_LANGUAGE_ENGLISH
+	_localization_string_array_zh_cn, // LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED
 };
 
-BYTE _localization_language = LOCALIZATION_LANGUAGE_ENGLISH;
+BYTE localization_language = LOCALIZATION_LANGUAGE_ENGLISH;
 
 const utf8_t *localization_get_string(localization_id_t localization_id)
 {
@@ -49,7 +44,12 @@ if ((localization_id < 0) || (localization_id >= LOCALIZATION_ID_COUNT))
 
 #endif
 	
-	return _localization_language_array[_localization_language][localization_id];
+	return _localization_language_array[localization_language][localization_id];
+}
+
+const utf8_t *localization_get_en_us_string(localization_id_t localization_id)
+{
+	return _localization_string_array_en_us[localization_id];
 }
 
 void localization_init(void)
@@ -65,10 +65,10 @@ void localization_init(void)
 	// 0x0C04 = Chinese (Traditional, Hong Kong)
 	if ((langid == 0x0804) || (langid == 0x0404) || (langid == 0x0C04))
 	{
-		_localization_language = LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED;
+		localization_language = LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED;
 	}
 	else
 	{
-		_localization_language = LOCALIZATION_LANGUAGE_ENGLISH;
+		localization_language = LOCALIZATION_LANGUAGE_ENGLISH;
 	}
 }

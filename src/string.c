@@ -109,15 +109,6 @@ void string_copy_utf8(wchar_t *buf,const utf8_t *s)
 	MultiByteToWideChar(CP_UTF8,0,s,-1,buf,STRING_SIZE);
 }
 
-void string_copy_utf8_double_null(wchar_t *buf,const utf8_t *s)
-{
-	int slen;
-	
-	slen = utf8_length_double_null(s);
-	
-	MultiByteToWideChar(CP_UTF8,0,s,slen+1,buf,STRING_SIZE);
-}
-
 void string_cat(wchar_t *buf,const wchar_t *s)
 {
 	wchar_t *d;
@@ -342,158 +333,186 @@ void string_vprintf(wchar_t *wbuf,const char *format,va_list argptr)
 
 				case 'd':
 				case 'u':
-				{
-					int num;
-					wchar_t numbuf[64];
-					wchar_t *s;
-
-					num = va_arg(argptr,int);
-
-					string_format_number(numbuf,num);
-					
-					s = numbuf;
-					
-					while(*s)
 					{
-						if (d < e)
-						{
-							*d++ = *s;
-						}
+						int num;
+						wchar_t numbuf[64];
+						const wchar_t *s;
+
+						num = va_arg(argptr,int);
+
+						string_format_number(numbuf,num);
 						
-						s++;
-					}
-					
-					break;
-				}
-			
-				case 'p':
-				{
-					uintptr_t num;
-					wchar_t numbuf[64];
-					wchar_t *s;
-
-					num = va_arg(argptr,uintptr_t);
-
-					string_format_number(numbuf,num);
-					
-					s = numbuf;
-					
-					while(*s)
-					{
-						if (d < e)
-						{
-							*d++ = *s;
-						}
+						s = numbuf;
 						
-						s++;
-					}
-					
-					break;
-				}
-
-				case 'f':
-				{
-					int num;
-					wchar_t numbuf[64];
-					wchar_t *s;
-					uintptr_t lz;
-
-					num = (int)(va_arg(argptr,double) * 1000.0f);
-					
-					if (num < 0)
-					{
-						if (d < e)
-						{
-							*d++ = '-';
-						}
-						
-						num = -num;
-					}
-
-					string_format_number(numbuf,num / 1000);
-					
-					s = numbuf;
-					
-					while(*s)
-					{
-						if (d < e)
-						{
-							*d++ = *s;
-						}
-						
-						s++;
-					}
-
-					if (d < e)
-					{
-						*d++ = '.';
-					}
-
-					string_format_number(numbuf,num % 1000);
-					
-					if (string_length(numbuf) <= 3)
-					{
-						for(lz=0;lz<3-string_length(numbuf);lz++)
+						while(*s)
 						{
 							if (d < e)
 							{
-								*d++ = '0';
+								*d++ = *s;
+							}
+							
+							s++;
+						}
+					}
+					break;
+			
+				case 'c':
+					{
+						int ch;
+
+						// ASCII ch
+						ch = va_arg(argptr,int);
+
+						if (d < e)
+						{
+							*d++ = ch;
+						}
+					}
+					break;
+								
+				case 'C':
+					{
+						int ch;
+
+						// wchar
+						ch = va_arg(argptr,int);
+
+						if (d < e)
+						{
+							*d++ = ch;
+						}
+					}
+					break;
+								
+				case 'p':
+					{
+						uintptr_t num;
+						wchar_t numbuf[64];
+						const wchar_t *s;
+
+						num = va_arg(argptr,uintptr_t);
+
+						string_format_number(numbuf,num);
+						
+						s = numbuf;
+						
+						while(*s)
+						{
+							if (d < e)
+							{
+								*d++ = *s;
+							}
+							
+							s++;
+						}
+					}
+					break;
+
+				case 'f':
+					{
+						int num;
+						wchar_t numbuf[64];
+						const wchar_t *s;
+						uintptr_t lz;
+
+						num = (int)(va_arg(argptr,double) * 1000.0f);
+						
+						if (num < 0)
+						{
+							if (d < e)
+							{
+								*d++ = '-';
+							}
+							
+							num = -num;
+						}
+
+						string_format_number(numbuf,num / 1000);
+						
+						s = numbuf;
+						
+						while(*s)
+						{
+							if (d < e)
+							{
+								*d++ = *s;
+							}
+							
+							s++;
+						}
+
+						if (d < e)
+						{
+							*d++ = '.';
+						}
+
+						string_format_number(numbuf,num % 1000);
+						
+						if (string_length(numbuf) <= 3)
+						{
+							for(lz=0;lz<3-string_length(numbuf);lz++)
+							{
+								if (d < e)
+								{
+									*d++ = '0';
+								}
 							}
 						}
-					}
 
-					s = numbuf;
-					
-					while(*s)
-					{
-						if (d < e)
-						{
-							*d++ = *s;
-						}
+						s = numbuf;
 						
-						s++;
+						while(*s)
+						{
+							if (d < e)
+							{
+								*d++ = *s;
+							}
+							
+							s++;
+						}
 					}
-
 					break;
-				}
 
 				case 's':
-				{
-					char *s;
-					
-					s = va_arg(argptr,char *);
-					
-					while(*s)
 					{
-						if (d < e)
-						{
-							*d++ = *s;
-						}
+						const utf8_t *utf8_string;
+						wchar_t converted_s[STRING_SIZE];
+						wchar_t *s;
 						
-						s++;
+						utf8_string = va_arg(argptr,const utf8_t *);
+						
+						string_copy_utf8(converted_s,utf8_string);
+						s = converted_s;
+						
+						while(*s)
+						{
+							if (d < e)
+							{
+								*d++ = *s;
+							}
+							
+							s++;
+						}
 					}
-					
 					break;
-				}
 
 				case 'S':
-				{
-					wchar_t *s;
-					
-					s = va_arg(argptr,wchar_t *);
-					
-					while(*s)
 					{
-						if (d < e)
-						{
-							*d++ = *s;
-						}
+						const wchar_t *s;
 						
-						s++;
+						s = va_arg(argptr,const wchar_t *);
+						
+						while(*s)
+						{
+							if (d < e)
+							{
+								*d++ = *s;
+							}
+							
+							s++;
+						}
 					}
-					
 					break;
-				}
 			}
 		}
 		else
