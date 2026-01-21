@@ -1,0 +1,209 @@
+//
+// Copyright 2026 hesphoros
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+//
+// Chinese Simplified localization
+// Safe as UTF-8 without BOM.
+
+static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] = 
+{
+	// Language
+	"简体中文", // LOCALIZATION_ID_LANGUAGE
+
+	// Application name
+	"void Image Viewer", // LOCALIZATION_ID_APP_NAME
+
+	// File menu
+	"文件(&F)", // LOCALIZATION_ID_FILE,
+	"打开文件(&O)...", // LOCALIZATION_ID_OPEN_FILE,
+	"打开文件夹(&F)...", // LOCALIZATION_ID_OPEN_FOLDER,
+	"打开 Everything 搜索(&S)...", // LOCALIZATION_ID_OPEN_EVERYTHING_SEARCH,
+	"添加文件(&A)...", // LOCALIZATION_ID_ADD_FILE,
+	"添加文件夹...", // LOCALIZATION_ID_ADD_FOLDER,
+	"添加 Everything 搜索...", // LOCALIZATION_ID_ADD_EVERYTHING_SEARCH,
+	"打开文件位置(&L)...", // LOCALIZATION_ID_OPEN_FILE_LOCATION,
+	"编辑(&E)...", // LOCALIZATION_ID_EDIT,
+	"预览(&V)...", // LOCALIZATION_ID_PREVIEW,
+	"打印(&P)...", // LOCALIZATION_ID_PRINT,
+	"设置为桌面壁纸(&D)", // LOCALIZATION_ID_SET_DESKTOP_WALLPAPER,
+	"关闭(&C)", // LOCALIZATION_ID_CLOSE,
+	"删除(&D)", // LOCALIZATION_ID_DELETE,
+	"删除（回收站）", // LOCALIZATION_ID_DELETE_RECYCLE,
+	"删除（永久）", // LOCALIZATION_ID_DELETE_PERMANENTLY,
+	"重命名(&R)", // LOCALIZATION_ID_RENAME,
+	"属性(&P)", // LOCALIZATION_ID_PROPERTIES,
+	"退出(&X)", // LOCALIZATION_ID_EXIT,
+	
+	// Edit menu
+	"编辑(&E)", // LOCALIZATION_ID_EDIT_MENU,
+	"剪切(&T)", // LOCALIZATION_ID_CUT,
+	"复制(&C)", // LOCALIZATION_ID_COPY,
+	"复制文件名", // LOCALIZATION_ID_COPY_FILENAME,
+	"复制图像(&Y)", // LOCALIZATION_ID_COPY_IMAGE,
+	"粘贴(&P)", // LOCALIZATION_ID_PASTE,
+	"顺时针旋转(&K)", // LOCALIZATION_ID_ROTATE_CLOCKWISE,
+	"逆时针旋转(&N)", // LOCALIZATION_ID_ROTATE_COUNTERCLOCKWISE,
+	"复制到文件夹(&F)...", // LOCALIZATION_ID_COPY_TO,
+	"移动到文件夹(&V)...", // LOCALIZATION_ID_MOVE_TO,
+	
+	// View menu
+	"视图(&V)", // LOCALIZATION_ID_VIEW,
+	"标题栏", // LOCALIZATION_ID_CAPTION,
+	"边框", // LOCALIZATION_ID_FRAME,
+	"菜单(&M)", // LOCALIZATION_ID_MENU,
+	"状态栏(&B)", // LOCALIZATION_ID_STATUS_BAR,
+	"控件(&C)", // LOCALIZATION_ID_CONTROLS,
+	"预设(&P)", // LOCALIZATION_ID_PRESET,
+	"最小(&M)", // LOCALIZATION_ID_MINIMAL,
+	"紧凑(&C)", // LOCALIZATION_ID_COMPACT,
+	"正常(&N)", // LOCALIZATION_ID_NORMAL,
+	"全屏(&F)", // LOCALIZATION_ID_FULLSCREEN,
+	"幻灯片(&S)", // LOCALIZATION_ID_SLIDESHOW,
+	"窗口大小(&W)", // LOCALIZATION_ID_WINDOW_SIZE,
+	"自动适应(&A)", // LOCALIZATION_ID_AUTO_FIT,
+	"刷新(&R)", // LOCALIZATION_ID_REFRESH,
+	"允许缩小(&A)", // LOCALIZATION_ID_ALLOW_SHRINKING,
+	"保持纵横比(&K)", // LOCALIZATION_ID_KEEP_ASPECT_RATIO,
+	"填充窗口(&F)", // LOCALIZATION_ID_FILL_WINDOW,
+	"最佳适应(&B)", // LOCALIZATION_ID_BEST_FIT,
+	"平移和扫描(&N)", // LOCALIZATION_ID_PAN_SCAN,
+	"增大尺寸(&I)", // LOCALIZATION_ID_INCREASE_SIZE,
+	"减小尺寸(&D)", // LOCALIZATION_ID_DECREASE_SIZE,
+	"增加宽度(&W)", // LOCALIZATION_ID_INCREASE_WIDTH,
+	"减小宽度(&W)", // LOCALIZATION_ID_DECREASE_WIDTH,
+	"增加高度(&H)", // LOCALIZATION_ID_INCREASE_HEIGHT,
+	"减小高度(&E)", // LOCALIZATION_ID_DECREASE_HEIGHT,
+	"缩放(&Z)", // LOCALIZATION_ID_ZOOM,
+	"放大(&I)", // LOCALIZATION_ID_ZOOM_IN,
+	"缩小(&O)", // LOCALIZATION_ID_ZOOM_OUT,
+	"重置(&R)", // LOCALIZATION_ID_RESET,
+	"向上移动(&U)", // LOCALIZATION_ID_MOVE_UP,
+	"向下移动(&D)", // LOCALIZATION_ID_MOVE_DOWN,
+	"向左移动(&L)", // LOCALIZATION_ID_MOVE_LEFT,
+	"向右移动(&R)", // LOCALIZATION_ID_MOVE_RIGHT,
+	"向左上移动", // LOCALIZATION_ID_MOVE_UP_LEFT,
+	"向右上移动", // LOCALIZATION_ID_MOVE_UP_RIGHT,
+	"向左下移动", // LOCALIZATION_ID_MOVE_DOWN_LEFT,
+	"向右下移动", // LOCALIZATION_ID_MOVE_DOWN_RIGHT,
+	"居中(&C)", // LOCALIZATION_ID_MOVE_CENTER,
+	"置顶(&T)", // LOCALIZATION_ID_ON_TOP,
+	"总是(&A)", // LOCALIZATION_ID_ALWAYS,
+	"播放幻灯片或动画时(&W)", // LOCALIZATION_ID_WHILE_PLAYING_OR_ANIMATING,
+	"从不(&N)", // LOCALIZATION_ID_NEVER,
+	"选项(&O)...", // LOCALIZATION_ID_OPTIONS,
+	
+	// Slideshow menu
+	"幻灯片(&S)", // LOCALIZATION_ID_SLIDESHOW_MENU,
+	"播放/暂停(&P)", // LOCALIZATION_ID_PLAY_PAUSE,
+	"速率(&R)", // LOCALIZATION_ID_RATE,
+	"降低速率(&D)", // LOCALIZATION_ID_DECREASE_RATE,
+	"提高速率(&I)", // LOCALIZATION_ID_INCREASE_RATE,
+	"自定义...", // LOCALIZATION_ID_CUSTOM,
+	
+	// Animation menu
+	"动画(&A)", // LOCALIZATION_ID_ANIMATION,
+	"向前跳转(&F)", // LOCALIZATION_ID_JUMP_FORWARD,
+	"向后跳转(&B)", // LOCALIZATION_ID_JUMP_BACKWARD,
+	"短距离向前跳转(&F)", // LOCALIZATION_ID_SHORT_JUMP_FORWARD,
+	"短距离向后跳转(&B)", // LOCALIZATION_ID_SHORT_JUMP_BACKWARD,
+	"长距离向前跳转(&F)", // LOCALIZATION_ID_LONG_JUMP_FORWARD,
+	"长距离向后跳转(&B)", // LOCALIZATION_ID_LONG_JUMP_BACKWARD,
+	"下一帧(&S)", // LOCALIZATION_ID_FRAME_STEP,
+	"上一帧(&V)", // LOCALIZATION_ID_PREVIOUS_FRAME,
+	"第一帧(&I)", // LOCALIZATION_ID_FIRST_FRAME,
+	"最后一帧(&L)", // LOCALIZATION_ID_LAST_FRAME,
+	"降低速率(&D)", // LOCALIZATION_ID_DECREASE_RATE_ANIM,
+	"提高速率(&I)", // LOCALIZATION_ID_INCREASE_RATE_ANIM,
+	"重置速率(&E)", // LOCALIZATION_ID_RESET_RATE,
+	
+	// Navigate menu
+	"导航(&N)", // LOCALIZATION_ID_NAVIGATE,
+	"下一个(&N)", // LOCALIZATION_ID_NEXT,
+	"上一个(&P)", // LOCALIZATION_ID_PREVIOUS,
+	"首页(&H)", // LOCALIZATION_ID_HOME,
+	"末页(&E)", // LOCALIZATION_ID_END,
+	"排序(&S)", // LOCALIZATION_ID_SORT,
+	"名称(&N)", // LOCALIZATION_ID_NAME,
+	"完整路径(&P)", // LOCALIZATION_ID_FULL_PATH,
+	"大小(&S)", // LOCALIZATION_ID_SIZE,
+	"修改日期(&M)", // LOCALIZATION_ID_DATE_MODIFIED,
+	"创建日期(&C)", // LOCALIZATION_ID_DATE_CREATED,
+	"升序(&A)", // LOCALIZATION_ID_ASCENDING,
+	"降序(&D)", // LOCALIZATION_ID_DESCENDING,
+	"随机(&S)", // LOCALIZATION_ID_SHUFFLE,
+	"跳转到(&J)...", // LOCALIZATION_ID_JUMP_TO,
+	
+	// Help menu
+	"帮助(&H)", // LOCALIZATION_ID_HELP,
+	"帮助(&H)", // LOCALIZATION_ID_HELP_MENU,
+	"命令行选项(&C)", // LOCALIZATION_ID_COMMAND_LINE_OPTIONS,
+	"主页(&P)", // LOCALIZATION_ID_HOME_PAGE,
+	"捐赠(&D)", // LOCALIZATION_ID_DONATE,
+	"关于(&A)", // LOCALIZATION_ID_ABOUT,
+	"https://www.voidtools.com/support/voidimageviewer/", // LOCALIZATION_ID_HELP_SUPPORT_URL,
+	"https://www.voidtools.com/donate/", // LOCALIZATION_ID_HELP_DONATE,
+	"https://www.voidtools.com/", // LOCALIZATION_ID_HELP_WEBSITE_URL,
+	
+	// Dialog strings
+	"选项 - Void Image Viewer", // LOCALIZATION_ID_OPTIONS_TITLE,
+	"常规", // LOCALIZATION_ID_GENERAL,
+	"视图", // LOCALIZATION_ID_VIEW_DIALOG,
+	"控件", // LOCALIZATION_ID_CONTROLS_DIALOG,
+	"确定", // LOCALIZATION_ID_OK,
+	"取消", // LOCALIZATION_ID_CANCEL,
+	"在 %APPDATA%\\voidImageViewer 中存储设置(&S)", // LOCALIZATION_ID_STORE_SETTINGS_APPDATA,
+	"允许多个实例(&I)", // LOCALIZATION_ID_ALLOW_MULTIPLE_INSTANCES,
+	"开始菜单快捷方式(&M)", // LOCALIZATION_ID_STARTMENU_SHORTCUTS,
+	"文件关联", // LOCALIZATION_ID_ASSOCIATIONS,
+	"全选(&A)", // LOCALIZATION_ID_CHECK_ALL,
+	"全不选(&N)", // LOCALIZATION_ID_CHECK_NONE,
+	"缩小位图模式(&S):", // LOCALIZATION_ID_SHRINK_BLIT_MODE,
+	"放大位图模式(&M):", // LOCALIZATION_ID_MAGNIFY_BLIT_MODE,
+	"自动调整窗口大小(&Z):", // LOCALIZATION_ID_AUTO_SIZE_WINDOW,
+	"在幻灯片中至少播放一次动画(&P)", // LOCALIZATION_ID_PLAY_ANIMATIONS_ONCE,
+	"预加载下一张图像(&N)", // LOCALIZATION_ID_PRELOAD_NEXT_IMAGE,
+	"缓存最后一张图像(&L)", // LOCALIZATION_ID_CACHE_LAST_IMAGE,
+	"窗口背景颜色(&W):", // LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR,
+	"全屏背景颜色(&F):", // LOCALIZATION_ID_FULLSCREEN_BACKGROUND_COLOR,
+	"左键操作(&L):", // LOCALIZATION_ID_LEFT_CLICK_ACTION,
+	"右键操作(&R):", // LOCALIZATION_ID_RIGHT_CLICK_ACTION,
+	"鼠标滚轮操作(&M):", // LOCALIZATION_ID_MOUSE_WHEEL_ACTION,
+	"命令(&C):", // LOCALIZATION_ID_COMMANDS,
+	"所选命令的设置", // LOCALIZATION_ID_SETTINGS_FOR_SELECTED_COMMAND,
+	"添加(&A)...", // LOCALIZATION_ID_ADD,
+	"添加键盘快捷键", // LOCALIZATION_ID_ADD_KEYBOARD_SHORTCUT,
+	"编辑键盘快捷键", // LOCALIZATION_ID_EDIT_KEYBOARD_SHORTCUT,
+	"快捷键(&K):", // LOCALIZATION_ID_SHORTCUT_KEY,
+	"当前使用此快捷键的命令:", // LOCALIZATION_ID_SHORTCUT_KEY_CURRENTLY_USED_BY,
+	"删除(&V)", // LOCALIZATION_ID_REMOVE,
+	"设置自定义速率", // LOCALIZATION_ID_SET_CUSTOM_RATE,
+	"自定义速率(&C):", // LOCALIZATION_ID_CUSTOM_RATE,
+	"关于 Void Image Viewer", // LOCALIZATION_ID_ABOUT_TITLE,
+	"重命名", // LOCALIZATION_ID_RENAME_TITLE,
+	"跳转到", // LOCALIZATION_ID_JUMP_TO_TITLE,
+	"搜索 Everything", // LOCALIZATION_ID_SEARCH_EVERYTHING,
+	"随机化", // LOCALIZATION_ID_RANDOMIZE,
+	
+	// Time units
+	" 毫秒", // LOCALIZATION_ID_MILLISECONDS,
+	" 秒", // LOCALIZATION_ID_SECONDS,
+	"1 分钟", // LOCALIZATION_ID_MINUTE,
+	" 分钟", // LOCALIZATION_ID_MINUTES,
+};

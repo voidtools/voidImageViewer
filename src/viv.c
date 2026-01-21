@@ -22,6 +22,8 @@
 // VoidImageViewer
 
 // TODO:
+// SVG support -Librsvg?
+// GDI/GDI+ is limited to 2GB (wide*high*4), work out a workaround for large images.
 // add UI option for config_title_bar_format.
 // compile on mingw
 // review jump-to focus
@@ -613,6 +615,7 @@ static void _viv_open_preload(void);
 //static void _viv_tooltip_hide(void);
 //static void _viv_tooltip_update(void);
 //static void _viv_tooltip_update_track_position(void);
+static localization_id_t _viv_command_id_to_localization_id(WORD command_id);
 
 static HMODULE _viv_stobject_hmodule = 0;
 static _viv_playlist_t *_viv_playlist_start = 0;
@@ -1197,7 +1200,7 @@ static void _viv_update_title(void)
 		string_cat_utf8(window_title," - ");
 	}
 		
-	string_cat_utf8(window_title,language_get_string(LANG_STR_APP_NAME));
+	string_cat_utf8(window_title,localization_get_string(LOCALIZATION_ID_APP_NAME));
 	
 	SetWindowTextW(_viv_hwnd,window_title);
 }
@@ -1634,7 +1637,7 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			break;
 	
 		case VIV_ID_HELP_HELP:
-			ShellExecuteA(_viv_hwnd,NULL,"https://www.voidtools.com/support/voidimageviewer/",NULL,NULL,SW_SHOWNORMAL);
+			ShellExecuteA(_viv_hwnd,NULL,localization_get_string(LOCALIZATION_ID_HELP_SUPPORT_URL),NULL,NULL,SW_SHOWNORMAL);
 			break;
 			
 		case VIV_ID_HELP_COMMAND_LINE_OPTIONS:
@@ -1642,7 +1645,7 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			break;
 			
 		case VIV_ID_HELP_DONATE:
-			ShellExecuteA(_viv_hwnd,NULL,"https://www.voidtools.com/donate/",NULL,NULL,SW_SHOWNORMAL);
+			ShellExecuteA(_viv_hwnd,NULL,localization_get_string(LOCALIZATION_ID_HELP_DONATE_URL),NULL,NULL,SW_SHOWNORMAL);
 			break;
 			
 		case VIV_ID_HELP_ABOUT:
@@ -1650,7 +1653,7 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			break;
 			
 		case VIV_ID_HELP_WEBSITE:
-			ShellExecuteA(_viv_hwnd,NULL,"https://www.voidtools.com/",NULL,NULL,SW_SHOWNORMAL);
+			ShellExecuteA(_viv_hwnd,NULL,localization_get_string(LOCALIZATION_ID_HELP_WEBSITE_URL),NULL,NULL,SW_SHOWNORMAL);
 			break;
 			
 		case VIV_ID_FILE_EXIT:
@@ -3395,15 +3398,17 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 								switch(_viv_commands[command_index].command_id)
 								{
 									case VIV_ID_SLIDESHOW_PAUSE:
-										string_copy_utf8(text_wbuf,language_get_string(LANG_STR_PLAY_PAUSE));
+										string_copy_utf8(text_wbuf,localization_get_string(LOCALIZATION_ID_PLAY_PAUSE));
 										break;
 										
 									default:
 										{
-											int lang_str_id = _viv_command_id_to_lang_str_id(_viv_commands[command_index].command_id);
-											if (lang_str_id >= 0)
+											int localization_id; 
+											
+											localization_id = _viv_command_id_to_localization_id(_viv_commands[command_index].command_id);
+											if (localization_id != LOCALIZATION_ID_INVALID)
 											{
-												string_copy_utf8(text_wbuf, language_get_string(lang_str_id));
+												string_copy_utf8(text_wbuf, localization_get_string(localization_id));
 											}
 											else
 											{
@@ -3461,15 +3466,17 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 								switch(_viv_context_menu_items[i])
 								{
 									case _VIV_MENU_SLIDESHOW_RATE:
-										string_copy_utf8(text_wbuf,language_get_string(LANG_STR_RATE));
+										string_copy_utf8(text_wbuf,localization_get_string(LOCALIZATION_ID_RATE));
 										break;
 								
 									default:
 										{
-											int lang_str_id = _viv_command_id_to_lang_str_id(_viv_commands[command_index].command_id);
-											if (lang_str_id >= 0)
+											int localization_id;
+											
+											localization_id = _viv_command_id_to_localization_id(_viv_commands[command_index].command_id);
+											if (localization_id != LOCALIZATION_ID_INVALID)
 											{
-												string_copy_utf8(text_wbuf, language_get_string(lang_str_id));
+												string_copy_utf8(text_wbuf, localization_get_string(localization_id));
 											}
 											else
 											{
@@ -5068,7 +5075,7 @@ static int _viv_init(int nCmdShow)
 	DWORD window_style;
 	
 	os_init();
-	language_init(); // Initialize language system
+	localization_init(); // Initialize language system
 	show_maximized = 0;
 	
 	debug_printf("%u\n",sizeof(_viv_key_list_t));
@@ -10410,6 +10417,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 
 														if (os_GdipCreateFromHDC(mem_hdc,&g) == 0)
 														{
+															// ImageFlagsHasAlpha = 0x0002,
 															if (image_flags & 2)
 															{
 																{
@@ -12066,134 +12074,134 @@ static void _viv_get_key_text(wchar_t *wbuf,DWORD keyflags)
 }
 
 // Map command ID to language string ID
-static int _viv_command_id_to_lang_str_id(WORD command_id)
+static localization_id_t _viv_command_id_to_localization_id(WORD command_id)
 {
 	switch(command_id)
 	{
-		case _VIV_MENU_FILE: return LANG_STR_FILE;
-		case VIV_ID_FILE_OPEN_FILE: return LANG_STR_OPEN_FILE;
-		case VIV_ID_FILE_OPEN_FOLDER: return LANG_STR_OPEN_FOLDER;
-		case VIV_ID_FILE_OPEN_EVERYTHING_SEARCH: return LANG_STR_OPEN_EVERYTHING_SEARCH;
-		case VIV_ID_FILE_ADD_FILE: return LANG_STR_ADD_FILE;
-		case VIV_ID_FILE_ADD_FOLDER: return LANG_STR_ADD_FOLDER;
-		case VIV_ID_FILE_ADD_EVERYTHING_SEARCH: return LANG_STR_ADD_EVERYTHING_SEARCH;
-		case VIV_ID_FILE_OPEN_FILE_LOCATION: return LANG_STR_OPEN_FILE_LOCATION;
-		case VIV_ID_FILE_EDIT: return LANG_STR_EDIT;
-		case VIV_ID_FILE_PREVIEW: return LANG_STR_PREVIEW;
-		case VIV_ID_FILE_PRINT: return LANG_STR_PRINT;
-		case VIV_ID_FILE_SET_DESKTOP_WALLPAPER: return LANG_STR_SET_DESKTOP_WALLPAPER;
-		case VIV_ID_FILE_CLOSE: return LANG_STR_CLOSE;
-		case VIV_ID_FILE_DELETE: return LANG_STR_DELETE;
-		case VIV_ID_FILE_DELETE_RECYCLE: return LANG_STR_DELETE_RECYCLE;
-		case VIV_ID_FILE_DELETE_PERMANENTLY: return LANG_STR_DELETE_PERMANENTLY;
-		case VIV_ID_FILE_RENAME: return LANG_STR_RENAME;
-		case VIV_ID_FILE_PROPERTIES: return LANG_STR_PROPERTIES;
-		case VIV_ID_FILE_EXIT: return LANG_STR_EXIT;
+		case _VIV_MENU_FILE: return LOCALIZATION_ID_FILE;
+		case VIV_ID_FILE_OPEN_FILE: return LOCALIZATION_ID_OPEN_FILE;
+		case VIV_ID_FILE_OPEN_FOLDER: return LOCALIZATION_ID_OPEN_FOLDER;
+		case VIV_ID_FILE_OPEN_EVERYTHING_SEARCH: return LOCALIZATION_ID_OPEN_EVERYTHING_SEARCH;
+		case VIV_ID_FILE_ADD_FILE: return LOCALIZATION_ID_ADD_FILE;
+		case VIV_ID_FILE_ADD_FOLDER: return LOCALIZATION_ID_ADD_FOLDER;
+		case VIV_ID_FILE_ADD_EVERYTHING_SEARCH: return LOCALIZATION_ID_ADD_EVERYTHING_SEARCH;
+		case VIV_ID_FILE_OPEN_FILE_LOCATION: return LOCALIZATION_ID_OPEN_FILE_LOCATION;
+		case VIV_ID_FILE_EDIT: return LOCALIZATION_ID_EDIT;
+		case VIV_ID_FILE_PREVIEW: return LOCALIZATION_ID_PREVIEW;
+		case VIV_ID_FILE_PRINT: return LOCALIZATION_ID_PRINT;
+		case VIV_ID_FILE_SET_DESKTOP_WALLPAPER: return LOCALIZATION_ID_SET_DESKTOP_WALLPAPER;
+		case VIV_ID_FILE_CLOSE: return LOCALIZATION_ID_CLOSE;
+		case VIV_ID_FILE_DELETE: return LOCALIZATION_ID_DELETE;
+		case VIV_ID_FILE_DELETE_RECYCLE: return LOCALIZATION_ID_DELETE_RECYCLE;
+		case VIV_ID_FILE_DELETE_PERMANENTLY: return LOCALIZATION_ID_DELETE_PERMANENTLY;
+		case VIV_ID_FILE_RENAME: return LOCALIZATION_ID_RENAME;
+		case VIV_ID_FILE_PROPERTIES: return LOCALIZATION_ID_PROPERTIES;
+		case VIV_ID_FILE_EXIT: return LOCALIZATION_ID_EXIT;
 		
-		case _VIV_MENU_EDIT: return LANG_STR_EDIT_MENU;
-		case VIV_ID_EDIT_CUT: return LANG_STR_CUT;
-		case VIV_ID_EDIT_COPY: return LANG_STR_COPY;
-		case VIV_ID_EDIT_COPY_FILENAME: return LANG_STR_COPY_FILENAME;
-		case VIV_ID_EDIT_COPY_IMAGE: return LANG_STR_COPY_IMAGE;
-		case VIV_ID_EDIT_PASTE: return LANG_STR_PASTE;
-		case VIV_ID_EDIT_ROTATE_90: return LANG_STR_ROTATE_CLOCKWISE;
-		case VIV_ID_EDIT_ROTATE_270: return LANG_STR_ROTATE_COUNTERCLOCKWISE;
-		case VIV_ID_EDIT_COPY_TO: return LANG_STR_COPY_TO;
-		case VIV_ID_EDIT_MOVE_TO: return LANG_STR_MOVE_TO;
+		case _VIV_MENU_EDIT: return LOCALIZATION_ID_EDIT_MENU;
+		case VIV_ID_EDIT_CUT: return LOCALIZATION_ID_CUT;
+		case VIV_ID_EDIT_COPY: return LOCALIZATION_ID_COPY;
+		case VIV_ID_EDIT_COPY_FILENAME: return LOCALIZATION_ID_COPY_FILENAME;
+		case VIV_ID_EDIT_COPY_IMAGE: return LOCALIZATION_ID_COPY_IMAGE;
+		case VIV_ID_EDIT_PASTE: return LOCALIZATION_ID_PASTE;
+		case VIV_ID_EDIT_ROTATE_90: return LOCALIZATION_ID_ROTATE_CLOCKWISE;
+		case VIV_ID_EDIT_ROTATE_270: return LOCALIZATION_ID_ROTATE_COUNTERCLOCKWISE;
+		case VIV_ID_EDIT_COPY_TO: return LOCALIZATION_ID_COPY_TO;
+		case VIV_ID_EDIT_MOVE_TO: return LOCALIZATION_ID_MOVE_TO;
 		
-		case _VIV_MENU_VIEW: return LANG_STR_VIEW;
-		case VIV_ID_VIEW_CAPTION: return LANG_STR_CAPTION;
-		case VIV_ID_VIEW_THICKFRAME: return LANG_STR_FRAME;
-		case VIV_ID_VIEW_MENU: return LANG_STR_MENU;
-		case VIV_ID_VIEW_STATUS: return LANG_STR_STATUS_BAR;
-		case VIV_ID_VIEW_CONTROLS: return LANG_STR_CONTROLS;
-		case _VIV_MENU_VIEW_PRESET: return LANG_STR_PRESET;
-		case VIV_ID_VIEW_PRESET_1: return LANG_STR_MINIMAL;
-		case VIV_ID_VIEW_PRESET_2: return LANG_STR_COMPACT;
-		case VIV_ID_VIEW_PRESET_3: return LANG_STR_NORMAL;
-		case VIV_ID_VIEW_FULLSCREEN: return LANG_STR_FULLSCREEN;
-		case VIV_ID_VIEW_SLIDESHOW: return LANG_STR_SLIDESHOW;
-		case _VIV_MENU_VIEW_WINDOW_SIZE: return LANG_STR_WINDOW_SIZE;
-		case VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT: return LANG_STR_AUTO_FIT;
-		case VIV_ID_VIEW_REFRESH: return LANG_STR_REFRESH;
-		case VIV_ID_VIEW_ALLOW_SHRINKING: return LANG_STR_ALLOW_SHRINKING;
-		case VIV_ID_VIEW_KEEP_ASPECT_RATIO: return LANG_STR_KEEP_ASPECT_RATIO;
-		case VIV_ID_VIEW_FILL_WINDOW: return LANG_STR_FILL_WINDOW;
-		case VIV_ID_VIEW_BESTFIT: return LANG_STR_BEST_FIT;
-		case _VIV_MENU_VIEW_PANSCAN: return LANG_STR_PAN_SCAN;
-		case VIV_ID_VIEW_PANSCAN_INCREASE_SIZE: return LANG_STR_INCREASE_SIZE;
-		case VIV_ID_VIEW_PANSCAN_DECREASE_SIZE: return LANG_STR_DECREASE_SIZE;
-		case VIV_ID_VIEW_PANSCAN_INCREASE_WIDTH: return LANG_STR_INCREASE_WIDTH;
-		case VIV_ID_VIEW_PANSCAN_DECREASE_WIDTH: return LANG_STR_DECREASE_WIDTH;
-		case VIV_ID_VIEW_PANSCAN_INCREASE_HEIGHT: return LANG_STR_INCREASE_HEIGHT;
-		case VIV_ID_VIEW_PANSCAN_DECREASE_HEIGHT: return LANG_STR_DECREASE_HEIGHT;
-		case _VIV_MENU_VIEW_ZOOM: return LANG_STR_ZOOM;
-		case VIV_ID_VIEW_ZOOM_IN: return LANG_STR_ZOOM_IN;
-		case VIV_ID_VIEW_ZOOM_OUT: return LANG_STR_ZOOM_OUT;
-		case VIV_ID_VIEW_ZOOM_RESET: return LANG_STR_RESET;
-		case VIV_ID_VIEW_PANSCAN_MOVE_UP: return LANG_STR_MOVE_UP;
-		case VIV_ID_VIEW_PANSCAN_MOVE_DOWN: return LANG_STR_MOVE_DOWN;
-		case VIV_ID_VIEW_PANSCAN_MOVE_LEFT: return LANG_STR_MOVE_LEFT;
-		case VIV_ID_VIEW_PANSCAN_MOVE_RIGHT: return LANG_STR_MOVE_RIGHT;
-		case VIV_ID_VIEW_PANSCAN_MOVE_UP_LEFT: return LANG_STR_MOVE_UP_LEFT;
-		case VIV_ID_VIEW_PANSCAN_MOVE_UP_RIGHT: return LANG_STR_MOVE_UP_RIGHT;
-		case VIV_ID_VIEW_PANSCAN_MOVE_DOWN_LEFT: return LANG_STR_MOVE_DOWN_LEFT;
-		case VIV_ID_VIEW_PANSCAN_MOVE_DOWN_RIGHT: return LANG_STR_MOVE_DOWN_RIGHT;
-		case VIV_ID_VIEW_PANSCAN_MOVE_CENTER: return LANG_STR_MOVE_CENTER;
-		case VIV_ID_VIEW_PANSCAN_RESET: return LANG_STR_RESET;
-		case _VIV_MENU_VIEW_ONTOP: return LANG_STR_ON_TOP;
-		case VIV_ID_VIEW_ONTOP_ALWAYS: return LANG_STR_ALWAYS;
-		case VIV_ID_VIEW_ONTOP_WHILE_PLAYING_OR_ANIMATING: return LANG_STR_WHILE_PLAYING_OR_ANIMATING;
-		case VIV_ID_VIEW_ONTOP_NEVER: return LANG_STR_NEVER;
-		case VIV_ID_VIEW_OPTIONS: return LANG_STR_OPTIONS;
+		case _VIV_MENU_VIEW: return LOCALIZATION_ID_VIEW;
+		case VIV_ID_VIEW_CAPTION: return LOCALIZATION_ID_CAPTION;
+		case VIV_ID_VIEW_THICKFRAME: return LOCALIZATION_ID_FRAME;
+		case VIV_ID_VIEW_MENU: return LOCALIZATION_ID_MENU;
+		case VIV_ID_VIEW_STATUS: return LOCALIZATION_ID_STATUS_BAR;
+		case VIV_ID_VIEW_CONTROLS: return LOCALIZATION_ID_CONTROLS;
+		case _VIV_MENU_VIEW_PRESET: return LOCALIZATION_ID_PRESET;
+		case VIV_ID_VIEW_PRESET_1: return LOCALIZATION_ID_MINIMAL;
+		case VIV_ID_VIEW_PRESET_2: return LOCALIZATION_ID_COMPACT;
+		case VIV_ID_VIEW_PRESET_3: return LOCALIZATION_ID_NORMAL;
+		case VIV_ID_VIEW_FULLSCREEN: return LOCALIZATION_ID_FULLSCREEN;
+		case VIV_ID_VIEW_SLIDESHOW: return LOCALIZATION_ID_SLIDESHOW;
+		case _VIV_MENU_VIEW_WINDOW_SIZE: return LOCALIZATION_ID_WINDOW_SIZE;
+		case VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT: return LOCALIZATION_ID_AUTO_FIT;
+		case VIV_ID_VIEW_REFRESH: return LOCALIZATION_ID_REFRESH;
+		case VIV_ID_VIEW_ALLOW_SHRINKING: return LOCALIZATION_ID_ALLOW_SHRINKING;
+		case VIV_ID_VIEW_KEEP_ASPECT_RATIO: return LOCALIZATION_ID_KEEP_ASPECT_RATIO;
+		case VIV_ID_VIEW_FILL_WINDOW: return LOCALIZATION_ID_FILL_WINDOW;
+		case VIV_ID_VIEW_BESTFIT: return LOCALIZATION_ID_BEST_FIT;
+		case _VIV_MENU_VIEW_PANSCAN: return LOCALIZATION_ID_PAN_SCAN;
+		case VIV_ID_VIEW_PANSCAN_INCREASE_SIZE: return LOCALIZATION_ID_INCREASE_SIZE;
+		case VIV_ID_VIEW_PANSCAN_DECREASE_SIZE: return LOCALIZATION_ID_DECREASE_SIZE;
+		case VIV_ID_VIEW_PANSCAN_INCREASE_WIDTH: return LOCALIZATION_ID_INCREASE_WIDTH;
+		case VIV_ID_VIEW_PANSCAN_DECREASE_WIDTH: return LOCALIZATION_ID_DECREASE_WIDTH;
+		case VIV_ID_VIEW_PANSCAN_INCREASE_HEIGHT: return LOCALIZATION_ID_INCREASE_HEIGHT;
+		case VIV_ID_VIEW_PANSCAN_DECREASE_HEIGHT: return LOCALIZATION_ID_DECREASE_HEIGHT;
+		case _VIV_MENU_VIEW_ZOOM: return LOCALIZATION_ID_ZOOM;
+		case VIV_ID_VIEW_ZOOM_IN: return LOCALIZATION_ID_ZOOM_IN;
+		case VIV_ID_VIEW_ZOOM_OUT: return LOCALIZATION_ID_ZOOM_OUT;
+		case VIV_ID_VIEW_ZOOM_RESET: return LOCALIZATION_ID_RESET;
+		case VIV_ID_VIEW_PANSCAN_MOVE_UP: return LOCALIZATION_ID_MOVE_UP;
+		case VIV_ID_VIEW_PANSCAN_MOVE_DOWN: return LOCALIZATION_ID_MOVE_DOWN;
+		case VIV_ID_VIEW_PANSCAN_MOVE_LEFT: return LOCALIZATION_ID_MOVE_LEFT;
+		case VIV_ID_VIEW_PANSCAN_MOVE_RIGHT: return LOCALIZATION_ID_MOVE_RIGHT;
+		case VIV_ID_VIEW_PANSCAN_MOVE_UP_LEFT: return LOCALIZATION_ID_MOVE_UP_LEFT;
+		case VIV_ID_VIEW_PANSCAN_MOVE_UP_RIGHT: return LOCALIZATION_ID_MOVE_UP_RIGHT;
+		case VIV_ID_VIEW_PANSCAN_MOVE_DOWN_LEFT: return LOCALIZATION_ID_MOVE_DOWN_LEFT;
+		case VIV_ID_VIEW_PANSCAN_MOVE_DOWN_RIGHT: return LOCALIZATION_ID_MOVE_DOWN_RIGHT;
+		case VIV_ID_VIEW_PANSCAN_MOVE_CENTER: return LOCALIZATION_ID_MOVE_CENTER;
+		case VIV_ID_VIEW_PANSCAN_RESET: return LOCALIZATION_ID_RESET;
+		case _VIV_MENU_VIEW_ONTOP: return LOCALIZATION_ID_ON_TOP;
+		case VIV_ID_VIEW_ONTOP_ALWAYS: return LOCALIZATION_ID_ALWAYS;
+		case VIV_ID_VIEW_ONTOP_WHILE_PLAYING_OR_ANIMATING: return LOCALIZATION_ID_WHILE_PLAYING_OR_ANIMATING;
+		case VIV_ID_VIEW_ONTOP_NEVER: return LOCALIZATION_ID_NEVER;
+		case VIV_ID_VIEW_OPTIONS: return LOCALIZATION_ID_OPTIONS;
 		
-		case _VIV_MENU_SLIDESHOW: return LANG_STR_SLIDESHOW_MENU;
-		case VIV_ID_SLIDESHOW_PAUSE: return LANG_STR_PLAY_PAUSE;
-		case _VIV_MENU_SLIDESHOW_RATE: return LANG_STR_RATE;
-		case VIV_ID_SLIDESHOW_RATE_DEC: return LANG_STR_DECREASE_RATE;
-		case VIV_ID_SLIDESHOW_RATE_INC: return LANG_STR_INCREASE_RATE;
-		case VIV_ID_SLIDESHOW_RATE_CUSTOM: return LANG_STR_CUSTOM;
+		case _VIV_MENU_SLIDESHOW: return LOCALIZATION_ID_SLIDESHOW_MENU;
+		case VIV_ID_SLIDESHOW_PAUSE: return LOCALIZATION_ID_PLAY_PAUSE;
+		case _VIV_MENU_SLIDESHOW_RATE: return LOCALIZATION_ID_RATE;
+		case VIV_ID_SLIDESHOW_RATE_DEC: return LOCALIZATION_ID_DECREASE_RATE;
+		case VIV_ID_SLIDESHOW_RATE_INC: return LOCALIZATION_ID_INCREASE_RATE;
+		case VIV_ID_SLIDESHOW_RATE_CUSTOM: return LOCALIZATION_ID_CUSTOM;
 		
-		case _VIV_MENU_ANIMATION: return LANG_STR_ANIMATION;
-		case VIV_ID_ANIMATION_PLAY_PAUSE: return LANG_STR_PLAY_PAUSE;
-		case VIV_ID_ANIMATION_JUMP_FORWARD_MEDIUM: return LANG_STR_JUMP_FORWARD;
-		case VIV_ID_ANIMATION_JUMP_BACKWARD_MEDIUM: return LANG_STR_JUMP_BACKWARD;
-		case VIV_ID_ANIMATION_JUMP_FORWARD_SHORT: return LANG_STR_SHORT_JUMP_FORWARD;
-		case VIV_ID_ANIMATION_JUMP_BACKWARD_SHORT: return LANG_STR_SHORT_JUMP_BACKWARD;
-		case VIV_ID_ANIMATION_JUMP_FORWARD_LONG: return LANG_STR_LONG_JUMP_FORWARD;
-		case VIV_ID_ANIMATION_JUMP_BACKWARD_LONG: return LANG_STR_LONG_JUMP_BACKWARD;
-		case VIV_ID_ANIMATION_FRAME_STEP: return LANG_STR_FRAME_STEP;
-		case VIV_ID_ANIMATION_FRAME_PREV: return LANG_STR_PREVIOUS_FRAME;
-		case VIV_ID_ANIMATION_FRAME_HOME: return LANG_STR_FIRST_FRAME;
-		case VIV_ID_ANIMATION_FRAME_END: return LANG_STR_LAST_FRAME;
-		case VIV_ID_ANIMATION_RATE_DEC: return LANG_STR_DECREASE_RATE_ANIM;
-		case VIV_ID_ANIMATION_RATE_INC: return LANG_STR_INCREASE_RATE_ANIM;
-		case VIV_ID_ANIMATION_RATE_RESET: return LANG_STR_RESET_RATE;
+		case _VIV_MENU_ANIMATION: return LOCALIZATION_ID_ANIMATION;
+		case VIV_ID_ANIMATION_PLAY_PAUSE: return LOCALIZATION_ID_PLAY_PAUSE;
+		case VIV_ID_ANIMATION_JUMP_FORWARD_MEDIUM: return LOCALIZATION_ID_JUMP_FORWARD;
+		case VIV_ID_ANIMATION_JUMP_BACKWARD_MEDIUM: return LOCALIZATION_ID_JUMP_BACKWARD;
+		case VIV_ID_ANIMATION_JUMP_FORWARD_SHORT: return LOCALIZATION_ID_SHORT_JUMP_FORWARD;
+		case VIV_ID_ANIMATION_JUMP_BACKWARD_SHORT: return LOCALIZATION_ID_SHORT_JUMP_BACKWARD;
+		case VIV_ID_ANIMATION_JUMP_FORWARD_LONG: return LOCALIZATION_ID_LONG_JUMP_FORWARD;
+		case VIV_ID_ANIMATION_JUMP_BACKWARD_LONG: return LOCALIZATION_ID_LONG_JUMP_BACKWARD;
+		case VIV_ID_ANIMATION_FRAME_STEP: return LOCALIZATION_ID_FRAME_STEP;
+		case VIV_ID_ANIMATION_FRAME_PREV: return LOCALIZATION_ID_PREVIOUS_FRAME;
+		case VIV_ID_ANIMATION_FRAME_HOME: return LOCALIZATION_ID_FIRST_FRAME;
+		case VIV_ID_ANIMATION_FRAME_END: return LOCALIZATION_ID_LAST_FRAME;
+		case VIV_ID_ANIMATION_RATE_DEC: return LOCALIZATION_ID_DECREASE_RATE_ANIM;
+		case VIV_ID_ANIMATION_RATE_INC: return LOCALIZATION_ID_INCREASE_RATE_ANIM;
+		case VIV_ID_ANIMATION_RATE_RESET: return LOCALIZATION_ID_RESET_RATE;
 		
-		case _VIV_MENU_NAVIGATE: return LANG_STR_NAVIGATE;
-		case VIV_ID_NAV_NEXT: return LANG_STR_NEXT;
-		case VIV_ID_NAV_PREV: return LANG_STR_PREVIOUS;
-		case VIV_ID_NAV_HOME: return LANG_STR_HOME;
-		case VIV_ID_NAV_END: return LANG_STR_END;
-		case _VIV_MENU_NAVIGATE_SORT: return LANG_STR_SORT;
-		case VIV_ID_NAV_SORT_NAME: return LANG_STR_NAME;
-		case VIV_ID_NAV_SORT_FULL_PATH: return LANG_STR_FULL_PATH;
-		case VIV_ID_NAV_SORT_SIZE: return LANG_STR_SIZE;
-		case VIV_ID_NAV_SORT_DATE_MODIFIED: return LANG_STR_DATE_MODIFIED;
-		case VIV_ID_NAV_SORT_DATE_CREATED: return LANG_STR_DATE_CREATED;
-		case VIV_ID_NAV_SORT_ASCENDING: return LANG_STR_ASCENDING;
-		case VIV_ID_NAV_SORT_DESCENDING: return LANG_STR_DESCENDING;
-		case VIV_ID_NAV_SHUFFLE: return LANG_STR_SHUFFLE;
-		case VIV_ID_NAV_JUMPTO: return LANG_STR_JUMP_TO;
+		case _VIV_MENU_NAVIGATE: return LOCALIZATION_ID_NAVIGATE;
+		case VIV_ID_NAV_NEXT: return LOCALIZATION_ID_NEXT;
+		case VIV_ID_NAV_PREV: return LOCALIZATION_ID_PREVIOUS;
+		case VIV_ID_NAV_HOME: return LOCALIZATION_ID_HOME;
+		case VIV_ID_NAV_END: return LOCALIZATION_ID_END;
+		case _VIV_MENU_NAVIGATE_SORT: return LOCALIZATION_ID_SORT;
+		case VIV_ID_NAV_SORT_NAME: return LOCALIZATION_ID_NAME;
+		case VIV_ID_NAV_SORT_FULL_PATH: return LOCALIZATION_ID_FULL_PATH;
+		case VIV_ID_NAV_SORT_SIZE: return LOCALIZATION_ID_SIZE;
+		case VIV_ID_NAV_SORT_DATE_MODIFIED: return LOCALIZATION_ID_DATE_MODIFIED;
+		case VIV_ID_NAV_SORT_DATE_CREATED: return LOCALIZATION_ID_DATE_CREATED;
+		case VIV_ID_NAV_SORT_ASCENDING: return LOCALIZATION_ID_ASCENDING;
+		case VIV_ID_NAV_SORT_DESCENDING: return LOCALIZATION_ID_DESCENDING;
+		case VIV_ID_NAV_SHUFFLE: return LOCALIZATION_ID_SHUFFLE;
+		case VIV_ID_NAV_JUMPTO: return LOCALIZATION_ID_JUMP_TO;
 		
-		case _VIV_MENU_HELP: return LANG_STR_HELP;
-		case VIV_ID_HELP_HELP: return LANG_STR_HELP_MENU;
-		case VIV_ID_HELP_COMMAND_LINE_OPTIONS: return LANG_STR_COMMAND_LINE_OPTIONS;
-		case VIV_ID_HELP_WEBSITE: return LANG_STR_HOME_PAGE;
-		case VIV_ID_HELP_DONATE: return LANG_STR_DONATE;
-		case VIV_ID_HELP_ABOUT: return LANG_STR_ABOUT;
+		case _VIV_MENU_HELP: return LOCALIZATION_ID_HELP;
+		case VIV_ID_HELP_HELP: return LOCALIZATION_ID_HELP_MENU;
+		case VIV_ID_HELP_COMMAND_LINE_OPTIONS: return LOCALIZATION_ID_COMMAND_LINE_OPTIONS;
+		case VIV_ID_HELP_WEBSITE: return LOCALIZATION_ID_HOME_PAGE;
+		case VIV_ID_HELP_DONATE: return LOCALIZATION_ID_DONATE;
+		case VIV_ID_HELP_ABOUT: return LOCALIZATION_ID_ABOUT;
 		
-		default: return -1;
+		default: return LOCALIZATION_ID_INVALID;
 	}
 }
 
@@ -12218,13 +12226,13 @@ static HMENU _viv_create_menu(void)
 			if (!(_viv_commands[i].flags & MF_OWNERDRAW))
 			{
 				wchar_t text_wbuf[STRING_SIZE];
-				int lang_str_id;
+				localization_id_t localization_id;
 				
 				// Try to get localized string, fallback to original name
-				lang_str_id = _viv_command_id_to_lang_str_id(_viv_commands[i].command_id);
-				if (lang_str_id >= 0)
+				localization_id = _viv_command_id_to_localization_id(_viv_commands[i].command_id);
+				if (localization_id != LOCALIZATION_ID_INVALID)
 				{
-					string_copy_utf8(text_wbuf, language_get_string(lang_str_id));
+					string_copy_utf8(text_wbuf, localization_get_string(localization_id));
 				}
 				else
 				{

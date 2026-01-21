@@ -235,9 +235,8 @@ enum
 #include "webp.h"
 #include "small_pool.h"
 #include "safe_size.h"
-#include "language.h"
-
 #include "everything_ipc.h"
+#include "localization.h"
 
 int viv_get_command_count(void);
 int viv_menu_name_to_ini_name(utf8_t *buf,int command_index);
