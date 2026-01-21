@@ -235,6 +235,7 @@ enum
 #include "webp.h"
 #include "small_pool.h"
 #include "safe_size.h"
+#include "language.h"
 
 #include "everything_ipc.h"
 
