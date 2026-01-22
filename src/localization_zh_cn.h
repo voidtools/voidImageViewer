@@ -19,8 +19,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 //
-// Chinese Simplified localization
-// Safe as UTF-8 without BOM.
+// Chinese (Simplified) localization
+// Save as UTF-8 without BOM.
 
 static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] = 
 {

@@ -20,7 +20,7 @@
 // SOFTWARE.
 //
 // English (US) localization
-// Safe as UTF-8 without BOM.
+// Save as UTF-8 without BOM.
 
 static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] = 
 {
