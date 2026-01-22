@@ -23,6 +23,8 @@
 
 #include "viv.h"
 
+static const utf8_t *_string_get_utf8_char(const utf8_t *s,int *pch);
+
 uintptr_t string_length(const wchar_t *text)
 {
 	const wchar_t *p;
@@ -104,7 +106,7 @@ void string_copy_with_bufsize(wchar_t *d,SIZE_T bufsize,const wchar_t *s)
 	*d = 0;
 }
 
-void string_copy_utf8(wchar_t *buf,const utf8_t *s)
+void string_copy_utf8_string(wchar_t *buf,const utf8_t *s)
 {
 	MultiByteToWideChar(CP_UTF8,0,s,-1,buf,STRING_SIZE);
 }
@@ -141,7 +143,7 @@ void string_cat_utf8(wchar_t *buf,const utf8_t *s)
 {
 	wchar_t s_wbuf[STRING_SIZE];
 	
-	string_copy_utf8(s_wbuf,s);
+	string_copy_utf8_string(s_wbuf,s);
 	
 	string_cat(buf,s_wbuf);
 }
@@ -481,7 +483,7 @@ void string_vprintf(wchar_t *wbuf,const char *format,va_list argptr)
 						
 						utf8_string = va_arg(argptr,const utf8_t *);
 						
-						string_copy_utf8(converted_s,utf8_string);
+						string_copy_utf8_string(converted_s,utf8_string);
 						s = converted_s;
 						
 						while(*s)
@@ -514,19 +516,71 @@ void string_vprintf(wchar_t *wbuf,const char *format,va_list argptr)
 					}
 					break;
 			}
+
+			fp++;
 		}
 		else
 		{
+			int ch;
+			
+			fp = _string_get_utf8_char(fp,&ch);
+			
 			if (d < e)
 			{
-				*d++ = *fp;
+				*d++ = ch;
 			}
 		}
-		
-		fp++;
 	}
 	
 	*d = 0;
+}
+
+// read a single character from a utf8 stream.
+// returns the next character in the utf8 stream.
+// sets pch to the read character.
+static const utf8_t *_string_get_utf8_char(const utf8_t *s,int *pch)
+{
+	const utf8_t *p;
+	
+	p = s;
+	
+	if (*p & 0x80)
+	{
+		if (((*p & 0xE0) == 0xC0) && (p[1]))
+		{
+			*pch = ((*p & 0x1f) << 6) | (p[1] & 0x3f);
+
+			p += 2;
+		}
+		else
+		if (((*p & 0xF0) == 0xE0) && (p[1]) && (p[2]))
+		{
+			*pch = ((*p & 0x0f) << 12) | ((p[1] & 0x3f) << 6) | (p[2] & 0x3f);
+
+			p += 3;
+		}
+		else
+		if (((p[0] & 0xF8) == 0xF0)&& (p[1]) && (p[2]) && (p[3]))
+		{
+			*pch = ((*p & 0x07) << 18) | ((p[1] & 0x3f) << 12) | ((p[2] & 0x3f) << 6) | (p[3] & 0x3f);
+
+			p += 4;
+		}
+		else
+		{
+			*pch = 0xffff;
+
+			p++;
+		}
+	}
+	else
+	{
+		*pch = *p;
+		
+		p++;
+	}
+	
+	return p;
 }
 
 void string_printf(wchar_t *wbuf,const char *format,...)
@@ -625,7 +679,7 @@ void string_path_combine_utf8(wchar_t *wbuf,const wchar_t *path,const utf8_t *fi
 {
 	wchar_t subpath[STRING_SIZE];
 	
-	string_copy_utf8(subpath,filename);
+	string_copy_utf8_string(subpath,filename);
 	
 	string_path_combine(wbuf,path,subpath);
 }

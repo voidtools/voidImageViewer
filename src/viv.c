@@ -23,12 +23,9 @@
 
 // TODO:
 // .rc localization
-// fix controls in view options page being 1 pixel too long
-// fix jump-to up/down focus
 // SVG support -Librsvg?
 // GDI/GDI+ is limited to 2GB (wide*high*4), work out a workaround for large images.
 // compile on mingw
-// review jump-to focus
 // Undo option, after delete, undo the delete and re-add the image to the playlist.
 // delete crashes on win9x, might indicate a deeper issue..
 // fix horrible screen buffer mangling by Windows when resizing the window or auto fitting the window.
@@ -90,11 +87,9 @@
 // paste dib from clipboard CF_DIB
 // therube: Just to note...  Something like: voidImageViewer.exe "\my documents" or voidImageViewer.exe "\my documents\"  , will load "images" found in the \my documents\ directory.  Though somethig like: voidImageViewer.exe "\my documents\*" or voidImageViewer.exe "\my documents\*.*"  will load (I suppose it is) ALL images on your computer. voidImageViewer.exe "\my documents\*.jpg" works as expected. 
 // maintain correct image aspect ratio when window is clipped on auto size.
-// if we have a small image 64x64 and zoom right in, the image still fits inside our window -if we then go fullscreen the image is massive, we should check if Fill Window is triggered and disable the zoom in fullscreen mode.
 //
 // DONE:
-// *add UI option for config_title_bar_format. (by hesphoros)
-// *option to show full path like MPC. (by hesphoros)
+// 1.0.0.0
 // *deleting the last image in a playlist does not clear the image.
 // *added xbutton action
 // *dont invalidate when zooming out when we are already zoomed out the most.
@@ -220,7 +215,13 @@
 // 1.0.0.15
 // *fixed _viv_dst_pos_x/_viv_dst_pos_y (doubled offsets to match mpchc)
 // *zooming in AND numpad+6 zooming breaks for largish images. (black bars on scrolling) -pan and zoom was overflowing, set stitch size to 512 to fix.
-// In "1:1" mode, use shortcut keys to move a big picture(larger than the screen resolution), it will stop halfway. Perhaps it has something to do with the movement of the small images? -mpc does the whole image.
+// *In "1:1" mode, use shortcut keys to move a big picture(larger than the screen resolution), it will stop halfway. Perhaps it has something to do with the movement of the small images? -mpc does the whole image.
+// 1.0.0.16
+// *add UI option for config_title_bar_format. (by hesphoros)
+// *option to show full path like MPC. (by hesphoros)
+// *fix controls in view options page being 1 pixel too long
+// *fix jump-to up/down focus
+
 
 #define _VIV_WM_REPLY							(WM_USER+1)
 #define _VIV_WM_RETRY_RANDOM_EVERYTHING_SEARCH	(WM_USER+2)
@@ -633,7 +634,6 @@ static HWND _viv_rebar_hwnd = 0;
 //static HWND _viv_tooltip_hwnd = 0;
 static HIMAGELIST _viv_toolbar_image_list = 0;
 static HANDLE _viv_mutex = 0;
-//static float _viv_animation_rates[] = {0.085899f,0.107374f,0.134218f,0.167772f,0.209715f,0.262144f,0.327680f,0.409600f,0.512000f,0.640000f,0.800000f,1.000000f,1.250000f,1.562500f,1.953125f,2.441406f,3.051758f,3.814697f,4.768372f,5.960464f,7.450581f,9.313226f}; // natural curve.
 static float _viv_animation_rates[] = {0.125000f,0.142857f,0.166667f,0.200000f,0.250000f,0.333333f,0.500000f,0.571429f,0.666667f,0.800000f,1.000000f,1.250000f,1.500000f,1.750000f,2.000000f,3.000000f,4.000000f,5.000000f,6.000000f,7.000000f,8.000000f}; // fixed animation rates
 #define _VIV_ANIMATION_RATE_MAX	(sizeof(_viv_animation_rates) / sizeof(float))
 #define _VIV_ANIMATION_RATE_ONE	10
@@ -699,7 +699,7 @@ static volatile int _viv_load_image_terminate = 0;
 static _viv_reply_t *_viv_reply_start = 0;
 static _viv_reply_t *_viv_reply_last = 0;
 static wchar_t *_viv_status_temp_text = 0;
-static localization_id_t _viv_options_page_localization_id_array[] = {LOCALIZATION_OPTIONS_GENERAL_PAGE,LOCALIZATION_OPTIONS_VIEW_PAGE,LOCALIZATION_OPTIONS_CONTROLS_PAGE};
+static localization_id_t _viv_options_page_localization_id_array[] = {LOCALIZATION_ID_OPTIONS_GENERAL_DIALOG,LOCALIZATION_ID_OPTIONS_VIEW_DIALOG,LOCALIZATION_ID_OPTIONS_CONTROLS_DIALOG};
 static int _viv_options_tab_ids[] = {IDC_TAB1,IDC_TAB2,IDC_TAB3};
 static int _viv_options_dialog_ids[] = {IDD_GENERAL,IDD_VIEW,IDD_CONTROLS};
 #define _VIV_OPTIONS_PAGE_COUNT	(sizeof(_viv_options_dialog_ids) / sizeof(int))
@@ -2321,9 +2321,9 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 
 				string_copy(tobuf,_viv_last_open_file ? _viv_last_open_file : L"");
 				
-				string_printf(filter_wbuf,"%s (*.bmp;*.gif;*.ico;*.jpeg;*.jpg;*.png;*.tif;*.tiff;*.webp)%c*.bmp;*.gif;*.ico;*.jpeg;*.jpg;*.png;*.tif;*.tiff;*.webp%c%s (*.*)%c*.*%c",localization_get_string(LOCALIZATION_OPEN_ALL_IMAGE_FILES),0,0,localization_get_string(LOCALIZATION_OPEN_ALL_FILES),0,0);
+				string_printf(filter_wbuf,"%s (*.bmp;*.gif;*.ico;*.jpeg;*.jpg;*.png;*.tif;*.tiff;*.webp)%c*.bmp;*.gif;*.ico;*.jpeg;*.jpg;*.png;*.tif;*.tiff;*.webp%c%s (*.*)%c*.*%c",localization_get_string(LOCALIZATION_ID_OPEN_ALL_IMAGE_FILES),0,0,localization_get_string(LOCALIZATION_ID_OPEN_ALL_FILES),0,0);
 
-				string_copy_utf8(title_wbuf,localization_get_string(LOCALIZATION_OPEN_IMAGE_CAPTION));
+				string_copy_utf8_string(title_wbuf,localization_get_string(LOCALIZATION_ID_OPEN_IMAGE_CAPTION));
 				
 				ofn.lStructSize = sizeof(OPENFILENAME);
 				ofn.hwndOwner = _viv_hwnd;
@@ -2490,9 +2490,9 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 				
 				string_copy(tobuf,_viv_current_fd->cFileName);
 
-				string_printf(filter_wbuf,"%s (*.*)%c*.*%c",localization_get_string(LOCALIZATION_OPEN_ALL_FILES),0,0);
+				string_printf(filter_wbuf,"%s (*.*)%c*.*%c",localization_get_string(LOCALIZATION_ID_OPEN_ALL_FILES),0,0);
 
-				string_copy_utf8(title_wbuf,localization_get_string(command_id == VIV_ID_EDIT_COPY_TO ? LOCALIZATION_COPY_TO_CAPTION : LOCALIZATION_MOVE_TO_CAPTION));
+				string_copy_utf8_string(title_wbuf,localization_get_string(command_id == VIV_ID_EDIT_COPY_TO ? LOCALIZATION_ID_COPY_TO_CAPTION : LOCALIZATION_ID_MOVE_TO_CAPTION));
 				
 				ofn.lStructSize = sizeof(OPENFILENAME);
 				ofn.hwndOwner = _viv_hwnd;
@@ -3399,11 +3399,11 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 								switch(_viv_commands[command_index].command_id)
 								{
 									case VIV_ID_SLIDESHOW_PAUSE:
-										string_copy_utf8(text_wbuf,localization_get_string(LOCALIZATION_ID_PLAY_PAUSE));
+										string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_PLAY_PAUSE));
 										break;
 										
 									default:
-										string_copy_utf8(text_wbuf,localization_get_string(_viv_commands[command_index].localization_id));
+										string_copy_utf8_string(text_wbuf,localization_get_string(_viv_commands[command_index].localization_id));
 										break;
 										
 								}
@@ -3455,11 +3455,11 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 								switch(_viv_context_menu_items[i])
 								{
 									case _VIV_MENU_SLIDESHOW_RATE:
-										string_copy_utf8(text_wbuf,localization_get_string(LOCALIZATION_ID_RATE));
+										string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_RATE));
 										break;
 								
 									default:
-										string_copy_utf8(text_wbuf,localization_get_string(_viv_commands[command_index].localization_id));
+										string_copy_utf8_string(text_wbuf,localization_get_string(_viv_commands[command_index].localization_id));
 										break;
 								}
 								
@@ -4604,7 +4604,7 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 				_viv_get_exe_filename(exe_filename);
 				GetCurrentDirectory(STRING_SIZE,cwd);
 				
-				string_copy_utf8(params,(const utf8_t *)"/isrunas ");
+				string_copy_utf8_string(params,(const utf8_t *)"/isrunas ");
 				string_cat(params,cl_start);
 				
 				os_shell_execute(0,exe_filename,1,"runas",params);
@@ -7976,7 +7976,7 @@ static INT_PTR CALLBACK _viv_edit_key_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 			_viv_edit_key_set_key(GetDlgItem(hwnd,IDC_EDIT_KEY_EDIT),lParam);
 			_viv_options_edit_key_changed(hwnd);
 			
-			string_printf(caption_wbuf,localization_get_string(lParam ? LOCALIZATION_OPTIONS_EDIT_KEYBOARD_SHORTCUT_CAPTION : LOCALIZATION_OPTIONS_ADD_KEYBOARD_SHORTCUT_CAPTION));
+			string_printf(caption_wbuf,localization_get_string(lParam ? LOCALIZATION_ID_OPTIONS_EDIT_KEYBOARD_SHORTCUT_CAPTION : LOCALIZATION_ID_OPTIONS_ADD_KEYBOARD_SHORTCUT_CAPTION));
 			SetWindowText(hwnd,caption_wbuf);
 			
 			return FALSE;
@@ -8071,23 +8071,23 @@ static INT_PTR CALLBACK _viv_options_controls_proc(HWND hwnd,UINT msg,WPARAM wPa
 	{
 		case WM_INITDIALOG:
 		{
-			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_OPTIONS_ACTION_SCROLL_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_OPTIONS_ACTION_PLAY_PAUSE_SLIDESHOW_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_OPTIONS_ACTION_PLAY_PAUSE_ANIMATION_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_OPTIONS_ACTION_ZOOM_IN_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_OPTIONS_ACTION_NEXT_IMAGE_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_OPTIONS_ACTION_ONE_TO_ONE_SCROLL_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_OPTIONS_ACTION_SCROLL_MOVE_WINDOW_COMBOBOX));
+			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_SCROLL_COMBOBOX));
+			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_PLAY_PAUSE_SLIDESHOW_COMBOBOX));
+			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_PLAY_PAUSE_ANIMATION_COMBOBOX));
+			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_ZOOM_IN_COMBOBOX));
+			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_NEXT_IMAGE_COMBOBOX));
+			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_ONE_TO_ONE_SCROLL_COMBOBOX));
+			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_SCROLL_MOVE_WINDOW_COMBOBOX));
 			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_LEFTCLICKACTION),config_left_click_action);
 			
-			os_ComboBox_AddString(hwnd,IDC_RIGHTCLICKACTION,localization_get_string(LOCALIZATION_OPTIONS_ACTION_CONTEXT_MENU_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_RIGHTCLICKACTION,localization_get_string(LOCALIZATION_OPTIONS_ACTION_ZOOM_OUT_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_RIGHTCLICKACTION,localization_get_string(LOCALIZATION_OPTIONS_ACTION_PREVIOUS_IMAGE_COMBOBOX));
+			os_ComboBox_AddString(hwnd,IDC_RIGHTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_CONTEXT_MENU_COMBOBOX));
+			os_ComboBox_AddString(hwnd,IDC_RIGHTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_ZOOM_OUT_COMBOBOX));
+			os_ComboBox_AddString(hwnd,IDC_RIGHTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_PREVIOUS_IMAGE_COMBOBOX));
 			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_RIGHTCLICKACTION),config_right_click_action);
 			
-			os_ComboBox_AddString(hwnd,IDC_MOUSEWHEELACTION,localization_get_string(LOCALIZATION_OPTIONS_ACTION_ZOOM_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_MOUSEWHEELACTION,localization_get_string(LOCALIZATION_OPTIONS_ACTION_NEXT_PREV_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_MOUSEWHEELACTION,localization_get_string(LOCALIZATION_OPTIONS_ACTION_PREV_NEXT_COMBOBOX));
+			os_ComboBox_AddString(hwnd,IDC_MOUSEWHEELACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_ZOOM_COMBOBOX));
+			os_ComboBox_AddString(hwnd,IDC_MOUSEWHEELACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_NEXT_PREV_COMBOBOX));
+			os_ComboBox_AddString(hwnd,IDC_MOUSEWHEELACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_PREV_NEXT_COMBOBOX));
 			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_MOUSEWHEELACTION),config_mouse_wheel_action);
 			
 			{
@@ -8374,7 +8374,21 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			return 0;
 			
 		case WM_INITDIALOG:
-		{
+
+			// update text.
+			{
+				wchar_t caption_wbuf[STRING_SIZE];
+				
+				string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_OPTIONS_CAPTION));
+				SetWindowText(hwnd,caption_wbuf);
+
+				string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_OK));
+				SetDlgItemText(hwnd,IDOK,caption_wbuf);
+
+				string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_CANCEL));
+				SetDlgItemText(hwnd,IDCANCEL,caption_wbuf);
+			}
+			
 			os_center_dialog(hwnd);
 
 			{
@@ -8389,7 +8403,7 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 					HTREEITEM hitem;
 					wchar_t text_wbuf[STRING_SIZE];
 					
-					string_copy_utf8(text_wbuf,localization_get_string(_viv_options_page_localization_id_array[i]));
+					string_copy_utf8_string(text_wbuf,localization_get_string(_viv_options_page_localization_id_array[i]));
 					
 					// treeview
 					tvitem.hInsertAfter = TVI_LAST;
@@ -8406,7 +8420,7 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 					}
 					
 					// tab
-					string_copy_utf8(text_wbuf,localization_get_string(_viv_options_page_localization_id_array[i]));
+					string_copy_utf8_string(text_wbuf,localization_get_string(_viv_options_page_localization_id_array[i]));
 					
 					tcitem.mask = TCIF_TEXT;
 					tcitem.pszText = text_wbuf;
@@ -8432,7 +8446,6 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			_viv_options_update_sheild(hwnd);
 
 			return TRUE;
-		}
 		
 		case WM_COMMAND:
 		
@@ -8643,16 +8656,16 @@ static void _viv_install_association_by_extension(const char *association,const 
 	wchar_t dot_association[STRING_SIZE];
 	LONG reg_ret;
 	
-	string_copy_utf8(dot_association,(const utf8_t *)".");
+	string_copy_utf8_string(dot_association,(const utf8_t *)".");
 	string_cat_utf8(dot_association,association);
 	
 	// make sure we uninstall old associations first.
 	_viv_uninstall_association_by_extension(association);
 
-	string_copy_utf8(class_name,"voidImageViewer");
+	string_copy_utf8_string(class_name,"voidImageViewer");
 	string_cat(class_name,dot_association);
 
-	string_copy_utf8(default_icon,"SOFTWARE\\Classes\\voidImageViewer");
+	string_copy_utf8_string(default_icon,"SOFTWARE\\Classes\\voidImageViewer");
 	string_cat(default_icon,dot_association);
 	string_cat_utf8(default_icon,"\\DefaultIcon");
 
@@ -8662,7 +8675,7 @@ static void _viv_install_association_by_extension(const char *association,const 
 		{
 			wchar_t icon_location_wbuf[STRING_SIZE];
 			
-			string_copy_utf8(icon_location_wbuf,icon_location);
+			string_copy_utf8_string(icon_location_wbuf,icon_location);
 
 			_viv_set_registry_string(hkey,0,icon_location_wbuf);
 		}
@@ -8683,21 +8696,21 @@ static void _viv_install_association_by_extension(const char *association,const 
 		RegCloseKey(hkey);
 	}	
 		
-	string_copy_utf8(key,"SOFTWARE\\Classes\\");
+	string_copy_utf8_string(key,"SOFTWARE\\Classes\\");
 	string_cat(key,class_name);
 	
 	if (RegCreateKeyExW(HKEY_CURRENT_USER,key,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
 	{
 		wchar_t description_wbuf[STRING_SIZE];
 		
-		string_copy_utf8(description_wbuf,description);
+		string_copy_utf8_string(description_wbuf,description);
 		
 		_viv_set_registry_string(hkey,0,description_wbuf);
 		
 		RegCloseKey(hkey);
 	}		
 	
-	string_copy_utf8(key,"SOFTWARE\\Classes\\");
+	string_copy_utf8_string(key,"SOFTWARE\\Classes\\");
 	string_cat(key,class_name);
 	string_cat_utf8(key,"\\shell\\open\\command");
 	
@@ -8708,7 +8721,7 @@ static void _viv_install_association_by_extension(const char *association,const 
 
 		_viv_get_exe_filename(filename);
 		
-		string_copy_utf8(command,(const utf8_t *)"\"");
+		string_copy_utf8_string(command,(const utf8_t *)"\"");
 		string_cat(command,filename);
 		string_cat_utf8(command,(const utf8_t *)"\" \"%1\"");
 		
@@ -8717,7 +8730,7 @@ static void _viv_install_association_by_extension(const char *association,const 
 		RegCloseKey(hkey);
 	}
 
-	string_copy_utf8(key,"SOFTWARE\\Classes\\");
+	string_copy_utf8_string(key,"SOFTWARE\\Classes\\");
 	string_cat(key,dot_association);
 	
 	reg_ret = RegCreateKeyExW(HKEY_CURRENT_USER,key,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0);
@@ -8751,7 +8764,7 @@ static void _viv_uninstall_association_by_extension(const char *association)
 	HKEY hkey;
 	wchar_t key[STRING_SIZE];
 	
-	string_copy_utf8(key,(const utf8_t *)"SOFTWARE\\Classes\\.");
+	string_copy_utf8_string(key,(const utf8_t *)"SOFTWARE\\Classes\\.");
 	string_cat_utf8(key,association);
 	
 	// debug_printf("query %S\n",key);
@@ -8780,7 +8793,7 @@ static void _viv_uninstall_association_by_extension(const char *association)
 		RegCloseKey(hkey);
 	}
 	
-	string_copy_utf8(key,(const utf8_t *)"SOFTWARE\\Classes\\voidImageViewer.");
+	string_copy_utf8_string(key,(const utf8_t *)"SOFTWARE\\Classes\\voidImageViewer.");
 	string_cat_utf8(key,association);
 	
 	RegDeleteKey(HKEY_CURRENT_USER,key);
@@ -8793,12 +8806,12 @@ static int _viv_is_association(const char *association)
 	wchar_t class_name[STRING_SIZE];
 	wchar_t key[STRING_SIZE];
 	
-	string_copy_utf8(class_name,(const utf8_t *)"voidImageViewer.");
+	string_copy_utf8_string(class_name,(const utf8_t *)"voidImageViewer.");
 	string_cat_utf8(class_name,association);
 	
 	ret = 0;
 
-	string_copy_utf8(key,"SOFTWARE\\Classes\\.");
+	string_copy_utf8_string(key,"SOFTWARE\\Classes\\.");
 	string_cat_utf8(key,association);
 	
 //debug_printf("key %S\n",key);
@@ -8821,7 +8834,7 @@ static int _viv_is_association(const char *association)
 		RegCloseKey(hkey);
 	}
 
-	string_copy_utf8(key,"SOFTWARE\\Classes\\");
+	string_copy_utf8_string(key,"SOFTWARE\\Classes\\");
 	string_cat(key,class_name);
 	string_cat_utf8(key,(const utf8_t *)"\\shell\\open\\command");
 	
@@ -8840,7 +8853,7 @@ static int _viv_is_association(const char *association)
 
 			_viv_get_exe_filename(filename);
 			
-			string_copy_utf8(command,(const utf8_t *)"\"");
+			string_copy_utf8_string(command,(const utf8_t *)"\"");
 			string_cat(command,filename);
 			string_cat_utf8(command,(const utf8_t *)"\" \"%1\"");
 
@@ -8867,7 +8880,7 @@ static int _viv_get_registry_string(HKEY hkey,const utf8_t *value,wchar_t *wbuf,
 	
 	if (value)
 	{
-		string_copy_utf8(value_wbuf,value);
+		string_copy_utf8_string(value_wbuf,value);
 		value_wp = value_wbuf;
 	}
 	else
@@ -8896,7 +8909,7 @@ static int _viv_set_registry_string(HKEY hkey,const utf8_t *value,const wchar_t 
 
 	if (value)
 	{
-		string_copy_utf8(value_wbuf,value);
+		string_copy_utf8_string(value_wbuf,value);
 		value_wp = value_wbuf;
 	}
 	else
@@ -9555,13 +9568,18 @@ static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 
 			os_center_dialog(hwnd);
 
-			os_SetDlgItemText(hwnd,IDC_ABOUTTITLE,(const utf8_t *)"void Image Viewer");
-			os_SetDlgItemText(hwnd,IDC_ABOUTVOIDIMAGEVIEWER,(const utf8_t *)"void Image Viewer");
+			string_copy_utf8_string(version_wbuf,localization_get_string(LOCALIZATION_ID_ABOUT_CAPTION));
+			SetWindowText(hwnd,version_wbuf);
+			os_SetDlgItemText(hwnd,IDC_ABOUTTITLE,localization_get_string(LOCALIZATION_ID_APP_NAME));
+			os_SetDlgItemText(hwnd,IDC_ABOUTVOIDIMAGEVIEWER,localization_get_string(LOCALIZATION_ID_APP_NAME));
 			string_printf(version_wbuf,"%d.%d.%d.%d%s %s",VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD,VERSION_TYPE,VERSION_TARGET_MACHINE);
 			SetDlgItemText(hwnd,IDC_ABOUTVERSION,version_wbuf);
-			os_SetDlgItemText(hwnd,IDC_ABOUTCOPYRIGHT,(const utf8_t *)"Copyright © " VIV_YEAR_STRING(VERSION_YEAR) " David Carpenter");
-			os_SetDlgItemText(hwnd,IDC_ABOUTEMAIL,(const utf8_t *)"david.carpenter@voidtools.com");
-			os_SetDlgItemText(hwnd,IDC_ABOUTWEBSITE,(const utf8_t *)"www.voidtools.com");
+			string_printf(version_wbuf,localization_get_string(LOCALIZATION_ID_ABOUT_COPYRIGHT_FORMAT),VERSION_YEAR);
+			SetDlgItemText(hwnd,IDC_ABOUTCOPYRIGHT,version_wbuf);
+			os_SetDlgItemText(hwnd,IDC_ABOUTEMAIL,localization_get_string(LOCALIZATION_ID_ABOUT_EMAIL));
+			os_SetDlgItemText(hwnd,IDC_ABOUTWEBSITE,localization_get_string(LOCALIZATION_ID_ABOUT_WEBSITE));
+			os_SetDlgItemText(hwnd,IDOK,localization_get_string(LOCALIZATION_ID_OK));
+			os_SetDlgItemText(hwnd,IDCANCEL,localization_get_string(LOCALIZATION_ID_CANCEL));
 			
 			if (!_viv_about_hfont)
 			{
@@ -10763,6 +10781,7 @@ static void _viv_controls_show(int show)
 
 			{
 				TBBUTTON buttons[8];
+				wchar_t button_text[8][STRING_SIZE];
 				int buttoni;
 				
 				buttoni = 0;
@@ -10771,14 +10790,16 @@ static void _viv_controls_show(int show)
 				buttons[buttoni].idCommand = VIV_ID_NAV_PREV;
 				buttons[buttoni].fsState = TBSTATE_ENABLED;
 				buttons[buttoni].fsStyle = TBSTYLE_BUTTON;
-				buttons[buttoni].iString = (INT_PTR)L"Previous Image";
+				string_copy_utf8_string(button_text[buttoni],localization_get_string(LOCALIZATION_ID_TOOLBAR_PREVIOUS_IMAGE_BUTTON));
+				buttons[buttoni].iString = (INT_PTR)button_text[buttoni];
 				buttoni++;
 				
 				buttons[buttoni].iBitmap = 3;
 				buttons[buttoni].idCommand = VIV_ID_NAV_NEXT;
 				buttons[buttoni].fsState = TBSTATE_ENABLED;
 				buttons[buttoni].fsStyle = TBSTYLE_BUTTON;
-				buttons[buttoni].iString = (INT_PTR)L"Next Image";
+				string_copy_utf8_string(button_text[buttoni],localization_get_string(LOCALIZATION_ID_TOOLBAR_NEXT_IMAGE_BUTTON));
+				buttons[buttoni].iString = (INT_PTR)button_text[buttoni];
 				buttoni++;
 	
 				buttons[buttoni].iBitmap = 0;
@@ -10792,14 +10813,16 @@ static void _viv_controls_show(int show)
 				buttons[buttoni].idCommand = VIV_ID_SLIDESHOW_PLAY_ONLY;
 				buttons[buttoni].fsState = TBSTATE_ENABLED;
 				buttons[buttoni].fsStyle = TBSTYLE_BUTTON|TBSTYLE_CHECK|TBSTYLE_GROUP;
-				buttons[buttoni].iString = (INT_PTR)L"Play Slideshow";
+				string_copy_utf8_string(button_text[buttoni],localization_get_string(LOCALIZATION_ID_TOOLBAR_PLAY_SLIDESHOW_BUTTON));
+				buttons[buttoni].iString = (INT_PTR)button_text[buttoni];
 				buttoni++;
 	
 				buttons[buttoni].iBitmap = 2;
 				buttons[buttoni].idCommand = VIV_ID_SLIDESHOW_PAUSE_ONLY;
 				buttons[buttoni].fsState = TBSTATE_ENABLED;
 				buttons[buttoni].fsStyle = TBSTYLE_BUTTON|TBSTYLE_CHECK|TBSTYLE_GROUP;
-				buttons[buttoni].iString = (INT_PTR)L"Pause Slideshow";
+				string_copy_utf8_string(button_text[buttoni],localization_get_string(LOCALIZATION_ID_TOOLBAR_PAUSE_SLIDESHOW_BUTTON));
+				buttons[buttoni].iString = (INT_PTR)button_text[buttoni];
 				buttoni++;
 	
 				buttons[buttoni].iBitmap = 0;
@@ -10813,14 +10836,16 @@ static void _viv_controls_show(int show)
 				buttons[buttoni].idCommand = VIV_ID_VIEW_BESTFIT;
 				buttons[buttoni].fsState = TBSTATE_ENABLED;
 				buttons[buttoni].fsStyle = TBSTYLE_BUTTON;
-				buttons[buttoni].iString = (INT_PTR)L"Best Fit";
+				string_copy_utf8_string(button_text[buttoni],localization_get_string(LOCALIZATION_ID_TOOLBAR_BEST_FIT_BUTTON));
+				buttons[buttoni].iString = (INT_PTR)button_text[buttoni];
 				buttoni++;				
 					
 				buttons[buttoni].iBitmap = 5;
 				buttons[buttoni].idCommand = VIV_ID_VIEW_1TO1;
 				buttons[buttoni].fsState = TBSTATE_ENABLED;
 				buttons[buttoni].fsStyle = TBSTYLE_BUTTON;
-				buttons[buttoni].iString = (INT_PTR)L"Actual Size";
+				string_copy_utf8_string(button_text[buttoni],localization_get_string(LOCALIZATION_ID_TOOLBAR_ACTUAL_SIZE_BUTTON));
+				buttons[buttoni].iString = (INT_PTR)button_text[buttoni];
 				buttoni++;
 					
 				SendMessage(_viv_toolbar_hwnd,TB_ADDBUTTONS,8,(LPARAM)buttons);
@@ -10828,9 +10853,6 @@ static void _viv_controls_show(int show)
 
 			_viv_toolbar_update_buttons();
 			ShowWindow(_viv_toolbar_hwnd,SW_SHOW);
-					
-//			Toolba				
-//			TB_ADDBUTTONS();
 		}
 	}
 	else
@@ -10867,7 +10889,7 @@ static void _viv_status_update(void)
 		wchar_t frame_buf[STRING_SIZE];
 		wchar_t pixel_pos_buf[STRING_SIZE];
 		wchar_t pixel_rgb_buf[STRING_SIZE];
-		const wchar_t *preload_buf;
+		wchar_t preload_buf[STRING_SIZE];
 		HDC hdc;
 		int dimension_wide;
 		int frame_wide;
@@ -10878,7 +10900,7 @@ static void _viv_status_update(void)
 		
 		GetClientRect(_viv_hwnd,&rect);
 		
-		preload_buf = 0;
+		*preload_buf = 0;
 		*pixel_pos_buf = 0;
 		*pixel_rgb_buf = 0;
 		
@@ -10893,7 +10915,7 @@ static void _viv_status_update(void)
 		}
 		else
 		{
-			string_copy_utf8(dimension_buf,(const utf8_t *)"");
+			string_copy_utf8_string(dimension_buf,(const utf8_t *)"");
 		}
 
 		if (*_viv_frame_fd->cFileName)
@@ -10934,7 +10956,7 @@ static void _viv_status_update(void)
 			int frame_pos;
 			string_format_number(highbuf,_viv_frame_count);
 
-			string_copy_utf8(frame_buf,(const utf8_t *)"");
+			string_copy_utf8_string(frame_buf,(const utf8_t *)"");
 			
 			if (config_frame_minus)
 			{
@@ -10954,14 +10976,14 @@ static void _viv_status_update(void)
 		}
 		else
 		{
-			string_copy_utf8(frame_buf,(const utf8_t *)"");
+			string_copy_utf8_string(frame_buf,(const utf8_t *)"");
 		}
 		
 		// this is just noise..
 		
 		if ((_viv_load_is_preload) && (_viv_preload_state == 0) && (!_viv_should_activate_preload_on_load) && (!_viv_load_image_terminate) && (!_viv_preload_frame_loaded_count))
 		{
-			preload_buf = L"PRELOAD";
+			string_copy_utf8_string(preload_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_PRELOAD));
 		}
 
 		if (config_pixel_info)
@@ -11016,7 +11038,7 @@ static void _viv_status_update(void)
 					}
 				}
 
-				if (preload_buf)
+				if (*preload_buf)
 				{
 					if (GetTextExtentPoint32(hdc,preload_buf,string_length(preload_buf),&size))
 					{
@@ -11063,7 +11085,7 @@ static void _viv_status_update(void)
 			}
 			parti++;
 		
-			if (preload_buf)
+			if (*preload_buf)
 			{
 				part_wide += preload_wide;
 				part_array[parti] = part_wide;
@@ -11096,6 +11118,7 @@ static void _viv_status_update(void)
 
 		{
 			wchar_t *text;
+			wchar_t text_buf[STRING_SIZE];
 			
 			text =  L"";
 			
@@ -11105,23 +11128,27 @@ static void _viv_status_update(void)
 			}
 			else
 			if ((_viv_load_image_thread) && ((!_viv_load_is_preload) || (_viv_should_activate_preload_on_load)))
-			{	
-				text =  L"Loading...";
+			{
+				string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_LOADING));
+				text = text_buf;
 			}
 			else
 			if (_viv_file_not_found)
 			{
-				text = L"File not found.";
+				string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_FILE_NOT_FOUND));
+				text = text_buf;
 			}
 			else
 			if (_viv_load_failed)
 			{
-				text = L"Failed to load image.";
+				string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_FAILED_TO_LOAD_IMAGE));
+				text = text_buf;
 			}
 			else
 			if (_viv_is_slideshow)
 			{
-				text =  L"Slideshow playing";
+				string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_SLIDESHOW_PLAYING));
+				text = text_buf;
 			}
 		
 			_viv_status_set(0,text);
@@ -11132,7 +11159,7 @@ static void _viv_status_update(void)
 			
 			parti = 1;
 			
-			if (preload_buf)
+			if (*preload_buf)
 			{
 				_viv_status_set(parti,preload_buf);
 				parti++;
@@ -11533,7 +11560,7 @@ static void _viv_status_update_temp_pos_zoom(void)
 		y += 0.0005;
 	}
 
-	string_printf(wbuf,"Pos %0.3f %0.3f, Zoom %0.3f %0.3f, Aspect Ratio %0.3f",x,y,(float)_viv_dst_zoom_values[_viv_dst_zoom_x_pos],(float)_viv_dst_zoom_values[_viv_dst_zoom_y_pos],(_viv_dst_zoom_values[_viv_dst_zoom_x_pos] * (float)_viv_image_wide) / (_viv_dst_zoom_values[_viv_dst_zoom_y_pos] * (float)_viv_image_high));
+	string_printf(wbuf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT),x,y,(float)_viv_dst_zoom_values[_viv_dst_zoom_x_pos],(float)_viv_dst_zoom_values[_viv_dst_zoom_y_pos],(_viv_dst_zoom_values[_viv_dst_zoom_x_pos] * (float)_viv_image_wide) / (_viv_dst_zoom_values[_viv_dst_zoom_y_pos] * (float)_viv_image_high));
 			
 	_viv_status_set_temp_text(wbuf);
 }
@@ -11542,7 +11569,7 @@ static void _viv_status_update_temp_animation_rate(void)
 {
 	wchar_t wbuf[STRING_SIZE];
 
-	string_printf(wbuf,"Animation rate %0.3f",_viv_animation_rates[_viv_animation_rate_pos]);
+	string_printf(wbuf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_ANIMATION_RATE_FORMAT),_viv_animation_rates[_viv_animation_rate_pos]);
 			
 	_viv_status_set_temp_text(wbuf);
 }
@@ -11572,33 +11599,27 @@ static void _viv_zoom_in(int out,int have_xy,int x,int y)
 static void _viv_status_update_slideshow_rate(void)
 {
 	wchar_t wbuf[STRING_SIZE];
-	const wchar_t *res;
+	const utf8_t *res;
 	int r;
 	
-	if ((config_slideshow_rate / 3600000) && ((config_slideshow_rate % 3600000) == 0))
-	{
-		r = config_slideshow_rate / 3600000;
-		res = L"hours";
-	}
-	else
 	if ((config_slideshow_rate / 60000) && ((config_slideshow_rate % 60000) == 0))
 	{
 		r = config_slideshow_rate / 60000;
-		res = L"minutes";
+		res = localization_get_string(LOCALIZATION_ID_STATUS_BAR_MINUTES);
 	}
 	else
 	if ((config_slideshow_rate / 1000) && ((config_slideshow_rate % 1000) == 0))
 	{
 		r = config_slideshow_rate / 1000;
-		res = L"seconds";
+		res = localization_get_string(LOCALIZATION_ID_STATUS_BAR_SECONDS);
 	}
 	else
 	{
 		r = config_slideshow_rate;
-		res = L"milliseconds";
+		res = localization_get_string(LOCALIZATION_ID_STATUS_BAR_MILLISECONDS);
 	}
 	
-	string_printf(wbuf,"Slideshow rate %d %S",r,res);
+	string_printf(wbuf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_SLIDESHOW_RATE_FORMAT),r,res);
 	
 	_viv_status_set_temp_text(wbuf);
 }
@@ -11607,7 +11628,7 @@ static void _viv_command_line_options(void)
 {
 	wchar_t *text_wbuf;
 	wchar_t caption_wbuf[STRING_SIZE];
-	
+
 	text_wbuf = string_alloc_utf8("Usage:\nvoidImageViewer.exe [/switches] [filename(s)]\n"
 		"\n"
 		"Switches:\n"
@@ -11643,7 +11664,7 @@ static void _viv_command_line_options(void)
 		"/install-options <...> Run with the specified options after installation.\n"
 		"/uninstall <path>\tUninstall from the specified path.\n");
 		
-	string_copy_utf8(caption_wbuf,"void Image Viewer");
+	string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_APP_NAME));
 
 	// MB_ICONQUESTION avoids the messagebeep.
 	MessageBox(_viv_hwnd,
@@ -11928,7 +11949,7 @@ static void _viv_get_menu_display_name(wchar_t *buf,const utf8_t *menu_name)
 	wchar_t *d;
 	const wchar_t *p;
 
-	string_copy_utf8(buf,menu_name);
+	string_copy_utf8_string(buf,menu_name);
 	
 	d = buf;
 	p = buf;
@@ -12026,7 +12047,7 @@ static void _viv_cat_key_mod(wchar_t *wbuf,int vk,const utf8_t *default_keytext)
 	
 	if (!_viv_vk_to_text(keytext,vk))
 	{
-		string_copy_utf8(keytext,default_keytext);
+		string_copy_utf8_string(keytext,default_keytext);
 	}
 	
 	string_cat(wbuf,keytext);
@@ -12088,7 +12109,7 @@ static HMENU _viv_create_menu(void)
 				{
 					wchar_t text_wbuf[STRING_SIZE];
 					
-					string_copy_utf8(text_wbuf,localization_get_string(_viv_commands[i].localization_id));
+					string_copy_utf8_string(text_wbuf,localization_get_string(_viv_commands[i].localization_id));
 
 					if (_viv_commands[i].flags & MF_POPUP)
 					{
@@ -12967,6 +12988,7 @@ static void _viv_show_jumpto(void)
 								case VK_NEXT:
 								case VK_PRIOR:
 									
+									/*
 									
 									{
 										int count;
@@ -12999,8 +13021,9 @@ static void _viv_show_jumpto(void)
 
 										SetFocus(GetDlgItem(dialog_hwnd,IDC_JUMPTO_LIST));					
 									}
+									*/
 									
-//									SendMessage(GetDlgItem(dialog_hwnd,IDC_JUMPTO_LIST),msg.message,msg.wParam,msg.lParam);
+									SendMessage(GetDlgItem(dialog_hwnd,IDC_JUMPTO_LIST),msg.message,msg.wParam,msg.lParam);
 
 									//SetFocus(GetDlgItem(dialog_hwnd,IDC_JUMPTO_LIST));					
 									
@@ -13084,7 +13107,7 @@ static INT_PTR CALLBACK _viv_search_everything_proc(HWND hwnd,UINT msg,WPARAM wP
 			
 			SetWindowLongPtr(hwnd,GWLP_USERDATA,lParam);
 			
-			string_copy_utf8(caption_wbuf,lParam ? "Add Everything Search" : "Load Everything Search");
+			string_copy_utf8_string(caption_wbuf,lParam ? "Add Everything Search" : "Load Everything Search");
 			SetWindowText(hwnd,caption_wbuf);
 			
 			return TRUE;
@@ -13167,7 +13190,7 @@ static int _viv_send_everything_search(HWND hwnd,int add,int randomize,const wch
 			DWORD size;
 			wchar_t new_search[STRING_SIZE];
 			
-			string_copy_utf8(new_search,"ext:bmp;gif;ico;jpeg;jpg;png;tif;tiff;webp <");
+			string_copy_utf8_string(new_search,"ext:bmp;gif;ico;jpeg;jpg;png;tif;tiff;webp <");
 			string_cat(new_search,search);
 			string_cat_utf8(new_search,">");
 
@@ -13219,7 +13242,7 @@ static int _viv_send_everything_search(HWND hwnd,int add,int randomize,const wch
 			
 			text_wbuf = string_alloc_utf8(localization_get_string(LOCALIZATION_ID_EVERYTHING_NOT_AVAILABLE_MESSAGE));
 				
-			string_copy_utf8(caption_wbuf,localization_get_string(LOCALIZATION_ID_APP_NAME));
+			string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_APP_NAME));
 
 			// MB_ICONQUESTION avoids the messagebeep.
 			MessageBox(hwnd,text_wbuf,caption_wbuf,MB_OK|MB_ICONERROR);
@@ -13630,7 +13653,7 @@ static void _viv_send_random_everything_search(void)
 		DWORD size;
 		wchar_t new_search[STRING_SIZE];
 		
-		string_copy_utf8(new_search,"ext:bmp;gif;ico;jpeg;jpg;png;tif;tiff;webp <");
+		string_copy_utf8_string(new_search,"ext:bmp;gif;ico;jpeg;jpg;png;tif;tiff;webp <");
 		string_cat(new_search,_viv_random);
 		string_cat_utf8(new_search,">");
 

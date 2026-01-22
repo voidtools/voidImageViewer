@@ -638,7 +638,7 @@ int os_ComboBox_AddString(HWND hwnd,int id,const utf8_t *s)
 {
 	wchar_t wbuf[STRING_SIZE];
 	
-	string_copy_utf8(wbuf,s);
+	string_copy_utf8_string(wbuf,s);
 	
 	return ComboBox_AddString(GetDlgItem(hwnd,id),wbuf);
 }
@@ -647,7 +647,7 @@ void os_SetDlgItemText(HWND hwnd,int id,const utf8_t *s)
 {	
 	wchar_t wbuf[STRING_SIZE];
 	
-	string_copy_utf8(wbuf,s);
+	string_copy_utf8_string(wbuf,s);
 	
 	SetDlgItemText(hwnd,id,wbuf);
 }
@@ -657,8 +657,8 @@ HWND os_CreateWindowEx(DWORD dwExStyle,const utf8_t *lpClassName,const utf8_t *l
 	wchar_t lpClassName_wbuf[STRING_SIZE];
 	wchar_t lpWindowName_wbuf[STRING_SIZE];
 	
-	string_copy_utf8(lpClassName_wbuf,lpClassName);
-	string_copy_utf8(lpWindowName_wbuf,lpWindowName);
+	string_copy_utf8_string(lpClassName_wbuf,lpClassName);
+	string_copy_utf8_string(lpWindowName_wbuf,lpWindowName);
 	
 	return CreateWindowEx(
 		dwExStyle,
@@ -674,7 +674,7 @@ void os_RegisterClassEx(UINT style,WNDPROC lpfnWndProc,HICON hIcon,HCURSOR hCurs
 	WNDCLASSEXW wcex;
 	wchar_t name_wbuf[STRING_SIZE];
 	
-	string_copy_utf8(name_wbuf,name);
+	string_copy_utf8_string(name_wbuf,name);
 
 	// Initialize global strings
 	os_zero_memory(&wcex,sizeof(WNDCLASSEXW));
@@ -1081,7 +1081,7 @@ int os_shell_execute(HWND hwnd,const wchar_t *filename,int wait,const char *verb
 		
 		if (verb)
 		{
-			string_copy_utf8(verb_wbuf,verb);
+			string_copy_utf8_string(verb_wbuf,verb);
 			pverb = verb_wbuf;
 		}
 		else
