@@ -1255,7 +1255,7 @@
       <TargetEnvironment>X64</TargetEnvironment>
     </Midl>
     <ClCompile>
-      <AdditionalOptions>/MP %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/MP /utf-8 %(AdditionalOptions)</AdditionalOptions>
       <Optimization>MaxSpeed</Optimization>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -1442,7 +1442,7 @@
       <TargetEnvironment>X64</TargetEnvironment>
     </Midl>
     <ClCompile>
-      <AdditionalOptions>/MP %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/MP /utf-8 %(AdditionalOptions)</AdditionalOptions>
       <Optimization>MaxSpeed</Optimization>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -1615,14 +1615,9 @@
     <ClCompile Include="..\src\config.c" />
     <ClCompile Include="..\src\debug.c" />
     <ClCompile Include="..\src\ini.c" />
-    <ClCompile Include="..\src\language.c" />
+    <ClCompile Include="..\src\localization.c" />
     <ClCompile Include="..\src\mem.c" />
     <ClCompile Include="..\src\os.c" />
-    <ClCompile Include="..\src\render.c" />
-    <ClCompile Include="..\src\render_d3d.c" />
-    <ClCompile Include="..\src\render_gdi.c" />
-    <ClCompile Include="..\src\render_opengl.c" />
-    <ClCompile Include="..\src\render_software.c" />
     <ClCompile Include="..\src\safe_size.c" />
     <ClCompile Include="..\src\small_pool.c" />
     <ClCompile Include="..\src\string.c" />
@@ -1669,7 +1664,9 @@
     <ClInclude Include="..\src\debug.h" />
     <ClInclude Include="..\src\everything_ipc.h" />
     <ClInclude Include="..\src\ini.h" />
-    <ClInclude Include="..\src\language.h" />
+    <ClInclude Include="..\src\localization.h" />
+    <ClInclude Include="..\src\localization_en_us.h" />
+    <ClInclude Include="..\src\localization_zh_cn.h" />
     <ClInclude Include="..\src\mem.h" />
     <ClInclude Include="..\src\os.h" />
     <ClInclude Include="..\src\render.h" />
