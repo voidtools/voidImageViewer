@@ -55,7 +55,7 @@
 				AdditionalOptions="/MP"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\libwebp"
-				PreprocessorDefinitions="BZ_NO_STDIO;VERSION_DEBUG;BZ_NO_STDIO"
+				PreprocessorDefinitions="BZ_NO_STDIO;VERSION_DEBUG;BZ_NO_STDIO;VERSION_X86"
 				MinimalRebuild="false"
 				ExceptionHandling="2"
 				RuntimeLibrary="1"
@@ -344,7 +344,7 @@
 				OmitFramePointers="false"
 				WholeProgramOptimization="true"
 				AdditionalIncludeDirectories="..\libwebp"
-				PreprocessorDefinitions="BZ_NO_STDIO;VERSION_BETA;BZ_NO_STDIO"
+				PreprocessorDefinitions="BZ_NO_STDIO;VERSION_BETA;BZ_NO_STDIO;VERSION_X86"
 				StringPooling="true"
 				MinimalRebuild="false"
 				RuntimeLibrary="0"
@@ -1932,6 +1932,22 @@
 				>
 			</File>
 			<File
+				RelativePath="..\src\localization.c"
+				>
+			</File>
+			<File
+				RelativePath="..\src\localization.h"
+				>
+			</File>
+			<File
+				RelativePath="..\src\localization_en_us.h"
+				>
+			</File>
+			<File
+				RelativePath="..\src\localization_zh_cn.h"
+				>
+			</File>
+			<File
 				RelativePath="..\src\mem.c"
 				>
 			</File>
@@ -1945,46 +1961,6 @@
 			</File>
 			<File
 				RelativePath="..\src\os.h"
-				>
-			</File>
-			<File
-				RelativePath="..\src\render.c"
-				>
-			</File>
-			<File
-				RelativePath="..\src\render.h"
-				>
-			</File>
-			<File
-				RelativePath="..\src\render_d3d.c"
-				>
-			</File>
-			<File
-				RelativePath="..\src\render_d3d.h"
-				>
-			</File>
-			<File
-				RelativePath="..\src\render_gdi.c"
-				>
-			</File>
-			<File
-				RelativePath="..\src\render_gdi.h"
-				>
-			</File>
-			<File
-				RelativePath="..\src\render_opengl.c"
-				>
-			</File>
-			<File
-				RelativePath="..\src\render_opengl.h"
-				>
-			</File>
-			<File
-				RelativePath="..\src\render_software.c"
-				>
-			</File>
-			<File
-				RelativePath="..\src\render_software.h"
 				>
 			</File>
 			<File
@@ -2184,34 +2160,6 @@
 				</File>
 				<File
 					RelativePath="..\libwebp\src\dsp\dsp.h"
-					>
-				</File>
-				<File
-					RelativePath="..\libwebp\src\dsp\enc.c"
-					>
-				</File>
-				<File
-					RelativePath="..\libwebp\src\dsp\enc_mips32.c"
-					>
-				</File>
-				<File
-					RelativePath="..\libwebp\src\dsp\enc_mips_dsp_r2.c"
-					>
-				</File>
-				<File
-					RelativePath="..\libwebp\src\dsp\enc_msa.c"
-					>
-				</File>
-				<File
-					RelativePath="..\libwebp\src\dsp\enc_neon.c"
-					>
-				</File>
-				<File
-					RelativePath="..\libwebp\src\dsp\enc_sse2.c"
-					>
-				</File>
-				<File
-					RelativePath="..\libwebp\src\dsp\enc_sse41.c"
 					>
 				</File>
 				<File
@@ -2592,10 +2540,6 @@
 				</File>
 			</Filter>
 		</Filter>
-		<File
-			RelativePath="..\res\resource"
-			>
-		</File>
 	</Files>
 	<Globals>
 	</Globals>
