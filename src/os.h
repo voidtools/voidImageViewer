@@ -119,7 +119,8 @@ extern BOOL (STDAPICALLTYPE *os_IsUserAnAdmin)(void);
 extern HRESULT (__stdcall *os_EnableThemeDialogTexture)(HWND hwnd, DWORD dwFlags);
 extern BOOL (WINAPI *os_ChangeWindowMessageFilterEx)(HWND hWnd,UINT message,DWORD action,void *pChangeFilterStruct);
 extern DWORD (WINAPI *os_GetLayout)(HDC hdc);
-extern EXECUTION_STATE (WINAPI *_os_SetThreadExecutionState)(  EXECUTION_STATE esFlags);
+extern EXECUTION_STATE (WINAPI *os_SetThreadExecutionState)(  EXECUTION_STATE esFlags);
+extern LANGID (WINAPI *os_GetUserDefaultUILanguage)(void);
 extern int os_logical_wide;
 extern int os_logical_high;
 

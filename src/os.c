@@ -115,7 +115,8 @@ BOOL (WINAPI *_os_SetDllDirectoryW)(LPCTSTR lpPathName) = 0;
 BOOL (WINAPI *_os_SetDefaultDllDirectories)(DWORD DirectoryFlags) = 0;
 BOOL (WINAPI *os_GetFileAttributesExW)(LPCWSTR lpFileName,GET_FILEEX_INFO_LEVELS fInfoLevelId,LPVOID lpFileInformation) = NULL;
 BOOL (WINAPI *_os_IsDebuggerPresent)(void) = 0;
-EXECUTION_STATE (WINAPI *_os_SetThreadExecutionState)(  EXECUTION_STATE esFlags) = NULL;
+EXECUTION_STATE (WINAPI *os_SetThreadExecutionState)(  EXECUTION_STATE esFlags) = NULL;
+LANGID (WINAPI *os_GetUserDefaultUILanguage)(void) = NULL;
 HRESULT (WINAPI *os_SHOpenFolderAndSelectItems)(LPCITEMIDLIST pidlFolder,UINT cidl,LPCITEMIDLIST *apidl,DWORD dwFlags) = 0;
 int (WINAPI *os_GdiplusStartup)(OUT ULONG_PTR *token,const os_GdiplusStartupInput_t *input,void *output) = 0;
 VOID (WINAPI *os_GdiplusShutdown)(ULONG_PTR token) = 0;
@@ -273,17 +274,18 @@ void os_MonitorRectFromWindow(HWND hwnd,int is_fullscreen,RECT *out_monitor_rect
 	{
 		if (is_fullscreen)
 		{
-			// full screen
+			// full screen (which is the client area...)
 			out_monitor_rect->left = 0;
 			out_monitor_rect->top = 0;
-			out_monitor_rect->right = GetSystemMetrics(SM_CXFULLSCREEN);
-			out_monitor_rect->bottom = GetSystemMetrics(SM_CYFULLSCREEN);
+			out_monitor_rect->right = GetSystemMetrics(SM_CXSCREEN);
+			out_monitor_rect->bottom = GetSystemMetrics(SM_CYSCREEN);
 		}
 		else
 		{
 			// work area
 			SystemParametersInfo(SPI_GETWORKAREA,0,(PVOID)out_monitor_rect,0);
 		}
+debug_printf("FULLSCREEN %d %d %d\n",is_fullscreen,out_monitor_rect->right,out_monitor_rect->bottom)	;
 	}
 }
 
@@ -318,10 +320,12 @@ void os_MonitorRectFromRect(RECT *window_rect,int is_fullscreen,RECT *out_monito
 		if (is_fullscreen)
 		{
 			// full screen
+			// use SM_CXSCREEN for full screen.
+			// SM_CXFULLSCREEN is the client area...
 			out_monitor_rect->left = 0;
 			out_monitor_rect->top = 0;
-			out_monitor_rect->right = GetSystemMetrics(SM_CXFULLSCREEN);
-			out_monitor_rect->bottom = GetSystemMetrics(SM_CYFULLSCREEN);
+			out_monitor_rect->right = GetSystemMetrics(SM_CXSCREEN);
+			out_monitor_rect->bottom = GetSystemMetrics(SM_CYSCREEN);
 		}
 		else
 		{
@@ -366,10 +370,12 @@ void os_MonitorRectFromCursor(int is_fullscreen,RECT *out_monitor_rect)
 		if (is_fullscreen)
 		{
 			// full screen
+			// use SM_CXSCREEN for full screen.
+			// SM_CXFULLSCREEN is the client area...
 			out_monitor_rect->left = 0;
 			out_monitor_rect->top = 0;
-			out_monitor_rect->right = GetSystemMetrics(SM_CXFULLSCREEN);
-			out_monitor_rect->bottom = GetSystemMetrics(SM_CYFULLSCREEN);
+			out_monitor_rect->right = GetSystemMetrics(SM_CXSCREEN);
+			out_monitor_rect->bottom = GetSystemMetrics(SM_CYSCREEN);
 		}
 		else
 		{
@@ -797,7 +803,8 @@ void os_init(void)
 		_os_SetDefaultDllDirectories = (void *)GetProcAddress(kernel32_hmodule,"SetDefaultDllDirectories");
 		os_GetFileAttributesExW = (void *)GetProcAddress(kernel32_hmodule,"GetFileAttributesExW");
 		_os_IsDebuggerPresent = (void *)GetProcAddress(kernel32_hmodule,"IsDebuggerPresent");
-		_os_SetThreadExecutionState = (void *)GetProcAddress(kernel32_hmodule,"SetThreadExecutionState");
+		os_SetThreadExecutionState = (void *)GetProcAddress(kernel32_hmodule,"SetThreadExecutionState");
+		os_GetUserDefaultUILanguage = (void *)GetProcAddress(kernel32_hmodule,"GetUserDefaultUILanguage");
 	}
 
 	// system dlls only.

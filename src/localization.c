@@ -54,21 +54,20 @@ const utf8_t *localization_get_en_us_string(localization_id_t localization_id)
 
 void localization_init(void)
 {
-	LANGID langid;
-	
 	// Detect system language
-	langid = GetUserDefaultUILanguage();
+	if (os_GetUserDefaultUILanguage)
+	{
+		LANGID langid;
 	
-	// Check if it's Chinese (Simplified or Traditional)
-	// 0x0804 = Chinese (Simplified, PRC)
-	// 0x0404 = Chinese (Traditional, Taiwan)
-	// 0x0C04 = Chinese (Traditional, Hong Kong)
-	if ((langid == 0x0804) || (langid == 0x0404) || (langid == 0x0C04))
-	{
-		localization_language = LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED;
-	}
-	else
-	{
-		localization_language = LOCALIZATION_LANGUAGE_ENGLISH;
+		langid = os_GetUserDefaultUILanguage();
+
+		// Check if it's Chinese (Simplified or Traditional)
+		// 0x0804 = Chinese (Simplified, PRC)
+		// 0x0404 = Chinese (Traditional, Taiwan)
+		// 0x0C04 = Chinese (Traditional, Hong Kong)
+		if ((langid == 0x0804) || (langid == 0x0404) || (langid == 0x0C04))
+		{
+			localization_language = LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED;
+		}
 	}
 }

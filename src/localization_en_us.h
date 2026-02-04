@@ -220,6 +220,8 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Check &None", // LOCALIZATION_ID_CHECK_NONE,
 	"&Shrink blit mode:", // LOCALIZATION_ID_SHRINK_BLIT_MODE,
 	"&Magnify blit mode:", // LOCALIZATION_ID_MAGNIFY_BLIT_MODE,
+	"Nearest", // LOCALIZATION_ID_BLIT_MODE_NEAREST,
+	"Linear", // LOCALIZATION_ID_BLIT_MODE_LINEAR,
 	"Auto si&ze window:", // LOCALIZATION_ID_AUTO_SIZE_WINDOW,
 	"&Play animations at least once in slideshow", // LOCALIZATION_ID_PLAY_ANIMATIONS_ONCE,
 	"Preload &next image", // LOCALIZATION_ID_PRELOAD_NEXT_IMAGE,
@@ -250,6 +252,17 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	
 	// Everything
 	"Everything not available", // LOCALIZATION_ID_EVERYTHING_NOT_AVAILABLE_MESSAGE,
+
+	// Association descriptions
+	"Bitmap Image",
+	"Animated GIF Image",
+	"Icon File",
+	"JPEG Image",
+	"JPEG Image",
+	"PNG Image",
+	"TIFF Image",
+	"TIFF Image",
+	"WebP Image",
 	
 	// Open
 	"Open Image", // LOCALIZATION_ID_OPEN_IMAGE_CAPTION,

@@ -22,6 +22,8 @@
 // VoidImageViewer
 
 // TODO:
+// option to not reset the zoom when the image changes.?
+// use the sort order from Windows Explorer, from where the images was opened. -do we need another sort option (use default) or (use Windows Explorer sort)
 // .rc localization
 // SVG support -Librsvg?
 // GDI/GDI+ is limited to 2GB (wide*high*4), work out a workaround for large images.
@@ -249,7 +251,11 @@
 		#ifdef VERSION_ARM64
 			#define VERSION_TARGET_MACHINE "(ARM64)"
 		#else
-			#define VERSION_TARGET_MACHINE "(x86)"
+			#ifdef VERSION_X86
+				#define VERSION_TARGET_MACHINE "(x86)"
+			#else
+				#error unknown target machine.
+			#endif
 		#endif
 	#endif
 #endif
@@ -1107,17 +1113,18 @@ const char *_viv_association_extensions[] =
 	"webp",
 };
 
-const char *_viv_association_descriptions[] = 
+// registry description.
+const localization_id_t _viv_association_description_localization_id_array[] = 
 {
-	"Bitmap Image",
-	"Animated GIF Image",
-	"Icon File",
-	"JPEG Image",
-	"JPEG Image",
-	"PNG Image",
-	"TIFF Image",
-	"TIFF Image",
-	"WebP Image",
+	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_BMP,
+	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_GIF,
+	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_ICO,
+	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_JPEG,
+	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_JPG,
+	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_PNG,
+	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_TIF,
+	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_TIFF,
+	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_WEBP,
 };
 
 const char *_viv_association_icon_locations[] = 
@@ -1148,8 +1155,9 @@ const WORD _viv_association_dlg_item_id[] =
 
 #define _VIV_ASSOCIATION_COUNT	(sizeof(_viv_association_extensions) / sizeof(const wchar_t *))
 
+#ifdef VERSION_X86
+
 // load unicode for windows 95/98
-// TODO: do this for x86 only
 HMODULE LoadUnicowsProc(void);
 
 extern FARPROC _PfnLoadUnicows = (FARPROC) &LoadUnicowsProc;
@@ -1171,6 +1179,8 @@ HMODULE LoadUnicowsProc(void)
 	
 	return NULL;
 }
+
+#endif
 
 static void _viv_update_title(void)
 {
@@ -8178,8 +8188,11 @@ static INT_PTR CALLBACK _viv_options_view_proc(HWND hwnd,UINT msg,WPARAM wParam,
 	{
 		case WM_INITDIALOG:
 			
-			os_ComboBox_AddString(hwnd,IDC_COMBO1,(const utf8_t *)"COLORONCOLOR (Performance)");
-			os_ComboBox_AddString(hwnd,IDC_COMBO1,(const utf8_t *)"HALFTONE (Quality)");
+			os_SetDlgItemText(hwnd,IDC_SHRINK_BLIT_MODE_STATIC,localization_get_string(LOCALIZATION_ID_SHRINK_BLIT_MODE));
+			os_SetDlgItemText(hwnd,IDC_MAGNIFY_BLIT_MODE_STATIC,localization_get_string(LOCALIZATION_ID_MAGNIFY_BLIT_MODE));
+			
+			os_ComboBox_AddString(hwnd,IDC_COMBO1,localization_get_string(LOCALIZATION_ID_BLIT_MODE_NEAREST));
+			os_ComboBox_AddString(hwnd,IDC_COMBO1,localization_get_string(LOCALIZATION_ID_BLIT_MODE_LINEAR));
 			
 			if (config_shrink_blit_mode == CONFIG_SHRINK_BLIT_MODE_HALFTONE)
 			{
@@ -8190,8 +8203,8 @@ static INT_PTR CALLBACK _viv_options_view_proc(HWND hwnd,UINT msg,WPARAM wParam,
 				ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_COMBO1),0);
 			}
 
-			os_ComboBox_AddString(hwnd,IDC_COMBO2,(const utf8_t *)"COLORONCOLOR (Performance)");
-			os_ComboBox_AddString(hwnd,IDC_COMBO2,(const utf8_t *)"HALFTONE (Quality)");
+			os_ComboBox_AddString(hwnd,IDC_COMBO2,localization_get_string(LOCALIZATION_ID_BLIT_MODE_NEAREST));
+			os_ComboBox_AddString(hwnd,IDC_COMBO2,localization_get_string(LOCALIZATION_ID_BLIT_MODE_LINEAR));
 			
 			if (config_mag_filter == CONFIG_MAG_FILTER_HALFTONE)
 			{
@@ -8516,7 +8529,7 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 							{
 								if (!_viv_is_association(_viv_association_extensions[exti]))
 								{
-									_viv_install_association_by_extension(_viv_association_extensions[exti],_viv_association_descriptions[exti],_viv_association_icon_locations[exti]);
+									_viv_install_association_by_extension(_viv_association_extensions[exti],localization_get_string(_viv_association_description_localization_id_array[exti]),_viv_association_icon_locations[exti]);
 								}
 							}
 							else 
@@ -9748,9 +9761,9 @@ static void _viv_update_prevent_sleep(void)
 	// _is_prevent_sleep changed?
 	if (!!_viv_is_prevent_sleep != !!_is_prevent_sleep)
 	{
-		if (_os_SetThreadExecutionState)
+		if (os_SetThreadExecutionState)
 		{	
-			_os_SetThreadExecutionState(_is_prevent_sleep ? (ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED) : ES_CONTINUOUS);
+			os_SetThreadExecutionState(_is_prevent_sleep ? (ES_CONTINUOUS | ES_DISPLAY_REQUIRED | ES_SYSTEM_REQUIRED) : ES_CONTINUOUS);
 		}
 		
 		_viv_is_prevent_sleep = _is_prevent_sleep;
@@ -11682,7 +11695,7 @@ static void _viv_install_association(DWORD flags)
 	{
 		if (flags & (1 << i))
 		{
-			_viv_install_association_by_extension(_viv_association_extensions[i],_viv_association_descriptions[i],_viv_association_icon_locations[i]);
+			_viv_install_association_by_extension(_viv_association_extensions[i],localization_get_string(_viv_association_description_localization_id_array[i]),_viv_association_icon_locations[i]);
 		}
 	}
 }
@@ -14002,7 +14015,17 @@ static HBITMAP _viv_get_mipmap(HBITMAP hbitmap,int image_wide,int image_high,int
 						
 						last_stretch_mode = SetStretchBltMode(mem_hdc,HALFTONE);
 						
-						StretchBlt(mem_hdc,0,0,mip_wide,mip_high,mem2_hdc,0,0,best_wide,best_high,SRCCOPY);
+						// for crazy large images -https://github.com/voidtools/voidImageViewer/issues/45
+						// use stitching, since we are using HALFTONE here, we will end up with sharp tile edges
+						// but's its better than showing a black image.
+						if (_viv_StretchBltStitch(mem_hdc,0,0,mip_wide,mip_high,mem2_hdc,0,0,best_wide,best_high,SRCCOPY,0,0,mip_wide,mip_high))
+						{
+							// OK
+						}
+						else
+						{
+							debug_printf("get_mipmap %d %d failed %u\n",mip_wide,mip_high,GetLastError());
+						}
 
 						SetStretchBltMode(mem_hdc,last_stretch_mode);
 						

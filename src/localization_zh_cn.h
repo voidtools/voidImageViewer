@@ -221,6 +221,8 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"全不选(&N)", // LOCALIZATION_ID_CHECK_NONE,
 	"缩小位图模式(&S):", // LOCALIZATION_ID_SHRINK_BLIT_MODE,
 	"放大位图模式(&M):", // LOCALIZATION_ID_MAGNIFY_BLIT_MODE,
+	"最近邻", // LOCALIZATION_ID_BLIT_MODE_NEAREST,
+	"线性", // LOCALIZATION_ID_BLIT_MODE_LINEAR,
 	"自动调整窗口大小(&Z):", // LOCALIZATION_ID_AUTO_SIZE_WINDOW,
 	"在幻灯片中至少播放一次动画(&P)", // LOCALIZATION_ID_PLAY_ANIMATIONS_ONCE,
 	"预加载下一张图像(&N)", // LOCALIZATION_ID_PRELOAD_NEXT_IMAGE,
@@ -251,6 +253,17 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 
 	// Everything
 	"Everything not available", // LOCALIZATION_ID_EVERYTHING_NOT_AVAILABLE_MESSAGE,
+
+	// Association descriptions
+	"Bitmap Image",
+	"Animated GIF Image",
+	"Icon File",
+	"JPEG Image",
+	"JPEG Image",
+	"PNG Image",
+	"TIFF Image",
+	"TIFF Image",
+	"WebP Image",
 
 	// Open
 	"Open Image", // LOCALIZATION_ID_OPEN_IMAGE_CAPTION,
