@@ -88,8 +88,8 @@
 #define IDC_AUTO_ZOOM                   1050
 #define IDC_COMBO4                      1051
 #define IDC_TITLE_BAR_FORMAT            1052
-#define IDC_SHRINK_BLIT_MODE_STATIC		1053
-#define IDC_MAGNIFY_BLIT_MODE_STATIC		1054
+#define IDC_SHRINK_BLIT_MODE_STATIC     1053
+#define IDC_MAGNIFY_BLIT_MODE_STATIC    1054
 
 // Next default values for new objects
 // 

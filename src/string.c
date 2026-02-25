@@ -111,12 +111,9 @@ void string_copy_utf8_string(wchar_t *buf,const utf8_t *s)
 	MultiByteToWideChar(CP_UTF8,0,s,-1,buf,STRING_SIZE);
 }
 
-void string_cat(wchar_t *buf,const wchar_t *s)
+void string_cat_with_bufsize(wchar_t *buf,SIZE_T size,const wchar_t *s)
 {
 	wchar_t *d;
-	uintptr_t size;
-	
-	size = STRING_SIZE;
 	
 	size--;
 	
@@ -137,6 +134,11 @@ void string_cat(wchar_t *buf,const wchar_t *s)
 	}
 	
 	*d = 0;
+}
+
+void string_cat(wchar_t *buf,const wchar_t *s)
+{
+	string_cat_with_bufsize(buf,STRING_SIZE,s);
 }
 
 void string_cat_utf8(wchar_t *buf,const utf8_t *s)

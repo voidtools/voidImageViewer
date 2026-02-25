@@ -1693,9 +1693,6 @@
     <Image Include="..\res\voidImageViewer.ico" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\res\resource" />
-  </ItemGroup>
-  <ItemGroup>
     <ResourceCompile Include="..\res\voidImageViewer.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

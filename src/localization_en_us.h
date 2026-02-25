@@ -222,6 +222,16 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"&Magnify blit mode:", // LOCALIZATION_ID_MAGNIFY_BLIT_MODE,
 	"Nearest", // LOCALIZATION_ID_BLIT_MODE_NEAREST,
 	"Linear", // LOCALIZATION_ID_BLIT_MODE_LINEAR,
+	"&Title bar format:", // LOCALIZATION_ID_TITLE_BAR_FORMAT
+	// BEGIN MULTILINE STRING
+	"$f = Image filename.\n"
+	"$p = Full image path.\n"
+	"$t = Title.\n"
+	"$v = Version.\n"
+	"\n"
+	"For example:\n"
+	"$f?{$f - }$t $v",
+	// END MULTILINE STRING
 	"Auto si&ze window:", // LOCALIZATION_ID_AUTO_SIZE_WINDOW,
 	"&Play animations at least once in slideshow", // LOCALIZATION_ID_PLAY_ANIMATIONS_ONCE,
 	"Preload &next image", // LOCALIZATION_ID_PRELOAD_NEXT_IMAGE,

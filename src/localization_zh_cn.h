@@ -223,6 +223,16 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"放大位图模式(&M):", // LOCALIZATION_ID_MAGNIFY_BLIT_MODE,
 	"最近邻", // LOCALIZATION_ID_BLIT_MODE_NEAREST,
 	"线性", // LOCALIZATION_ID_BLIT_MODE_LINEAR,
+	"&Title bar format:", // LOCALIZATION_ID_TITLE_BAR_FORMAT
+	// BEGIN MULTILINE STRING
+	"$f = Image filename.\n"
+	"$p = Full image path.\n"
+	"$t = Title.\n"
+	"$v = Version.\n"
+	"\n"
+	"For example:\n"
+	"$f?{$f - }$t $v",
+	// END MULTILINE STRING
 	"自动调整窗口大小(&Z):", // LOCALIZATION_ID_AUTO_SIZE_WINDOW,
 	"在幻灯片中至少播放一次动画(&P)", // LOCALIZATION_ID_PLAY_ANIMATIONS_ONCE,
 	"预加载下一张图像(&N)", // LOCALIZATION_ID_PRELOAD_NEXT_IMAGE,

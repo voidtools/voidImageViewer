@@ -219,6 +219,7 @@
 // *zooming in AND numpad+6 zooming breaks for largish images. (black bars on scrolling) -pan and zoom was overflowing, set stitch size to 512 to fix.
 // *In "1:1" mode, use shortcut keys to move a big picture(larger than the screen resolution), it will stop halfway. Perhaps it has something to do with the movement of the small images? -mpc does the whole image.
 // 1.0.0.16
+// *make config_title_bar_format option more like everything's. (by aubymori)
 // *add UI option for config_title_bar_format. (by hesphoros)
 // *option to show full path like MPC. (by hesphoros)
 // *fix controls in view options page being 1 pixel too long
@@ -1185,33 +1186,88 @@ HMODULE LoadUnicowsProc(void)
 static void _viv_update_title(void)
 {
 	wchar_t window_title[STRING_SIZE+STRING_SIZE];
-	const wchar_t *filename;
+	wchar_t *format_char;
+	int conditional_depth = 0;
 
 	window_title[0] = 0;
-	filename = L"";
+	format_char = config_title_bar_format;
 
-	switch(config_title_bar_format)
+	while (*format_char)
 	{
-		case 0: // full path
-			filename = _viv_current_fd->cFileName;
-			break;
+		// Custom title formatting...
+		//   Have $p, $f, etc. formats for special title parts
+		//   For conditional text, do something like $f?{$f - }
+		// Basically a subset of Everything's title formatting.
+		if (*format_char == L'$' && *(format_char + 1) != L'\0')
+		{
+			const wchar_t *part = L"";
+			const utf8_t *app_title_utf8;
+			wchar_t buffer[STRING_SIZE];
 
-		case 1: // filename only
-		default:
-			filename = string_get_filename_part(_viv_current_fd->cFileName);
-			break;
-			
-		case 2: // none
-			break;
+			switch (*(format_char + 1))
+			{
+				case L'p': // full path
+					part = _viv_current_fd->cFileName;
+					break;
+				case L'f': // filename
+					part = string_get_filename_part(_viv_current_fd->cFileName);
+					break;
+				case L't': // app title
+					app_title_utf8 = localization_get_string(LOCALIZATION_ID_APP_NAME);
+					string_copy_utf8_string(buffer,app_title_utf8);
+					part = buffer;
+					break;
+				case L'v':
+					string_printf(buffer,"%d.%d.%d.%d%s %s",VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD,VERSION_TYPE,VERSION_TARGET_MACHINE);
+					part = buffer;
+					break;
+			}
+
+			// Conditional text
+			if (*(format_char + 2) == L'?' && *(format_char + 3) == L'{')
+			{
+				// Part is blank. Skip this conditional!
+				if (part[0] == L'\0')
+				{
+					while (*format_char && *format_char != L'}')
+						format_char++;
+
+					// If we hit a closing brace, avoid printing it.
+					// Adding here at the null terminator will go out
+					// of bounds, which is bad.
+					if (*format_char == L'}')
+						format_char++;
+				}
+				// Print out the conditional text!
+				else
+				{
+					format_char += 4;
+					conditional_depth++;
+				}
+			}
+			// Not conditional.
+			else
+			{
+				string_cat_with_bufsize(window_title,STRING_SIZE+STRING_SIZE,part);
+				format_char += 2;
+			}
+		}
+		else
+		{
+			// If we're printing a conditional, we need to avoid
+			// printing the ending character.
+			if (*format_char == L'}' && conditional_depth > 0)
+			{
+				conditional_depth--;
+			}
+			else
+			{
+				const wchar_t append[2] = { *format_char, L'\0' };
+				string_cat_with_bufsize(window_title,STRING_SIZE+STRING_SIZE,append);
+			}
+			format_char++;
+		}
 	}
-	
-	if (*filename)
-	{
-		string_cat(window_title,filename);
-		string_cat_utf8(window_title," - ");
-	}
-		
-	string_cat_utf8(window_title,localization_get_string(LOCALIZATION_ID_APP_NAME));
 	
 	SetWindowTextW(_viv_hwnd,window_title);
 }
@@ -8184,6 +8240,10 @@ static INT_PTR CALLBACK _viv_options_controls_proc(HWND hwnd,UINT msg,WPARAM wPa
 }
 static INT_PTR CALLBACK _viv_options_view_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
+	HWND format_hwnd, tooltip_hwnd;
+	TOOLINFOW tool_info;
+	wchar_t tooltip_text[STRING_SIZE];
+
 	switch(msg)
 	{
 		case WM_INITDIALOG:
@@ -8215,10 +8275,33 @@ static INT_PTR CALLBACK _viv_options_view_proc(HWND hwnd,UINT msg,WPARAM wParam,
 				ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_COMBO2),0);
 			}
 
-			os_ComboBox_AddString(hwnd,IDC_TITLE_BAR_FORMAT,(const utf8_t *)"Full Path");
-			os_ComboBox_AddString(hwnd,IDC_TITLE_BAR_FORMAT,(const utf8_t *)"Filename Only");
-			os_ComboBox_AddString(hwnd,IDC_TITLE_BAR_FORMAT,(const utf8_t *)"None");
-			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_TITLE_BAR_FORMAT),config_title_bar_format);
+			format_hwnd = GetDlgItem(hwnd,IDC_TITLE_BAR_FORMAT);
+			tooltip_hwnd = CreateWindowExW(
+				0, TOOLTIPS_CLASS,
+				NULL,
+				WS_POPUP | TTS_ALWAYSTIP,
+				CW_USEDEFAULT, CW_USEDEFAULT,
+				CW_USEDEFAULT, CW_USEDEFAULT,
+				hwnd, NULL,
+				NULL, NULL
+			);
+
+			string_copy_utf8_string(tooltip_text, localization_get_string(LOCALIZATION_ID_TITLE_BAR_FORMAT_TOOLTIP));
+			
+			ZeroMemory(&tool_info, sizeof(TOOLINFOW));
+			tool_info.cbSize = sizeof(TOOLINFOW);
+			tool_info.hwnd = hwnd;
+			tool_info.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
+			tool_info.uId = (UINT_PTR)format_hwnd;
+			tool_info.lpszText = tooltip_text;
+			SendMessageW(tooltip_hwnd, TTM_ADDTOOL, 0, (LPARAM)&tool_info);
+			// The max tip width must be set for tooltips to display anything after
+			// a new line. We don't actually want to limit the width of the tooltip,
+			// so let's set it to INT_MAX.
+			SendMessageW(tooltip_hwnd, TTM_SETMAXTIPWIDTH, 0, INT_MAX);
+
+			SendMessageW(format_hwnd,EM_LIMITTEXT,STRING_SIZE - 1,0);
+			SetWindowTextW(format_hwnd,config_title_bar_format);
 					
 			CheckDlgButton(hwnd,IDC_AUTO_ZOOM,config_auto_zoom ? BST_CHECKED : BST_UNCHECKED);
 			
@@ -8599,7 +8682,7 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 							InvalidateRect(_viv_hwnd,0,FALSE);
 						}
 
-					config_title_bar_format = ComboBox_GetCurSel(GetDlgItem(view_page,IDC_TITLE_BAR_FORMAT));
+					GetDlgItemTextW(view_page,IDC_TITLE_BAR_FORMAT,config_title_bar_format,STRING_SIZE);
 					_viv_update_title();
 
 					config_auto_zoom = IsDlgButtonChecked(view_page,IDC_AUTO_ZOOM) == BST_CHECKED ? 1 : 0;

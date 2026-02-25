@@ -88,12 +88,13 @@ BYTE config_toolbar_move_window = 1;
 BYTE config_windowed_hide_cursor = 1;
 BYTE config_pixel_info = 0;
 BYTE config_orientation = 1;
-BYTE config_title_bar_format = 1; // 0=full path, 1=filename, 2=none
+wchar_t config_title_bar_format[STRING_SIZE];
 
 static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 {
 	ini_t *ini;
 	wchar_t filename[STRING_SIZE];
+	const utf8_t *temp_str;
 	
 	string_path_combine_utf8(filename,path,(const utf8_t *)"voidImageViewer.ini");
 	
@@ -158,8 +159,19 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_icm = ini_get_int(ini,(const utf8_t *)"icm",config_icm);
 		config_orientation = ini_get_int(ini,(const utf8_t *)"orientation",config_orientation);
 		config_toolbar_move_window = ini_get_int(ini,(const utf8_t *)"toolbar_move_window",config_toolbar_move_window);
-		config_title_bar_format = ini_get_int(ini,(const utf8_t *)"title_bar_format",config_title_bar_format);
-
+		// TODO(aubymori): Maybe we should implement proper functions for string options?
+		// They don't really exist right now except in the form of hotkeys.
+		temp_str = ini_get_string(ini,(const utf8_t *)"title_bar_format");
+		if (!temp_str)
+		{
+#if defined(VERSION_ALPHA) || defined(VERSION_BETA)
+			temp_str = (const utf8_t *)"$f?{$f - }$t $v";
+#else
+			temp_str = (const utf8_t *)"$f?{$f - }$t";
+#endif
+		}
+		string_copy_utf8_string(config_title_bar_format, temp_str);
+	
 		if (is_root)
 		{
 			config_appdata = ini_get_int(ini,(const utf8_t *)(const utf8_t *)"appdata",config_appdata);
@@ -212,6 +224,14 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		}
 
 		ini_close(ini);
+	}
+	else
+	{
+#if defined(VERSION_ALPHA) || defined(VERSION_BETA)
+		string_copy(config_title_bar_format, L"$f?{$f - }$t $v");
+#else
+		string_copy(config_title_bar_format, L"$f?{$f - }$t");
+#endif
 	}
 }
 
@@ -341,7 +361,7 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"icm",config_icm);
 			_config_write_int(h,"orientation",config_orientation);
 			_config_write_int(h,"toolbar_move_window",config_toolbar_move_window);
-			_config_write_int(h,"title_bar_format",config_title_bar_format);
+			_config_write_string(h,"title_bar_format",config_title_bar_format);
 		
 			// save keys
 			{
