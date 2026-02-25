@@ -90,6 +90,8 @@
 #define IDC_TITLE_BAR_FORMAT            1052
 #define IDC_SHRINK_BLIT_MODE_STATIC     1053
 #define IDC_MAGNIFY_BLIT_MODE_STATIC    1054
+#define IDC_AUTO_ZOOM2                  1055
+#define IDC_HIDE_ICON                   1055
 
 // Next default values for new objects
 // 
@@ -98,7 +100,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        130
 #define _APS_NEXT_COMMAND_VALUE         40048
-#define _APS_NEXT_CONTROL_VALUE         1055
+#define _APS_NEXT_CONTROL_VALUE         1056
 #define _APS_NEXT_SYMED_VALUE           109
 #endif
 #endif

@@ -424,6 +424,7 @@ typedef struct _viv_webp_s
 }_viv_webp_t;
 
 static void _viv_update_title(void);
+static void _viv_update_icon(void);
 static void _viv_on_size(void);
 static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 static LRESULT CALLBACK _viv_fullscreen_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
@@ -634,6 +635,8 @@ static int _viv_playlist_count = 0;
 static _viv_playlist_t **_viv_playlist_shuffle_indexes = 0;
 static int _viv_playlist_shuffle_allocated = 0;
 static LARGE_INTEGER _viv_playlist_id = {0};
+static HICON _viv_hicon_large = 0;
+static HICON _viv_hicon_small = 0;
 static HWND _viv_hwnd = 0;
 static HWND _viv_status_hwnd = 0;
 static HWND _viv_toolbar_hwnd = 0;
@@ -1270,6 +1273,25 @@ static void _viv_update_title(void)
 	}
 	
 	SetWindowTextW(_viv_hwnd,window_title);
+}
+
+static void _viv_update_icon(void)
+{
+// I'm not sure VS2005 has SetClassLongPtr... let's be safe.
+#if !defined(_WIN64) && !defined(SetClassLongPtrW)
+	#define SetClassLongPtrW SetClassLongW
+#endif
+
+// These probably don't exist in 2005 either.
+#ifndef GCLP_HICON
+	#define GCLP_HICON GCL_HICON
+#endif
+#ifndef GCLP_HICONSM
+	#define GCLP_HICONSM GCL_HICONSM
+#endif
+
+	SetClassLongPtrW(_viv_hwnd, GCLP_HICON, config_hide_icon ? 0 : (LONG_PTR)_viv_hicon_large);
+	SetClassLongPtrW(_viv_hwnd, GCLP_HICONSM, config_hide_icon ? 0 : (LONG_PTR)_viv_hicon_small);
 }
 
 static void _viv_mipmap_free(_viv_mipmap_t *mipmap)
@@ -5302,14 +5324,24 @@ static int _viv_init(int nCmdShow)
 		}
 	}
 	
+	_viv_hicon_large = (HICON)LoadImage(
+		os_hinstance,MAKEINTRESOURCE(IDI_ICON1),IMAGE_ICON,
+		GetSystemMetrics(SM_CXICON),GetSystemMetrics(SM_CYICON),
+		0);
+
+	_viv_hicon_small = (HICON)LoadImage(
+		os_hinstance,MAKEINTRESOURCE(IDI_ICON1),IMAGE_ICON,
+		GetSystemMetrics(SM_CXSMICON),GetSystemMetrics(SM_CYSMICON),
+		0);
+
 	os_RegisterClassEx(
 		CS_DBLCLKS | CS_VREDRAW | CS_HREDRAW,
 		_viv_proc,
-		(HICON)LoadImage(os_hinstance,MAKEINTRESOURCE(IDI_ICON1),IMAGE_ICON,GetSystemMetrics(SM_CXICON),GetSystemMetrics(SM_CXICON),0),
+		_viv_hicon_large,
 		LoadCursor(NULL,IDC_ARROW),
 		(HBRUSH)(COLOR_BTNFACE+1),
 		"VOIDIMAGEVIEWER",
-		(HICON)LoadImage(os_hinstance,MAKEINTRESOURCE(IDI_ICON1),IMAGE_ICON,GetSystemMetrics(SM_CXSMICON),GetSystemMetrics(SM_CYSMICON),0));
+		_viv_hicon_small);
 	
 	_viv_hmenu = _viv_create_menu();
 	
@@ -5351,7 +5383,7 @@ static int _viv_init(int nCmdShow)
 	window_style = WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
 
 	_viv_hwnd = os_CreateWindowEx(
-		0,
+		WS_EX_DLGMODALFRAME,
 		"VOIDIMAGEVIEWER",
 		localization_get_string(LOCALIZATION_ID_APP_NAME),
 		window_style,
@@ -5382,6 +5414,8 @@ static int _viv_init(int nCmdShow)
 	_viv_update_title();
 
 	_viv_update_ontop();
+
+	_viv_update_icon();
 	
 	si.cb = sizeof(STARTUPINFO);
 	GetStartupInfo(&si);
@@ -8303,6 +8337,9 @@ static INT_PTR CALLBACK _viv_options_view_proc(HWND hwnd,UINT msg,WPARAM wParam,
 			SendMessageW(format_hwnd,EM_LIMITTEXT,STRING_SIZE - 1,0);
 			SetWindowTextW(format_hwnd,config_title_bar_format);
 					
+			os_SetDlgItemText(hwnd,IDC_HIDE_ICON,localization_get_string(LOCALIZATION_ID_HIDE_WINDOW_ICON));
+			CheckDlgButton(hwnd,IDC_HIDE_ICON,config_hide_icon ? BST_CHECKED : BST_UNCHECKED);
+
 			CheckDlgButton(hwnd,IDC_AUTO_ZOOM,config_auto_zoom ? BST_CHECKED : BST_UNCHECKED);
 			
 			os_ComboBox_AddString(hwnd,IDC_COMBO4,(const utf8_t *)"50%");
@@ -8684,6 +8721,9 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 
 					GetDlgItemTextW(view_page,IDC_TITLE_BAR_FORMAT,config_title_bar_format,STRING_SIZE);
 					_viv_update_title();
+
+					config_hide_icon = IsDlgButtonChecked(view_page,IDC_HIDE_ICON) == BST_CHECKED ? 1 : 0;
+					_viv_update_icon();
 
 					config_auto_zoom = IsDlgButtonChecked(view_page,IDC_AUTO_ZOOM) == BST_CHECKED ? 1 : 0;
 					config_auto_zoom_type = ComboBox_GetCurSel(GetDlgItem(view_page,IDC_COMBO4));

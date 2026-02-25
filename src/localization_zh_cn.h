@@ -224,7 +224,7 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"最近邻", // LOCALIZATION_ID_BLIT_MODE_NEAREST,
 	"线性", // LOCALIZATION_ID_BLIT_MODE_LINEAR,
 	"&Title bar format:", // LOCALIZATION_ID_TITLE_BAR_FORMAT
-	// BEGIN MULTILINE STRING
+	// BEGIN MULTILINE STRING (LOCALIZATION_ID_TITLE_BAR_FORMAT_TOOLTIP)
 	"$f = Image filename.\n"
 	"$p = Full image path.\n"
 	"$t = Title.\n"
@@ -233,6 +233,7 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"For example:\n"
 	"$f?{$f - }$t $v",
 	// END MULTILINE STRING
+	"&Hide window icon", // LOCALIZATION_ID_HIDE_WINDOW_ICON
 	"自动调整窗口大小(&Z):", // LOCALIZATION_ID_AUTO_SIZE_WINDOW,
 	"在幻灯片中至少播放一次动画(&P)", // LOCALIZATION_ID_PLAY_ANIMATIONS_ONCE,
 	"预加载下一张图像(&N)", // LOCALIZATION_ID_PRELOAD_NEXT_IMAGE,

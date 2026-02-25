@@ -119,6 +119,7 @@ extern BYTE config_auto_zoom;
 extern BYTE config_pixel_info;
 extern BYTE config_orientation;
 extern wchar_t config_title_bar_format[STRING_SIZE];
+extern BYTE config_hide_icon;
 
 #ifdef __cplusplus
 }

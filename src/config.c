@@ -89,6 +89,7 @@ BYTE config_windowed_hide_cursor = 1;
 BYTE config_pixel_info = 0;
 BYTE config_orientation = 1;
 wchar_t config_title_bar_format[STRING_SIZE];
+BYTE config_hide_icon = 0;
 
 static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 {
@@ -171,6 +172,7 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 #endif
 		}
 		string_copy_utf8_string(config_title_bar_format, temp_str);
+		config_hide_icon = ini_get_int(ini,(const utf8_t *)"window_hide_icon",config_hide_icon);
 	
 		if (is_root)
 		{
@@ -362,6 +364,7 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"orientation",config_orientation);
 			_config_write_int(h,"toolbar_move_window",config_toolbar_move_window);
 			_config_write_string(h,"title_bar_format",config_title_bar_format);
+			_config_write_int(h,"window_hide_icon",config_hide_icon);
 		
 			// save keys
 			{
