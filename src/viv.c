@@ -22,6 +22,17 @@
 // VoidImageViewer
 
 // TODO:
+// [HIGH] right click O conflict options or sort?
+// [HIGH] language_id needs to go in translation. we don't want to check for it in code.. has to be a list too, to support multiple language ids
+// [HIGH] Help -> About viv -> Credits
+// *[HIGH] viv_kill was refreshing the desktop window if no viv_hwnd was created.
+// [HIGH] like mpc-hc, allow /add to add to the playlist (instead of clearing the playlist)
+// [HIGH] like mpc-hc, allow *.jpg as the pathname.
+// *[HIGH] like mpc-hc, if processing the command line again within 500ms, add the images to the playlist.
+// [HIGH] playlist pane or tool window
+// /close command line option like mpc-hc -how does mpc handle /playnext /close ? -/close needs to work with /slideshow (close after slideshow)
+// vs2022 support
+// shrink blit mode=nearest doesn't work.
 // option to not reset the zoom when the image changes.?
 // use the sort order from Windows Explorer, from where the images was opened. -do we need another sort option (use default) or (use Windows Explorer sort)
 // .rc localization
@@ -761,6 +772,9 @@ static BYTE _viv_src_pixel_r = 0;
 static BYTE _viv_src_pixel_g = 0;
 static BYTE _viv_src_pixel_b = 0;
 static BYTE _viv_is_prevent_sleep = 0;
+static DWORD last_process_command_line_tick;
+static BYTE got_last_process_command_line_tick = 0;
+
 //static BYTE _viv_is_alt = 0;
 
 // MF_OWNERDRAW = don't show in menu.
@@ -4303,13 +4317,13 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 																else
 																{
 																	// use our own stretch that only renders the clipping rect region.
-																	// where as StretchBlt ignores the clipping region and renders the entire dst region.
+																	// where-as StretchBlt ignores the clipping region and renders the entire dst region.
 																	_viv_stretch_blt(ps.hdc,rx,ry,rw,rh,mem_hdc,mip_wide,mip_high,rect_p->left,rect_p->top,rect_p->right - rect_p->left,rect_p->bottom - rect_p->top);
 																}
 															}
 															else
 															{
-																if (StretchBlt(ps.hdc,rx,ry,rw,rh,mem_hdc,0,0,mip_wide,mip_high,SRCCOPY))
+																if (_viv_StretchBltStitch(ps.hdc,rx,ry,rw,rh,mem_hdc,0,0,mip_wide,mip_high,SRCCOPY,rect_p->left,rect_p->top,rect_p->right - rect_p->left,rect_p->bottom - rect_p->top))
 																{
 																}
 																else
@@ -4724,23 +4738,40 @@ static void _viv_process_command_line(wchar_t *cl)
 	int set_window_rect;
 	RECT rect;
 	int start_maximized;
-	
+	int is_add;
+
 	debug_printf("cl: %S\n",cl);
 	
 	start_slideshow = 0;
 	start_fullscreen = 0;
 	start_window = 0;
 	start_maximized = 0;
+	is_add = 0;
 	p = cl;
 	file_count = 0;
 	single[0] = 0;
 	set_window_rect = 0;
-	GetWindowRect(_viv_hwnd,&rect);
 
+	GetWindowRect(_viv_hwnd,&rect);
 	window_x = rect.left;
 	window_y = rect.top;
 	window_wide = rect.right - rect.left;
 	window_high = rect.bottom - rect.top;
+	
+	if (config_add_command_line_timeout)
+	{
+		if (got_last_process_command_line_tick)
+		{
+			if ((GetTickCount() - last_process_command_line_tick) < (DWORD)config_add_command_line_timeout)
+			{
+				// don't add if nothing is loaded.
+				if (*_viv_current_fd->cFileName)
+				{
+					is_add = 1;
+				}
+			}
+		}
+	}
 	
 	p = string_skip_ws(p);
 	
@@ -4925,6 +4956,15 @@ static void _viv_process_command_line(wchar_t *cl)
 				// ignore this for non-install commands.
 			}
 			else
+			if (string_icompare_lowercase_ascii(bufstart,"add") == 0)
+			{
+				// don't add if nothing is loaded.
+				if (*_viv_current_fd->cFileName)
+				{
+					is_add = 1;
+				}
+			}
+			else
 			{
 				_viv_command_line_options();
 			}
@@ -4943,12 +4983,18 @@ static void _viv_process_command_line(wchar_t *cl)
 						_viv_random = 0;
 					}
 					
-					_viv_playlist_clearall();
+					if (!is_add)
+					{
+						_viv_playlist_clearall();
+					}
 				}
 				
 				if (file_count == 1)
 				{
-					// add the last single
+					// add the last single filename.
+					// we have two modes:
+					// 1) playlist mode. (navigate the playlist)
+					// 2) single file mode. (navigate the folder from the single file)
 					_viv_playlist_add_filename(single);
 				}
 
@@ -4967,46 +5013,70 @@ static void _viv_process_command_line(wchar_t *cl)
 			}
 		}
 	}
+
+	// add the single image filename to the playlist if we are adding.
+	if (is_add)
+	{
+		// if the playlist is empty, add the current item.
+		if (!_viv_playlist_start)
+		{
+			if (*_viv_current_fd->cFileName)
+			{
+				_viv_playlist_add_filename(_viv_current_fd->cFileName);	
+			}
+		}
+	
+		if (file_count == 1)
+		{
+			_viv_playlist_add_filename(single);
+		}
+	}
 	
 	debug_printf("file count %d\n",file_count);
 
-	if (file_count >= 1)
+	// show the first image.
+	// don't show anything if we are adding.
+	// show something if nothing is already shown.
+	if (!is_add)
 	{
-		const wchar_t *open_filename;
-	
-		if (_viv_random)
+		if (file_count >= 1)
 		{
-			mem_free(_viv_random);
-			
-			_viv_random = 0;
-		}
+			const wchar_t *open_filename;
 		
-		open_filename = NULL;
-		
-		if (file_count > 1)
-		{
-			// treat as a playlist.
-			if (_viv_playlist_start)
+			if (_viv_random)
 			{
-				open_filename = _viv_playlist_start->fd.cFileName;
+				mem_free(_viv_random);
+				
+				_viv_random = 0;
 			}
-		}
-		else
-		if (file_count == 1)
-		{
-			open_filename = single;
-		}
-		
-		// open the first image found (if multiple images passed).
-		// if we only specified a single image, use the single image filename.
-		if ((open_filename) && (_viv_open_from_filename(open_filename)))
-		{
-			// all good.
-		}
-		else
-		{
-			_viv_file_not_found = 1;
-			_viv_status_update();
+			
+			open_filename = NULL;
+			
+			if (file_count > 1)
+			{
+				// treat as a playlist.
+				if (_viv_playlist_start)
+				{
+					open_filename = _viv_playlist_start->fd.cFileName;
+				}
+			}
+			else
+			if (file_count == 1)
+			{
+				open_filename = single;
+			}
+			
+			// open the first image found (if multiple images passed).
+			// if we only specified a single image, use the single image filename.
+			if ((open_filename) && (_viv_open_from_filename(open_filename)))
+			{
+				// all good.
+			}
+			else
+			{
+				_viv_file_not_found = 1;
+				_viv_status_update();
+			}
 		}
 	}
 	
@@ -5052,6 +5122,11 @@ static void _viv_process_command_line(wchar_t *cl)
 			}
 		}
 	}
+	
+	// save last processing time
+	// if we make another immediate call, add items to the playlist, instead of setting the playlist.
+	last_process_command_line_tick = GetTickCount();
+	got_last_process_command_line_tick = 1;
 }
 
 static int _viv_init(int nCmdShow)
@@ -5191,7 +5266,7 @@ static int _viv_init(int nCmdShow)
 		if (GetLastError() == ERROR_ALREADY_EXISTS)
 		{
 			HWND hwnd;
-			
+
 			hwnd = FindWindowA("VOIDIMAGEVIEWER",0);
 			
 			if (hwnd)
@@ -5205,7 +5280,7 @@ static int _viv_init(int nCmdShow)
 
 				// allow this process to set focus
 				SetForegroundWindow(hwnd);
-				
+
 				command_line = GetCommandLineW();
 				GetCurrentDirectory(STRING_SIZE,cwd);
 				
@@ -5239,7 +5314,7 @@ static int _viv_init(int nCmdShow)
 				
 				mem_free(buf);
 			}
-			
+
 			_viv_kill();
 			
 			return 0;
@@ -5395,17 +5470,17 @@ static void _viv_kill(void)
 		
 		_viv_last_frames = NULL;
 	}
-	
+
 	_viv_clear_preload_frames();
 	_viv_clear();
 	_viv_process_pending_clear();
 
-	_viv_status_show(0);
-	_viv_controls_show(0);
-//	_viv_tooltip_hide();
-
 	if (_viv_hwnd)
 	{
+		_viv_status_show(0);
+		_viv_controls_show(0);
+	//	_viv_tooltip_hide();
+
 		DestroyWindow(_viv_hwnd);
 	}
 	
@@ -7804,6 +7879,8 @@ static INT_PTR CALLBACK _viv_options_general_proc(HWND hwnd,UINT msg,WPARAM wPar
 		{
 			int exti;
 
+//TODO: LOCALIZATION -up to here			
+
 			if (config_appdata) 
 			{
 				CheckDlgButton(hwnd,IDC_APPDATA,BST_CHECKED);
@@ -8190,7 +8267,6 @@ static INT_PTR CALLBACK _viv_options_view_proc(HWND hwnd,UINT msg,WPARAM wParam,
 			
 			os_SetDlgItemText(hwnd,IDC_SHRINK_BLIT_MODE_STATIC,localization_get_string(LOCALIZATION_ID_SHRINK_BLIT_MODE));
 			os_SetDlgItemText(hwnd,IDC_MAGNIFY_BLIT_MODE_STATIC,localization_get_string(LOCALIZATION_ID_MAGNIFY_BLIT_MODE));
-			
 			os_ComboBox_AddString(hwnd,IDC_COMBO1,localization_get_string(LOCALIZATION_ID_BLIT_MODE_NEAREST));
 			os_ComboBox_AddString(hwnd,IDC_COMBO1,localization_get_string(LOCALIZATION_ID_BLIT_MODE_LINEAR));
 			
