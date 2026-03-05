@@ -21,7 +21,7 @@
 //
 // VoidImageViewer
 
-right click O conflict options or sort?
+// right click O conflict options or sort?
 // TODO:
 // vs2022 support
 // language_id needs to go in translation. we don't want to check for it in code.. has to be a list too, to support multiple language ids
