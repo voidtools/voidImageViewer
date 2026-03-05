@@ -21,16 +21,17 @@
 //
 // VoidImageViewer
 
-// right click O conflict options or sort?
 // TODO:
-// vs2022 support
-// language_id needs to go in translation. we don't want to check for it in code.. has to be a list too, to support multiple language ids
-// Help -> About -> Credits
-// /close command line option like mpc-hc -how does mpc handle /playnext /close ? -/close needs to work with /slideshow (close after slideshow)
+// [HIGH] right click O conflict options or sort?
+// [HIGH] language_id needs to go in translation. we don't want to check for it in code.. has to be a list too, to support multiple language ids
+// [HIGH] Help -> About viv -> Credits
 // *[HIGH] viv_kill was refreshing the desktop window if no viv_hwnd was created.
 // [HIGH] like mpc-hc, allow /add to add to the playlist (instead of clearing the playlist)
 // [HIGH] like mpc-hc, allow *.jpg as the pathname.
 // *[HIGH] like mpc-hc, if processing the command line again within 500ms, add the images to the playlist.
+// [HIGH] playlist pane or tool window
+// /close command line option like mpc-hc -how does mpc handle /playnext /close ? -/close needs to work with /slideshow (close after slideshow)
+// vs2022 support
 // shrink blit mode=nearest doesn't work.
 // option to not reset the zoom when the image changes.?
 // use the sort order from Windows Explorer, from where the images was opened. -do we need another sort option (use default) or (use Windows Explorer sort)
