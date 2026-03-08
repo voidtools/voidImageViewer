@@ -32,9 +32,9 @@
 // [HIGH] playlist pane or tool window
 // /close command line option like mpc-hc -how does mpc handle /playnext /close ? -/close needs to work with /slideshow (close after slideshow)
 // vs2022 support
+// use the sort order from Windows Explorer, from where the images was opened. -do we need another sort option (use default) or (use Windows Explorer sort)
 // shrink blit mode=nearest doesn't work.
 // option to not reset the zoom when the image changes.?
-// use the sort order from Windows Explorer, from where the images was opened. -do we need another sort option (use default) or (use Windows Explorer sort)
 // .rc localization
 // SVG support -Librsvg?
 // GDI/GDI+ is limited to 2GB (wide*high*4), work out a workaround for large images.
@@ -832,11 +832,11 @@ static _viv_command_t _viv_commands[] =
 	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW,0},
 	{LOCALIZATION_ID_FULLSCREEN,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_FULLSCREEN},
 	{LOCALIZATION_ID_SLIDESHOW,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_SLIDESHOW},
-	{LOCALIZATION_ID_WINDOW_SIZE,MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_WINDOW_SIZE},
-	{LOCALIZATION_ID_50_PERCENT,MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,VIV_ID_VIEW_WINDOW_SIZE_50},
-	{LOCALIZATION_ID_100_PERCENT,MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,VIV_ID_VIEW_WINDOW_SIZE_100},
-	{LOCALIZATION_ID_200_PERCENT,MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,VIV_ID_VIEW_WINDOW_SIZE_200},
-	{LOCALIZATION_ID_AUTO_FIT,MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT},
+	{LOCALIZATION_ID_VIEW_WINDOW_SIZE,MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_WINDOW_SIZE},
+	{LOCALIZATION_ID_VIEW_WINDOW_SIZE_50_PERCENT,MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,VIV_ID_VIEW_WINDOW_SIZE_50},
+	{LOCALIZATION_ID_VIEW_WINDOW_SIZE_100_PERCENT,MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,VIV_ID_VIEW_WINDOW_SIZE_100},
+	{LOCALIZATION_ID_VIEW_WINDOW_SIZE_200_PERCENT,MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,VIV_ID_VIEW_WINDOW_SIZE_200},
+	{LOCALIZATION_ID_VIEW_WINDOW_SIZE_AUTO_FIT,MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT},
 	{LOCALIZATION_ID_REFRESH,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_REFRESH},
 	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW,0},
 	{LOCALIZATION_ID_ALLOW_SHRINKING,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_ALLOW_SHRINKING},
@@ -2533,12 +2533,12 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 					SHFILEOPSTRUCT shfileop;
 					wchar_t frombuf[STRING_SIZE+1];
 					
-					tobuf[string_length(tobuf) + 1] = 0;
+					tobuf[string_get_length(tobuf) + 1] = 0;
 					
 					os_zero_memory(&shfileop,sizeof(SHFILEOPSTRUCT));
 					
 					string_copy(frombuf,_viv_current_fd->cFileName);
-					frombuf[string_length(frombuf) + 1] = 0;
+					frombuf[string_get_length(frombuf) + 1] = 0;
 					
 					shfileop.hwnd = _viv_hwnd;
 					shfileop.wFunc = command_id == VIV_ID_EDIT_COPY_TO ? FO_COPY : FO_MOVE;
@@ -5293,7 +5293,7 @@ static int _viv_init(int nCmdShow)
 				}
 				
 				// calc size
-				size = sizeof(DWORD) + (((int)string_length(command_line) + 1) * sizeof(wchar_t)) + (((int)string_length(cwd) + 1) * sizeof(wchar_t));
+				size = sizeof(DWORD) + (((int)string_get_length(command_line) + 1) * sizeof(wchar_t)) + (((int)string_get_length(cwd) + 1) * sizeof(wchar_t));
 				buf = (char *)mem_alloc(size);
 				
 				// fill in
@@ -5301,9 +5301,9 @@ static int _viv_init(int nCmdShow)
 				*(DWORD *)d = si.wShowWindow;
 				d += sizeof(DWORD);
 				string_copy((wchar_t *)d,command_line);
-				d += ((string_length(command_line) + 1) * sizeof(wchar_t));
+				d += ((string_get_length(command_line) + 1) * sizeof(wchar_t));
 				string_copy((wchar_t *)d,cwd);
-				d += ((string_length(cwd) + 1) * sizeof(wchar_t));
+				d += ((string_get_length(cwd) + 1) * sizeof(wchar_t));
 
 				// setup copydata struct
 				cds.lpData = buf;
@@ -5644,7 +5644,7 @@ static int _viv_fd_compare_name(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *
 	afilename = string_get_filename_part(a->cFileName);
 	bfilename = string_get_filename_part(b->cFileName);
 
-	ret = CompareString(LOCALE_USER_DEFAULT,dwCmpFlags,afilename,string_length(afilename),bfilename,string_length(bfilename));
+	ret = CompareString(LOCALE_USER_DEFAULT,dwCmpFlags,afilename,string_get_length(afilename),bfilename,string_get_length(bfilename));
 	
 	switch(ret)
 	{
@@ -5671,7 +5671,7 @@ static int _viv_fd_compare_path_and_name(const WIN32_FIND_DATA *a,const WIN32_FI
 		dwCmpFlags |= 0x00000008;
 	}
 
-	ret = CompareString(LOCALE_USER_DEFAULT,dwCmpFlags,a->cFileName,string_length(a->cFileName),b->cFileName,string_length(b->cFileName));
+	ret = CompareString(LOCALE_USER_DEFAULT,dwCmpFlags,a->cFileName,string_get_length(a->cFileName),b->cFileName,string_get_length(b->cFileName));
 	
 	switch(ret)
 	{
@@ -7220,6 +7220,8 @@ static INT_PTR CALLBACK _viv_rename_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 			
 			os_center_dialog(hwnd);
 			
+			os_SetWindowText_localization_id(hwnd,LOCALIZATION_ID_RENAME_CAPTION);
+			
 			string_copy(name,string_get_filename_part((wchar_t *)lParam));
 			string_remove_extension(name);
 
@@ -7326,7 +7328,7 @@ static void _viv_copy(int cut)
 				HGLOBAL hmem;
 				int wlen;
 				
-				wlen = string_length(_viv_current_fd->cFileName);
+				wlen = string_get_length(_viv_current_fd->cFileName);
 				
 				hmem = GlobalAlloc(GMEM_MOVEABLE,(wlen + 1 + 1) * sizeof(wchar_t) + sizeof(DROPFILES));
 				if (hmem)
@@ -7396,7 +7398,7 @@ static void _viv_copy_filename(void)
 				HGLOBAL hmem;
 				int wlen;
 				
-				wlen = string_length(_viv_current_fd->cFileName);
+				wlen = string_get_length(_viv_current_fd->cFileName);
 				
 				hmem = GlobalAlloc(GMEM_MOVEABLE,(wlen + 1) * sizeof(wchar_t));
 				if (hmem)
@@ -7879,7 +7881,12 @@ static INT_PTR CALLBACK _viv_options_general_proc(HWND hwnd,UINT msg,WPARAM wPar
 		{
 			int exti;
 
-//TODO: LOCALIZATION -up to here			
+			os_SetDlgItemText_localization_id(hwnd,IDC_APPDATA,LOCALIZATION_ID_STORE_SETTINGS_APPDATA);
+			os_SetDlgItemText_localization_id(hwnd,IDC_MULTIPLE_INSTANCES,LOCALIZATION_ID_ALLOW_MULTIPLE_INSTANCES);
+			os_SetDlgItemText_localization_id(hwnd,IDC_STARTMENU,LOCALIZATION_ID_STARTMENU_SHORTCUTS);
+			os_SetDlgItemText_localization_id(hwnd,IDC_ASSOCIATIONS_GROUPBOX,LOCALIZATION_ID_ASSOCIATIONS);
+			os_SetDlgItemText_localization_id(hwnd,IDC_CHECKALL,LOCALIZATION_ID_CHECK_ALL);
+			os_SetDlgItemText_localization_id(hwnd,IDC_CHECKNONE,LOCALIZATION_ID_CHECK_NONE);
 
 			if (config_appdata) 
 			{
@@ -7986,12 +7993,12 @@ static void _viv_options_key_list_sel_change(HWND hwnd,int previous_key_index)
 			key = key->next;
 		}
 		
-		EnableWindow(GetDlgItem(hwnd,IDC_ADD_KEY),TRUE);
+		EnableWindow(GetDlgItem(hwnd,IDC_ADD_KEY_BUTTON),TRUE);
 		
 		if (key_count)
 		{
-			EnableWindow(GetDlgItem(hwnd,IDC_EDIT_KEY),TRUE);
-			EnableWindow(GetDlgItem(hwnd,IDC_REMOVE_KEY),TRUE);
+			EnableWindow(GetDlgItem(hwnd,IDC_EDIT_KEY_BUTTON),TRUE);
+			EnableWindow(GetDlgItem(hwnd,IDC_REMOVE_KEY_BUTTON),TRUE);
 			
 			if ((previous_key_index == LB_ERR) || (previous_key_index > key_count - 1))
 			{
@@ -8002,15 +8009,15 @@ static void _viv_options_key_list_sel_change(HWND hwnd,int previous_key_index)
 		}
 		else
 		{
-			EnableWindow(GetDlgItem(hwnd,IDC_EDIT_KEY),FALSE);
-			EnableWindow(GetDlgItem(hwnd,IDC_REMOVE_KEY),FALSE);
+			EnableWindow(GetDlgItem(hwnd,IDC_EDIT_KEY_BUTTON),FALSE);
+			EnableWindow(GetDlgItem(hwnd,IDC_REMOVE_KEY_BUTTON),FALSE);
 		}
 	}
 	else
 	{
-		EnableWindow(GetDlgItem(hwnd,IDC_ADD_KEY),FALSE);
-		EnableWindow(GetDlgItem(hwnd,IDC_EDIT_KEY),FALSE);
-		EnableWindow(GetDlgItem(hwnd,IDC_REMOVE_KEY),FALSE);
+		EnableWindow(GetDlgItem(hwnd,IDC_ADD_KEY_BUTTON),FALSE);
+		EnableWindow(GetDlgItem(hwnd,IDC_EDIT_KEY_BUTTON),FALSE);
+		EnableWindow(GetDlgItem(hwnd,IDC_REMOVE_KEY_BUTTON),FALSE);
 	}
 
 	SetWindowRedraw(GetDlgItem(hwnd,IDC_KEYS_LIST),TRUE);
@@ -8055,6 +8062,14 @@ static INT_PTR CALLBACK _viv_edit_key_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 			WNDPROC last_proc;
 			wchar_t caption_wbuf[STRING_SIZE];
 			
+			string_printf(caption_wbuf,localization_get_string(lParam ? LOCALIZATION_ID_EDIT_KEYBOARD_SHORTCUT_CAPTION : LOCALIZATION_ID_ADD_KEYBOARD_SHORTCUT_CAPTION));
+			SetWindowText(hwnd,caption_wbuf);
+
+			os_SetDlgItemText_localization_id(hwnd,IDC_EDIT_KEYBOARD_SHORTCUT_KEY_STATIC,LOCALIZATION_ID_SHORTCUT_KEY);
+			os_SetDlgItemText_localization_id(hwnd,IDC_EDIT_KEYBOARD_SHORTCUT_KEY_CURRENTLY_USED_BY_STATIC,LOCALIZATION_ID_SHORTCUT_KEY_CURRENTLY_USED_BY);
+			os_SetDlgItemText_localization_id(hwnd,IDOK,LOCALIZATION_ID_OK_BUTTON);
+			os_SetDlgItemText_localization_id(hwnd,IDCANCEL,LOCALIZATION_ID_CANCEL_BUTTON);
+
 			os_center_dialog(hwnd);
 
 			last_proc = (WNDPROC)SetWindowLongPtr(GetDlgItem(hwnd,IDC_EDIT_KEY_EDIT),GWLP_WNDPROC,(LONG_PTR)_viv_edit_key_edit_proc);
@@ -8062,9 +8077,6 @@ static INT_PTR CALLBACK _viv_edit_key_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 			
 			_viv_edit_key_set_key(GetDlgItem(hwnd,IDC_EDIT_KEY_EDIT),lParam);
 			_viv_options_edit_key_changed(hwnd);
-			
-			string_printf(caption_wbuf,localization_get_string(lParam ? LOCALIZATION_ID_OPTIONS_EDIT_KEYBOARD_SHORTCUT_CAPTION : LOCALIZATION_ID_OPTIONS_ADD_KEYBOARD_SHORTCUT_CAPTION));
-			SetWindowText(hwnd,caption_wbuf);
 			
 			return FALSE;
 		}
@@ -8158,24 +8170,33 @@ static INT_PTR CALLBACK _viv_options_controls_proc(HWND hwnd,UINT msg,WPARAM wPa
 	{
 		case WM_INITDIALOG:
 		{
-			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_SCROLL_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_PLAY_PAUSE_SLIDESHOW_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_PLAY_PAUSE_ANIMATION_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_ZOOM_IN_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_NEXT_IMAGE_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_ONE_TO_ONE_SCROLL_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_LEFTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_SCROLL_MOVE_WINDOW_COMBOBOX));
-			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_LEFTCLICKACTION),config_left_click_action);
+			os_SetDlgItemText_localization_id(hwnd,IDC_LEFT_CLICK_ACTION_STATIC,LOCALIZATION_ID_LEFT_CLICK_ACTION_STATIC);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_LEFTCLICKACTION_COMBOBOX,LOCALIZATION_ID_OPTIONS_ACTION_SCROLL_COMBOBOXITEM);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_LEFTCLICKACTION_COMBOBOX,LOCALIZATION_ID_OPTIONS_ACTION_PLAY_PAUSE_SLIDESHOW_COMBOBOXITEM);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_LEFTCLICKACTION_COMBOBOX,LOCALIZATION_ID_OPTIONS_ACTION_PLAY_PAUSE_ANIMATION_COMBOBOXITEM);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_LEFTCLICKACTION_COMBOBOX,LOCALIZATION_ID_OPTIONS_ACTION_ZOOM_IN_COMBOBOXITEM);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_LEFTCLICKACTION_COMBOBOX,LOCALIZATION_ID_OPTIONS_ACTION_NEXT_IMAGE_COMBOBOXITEM);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_LEFTCLICKACTION_COMBOBOX,LOCALIZATION_ID_OPTIONS_ACTION_ONE_TO_ONE_SCROLL_COMBOBOXITEM);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_LEFTCLICKACTION_COMBOBOX,LOCALIZATION_ID_OPTIONS_ACTION_SCROLL_MOVE_WINDOW_COMBOBOXITEM);
+			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_LEFTCLICKACTION_COMBOBOX),config_left_click_action);
 			
-			os_ComboBox_AddString(hwnd,IDC_RIGHTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_CONTEXT_MENU_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_RIGHTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_ZOOM_OUT_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_RIGHTCLICKACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_PREVIOUS_IMAGE_COMBOBOX));
-			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_RIGHTCLICKACTION),config_right_click_action);
+			os_SetDlgItemText_localization_id(hwnd,IDC_RIGHT_CLICK_ACTION_STATIC,LOCALIZATION_ID_RIGHT_CLICK_ACTION_STATIC);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_RIGHTCLICKACTION_COMBOBOX,LOCALIZATION_ID_OPTIONS_ACTION_CONTEXT_MENU_COMBOBOXITEM);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_RIGHTCLICKACTION_COMBOBOX,LOCALIZATION_ID_OPTIONS_ACTION_ZOOM_OUT_COMBOBOXITEM);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_RIGHTCLICKACTION_COMBOBOX,LOCALIZATION_ID_OPTIONS_ACTION_PREVIOUS_IMAGE_COMBOBOXITEM);
+			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_RIGHTCLICKACTION_COMBOBOX),config_right_click_action);
 			
-			os_ComboBox_AddString(hwnd,IDC_MOUSEWHEELACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_ZOOM_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_MOUSEWHEELACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_NEXT_PREV_COMBOBOX));
-			os_ComboBox_AddString(hwnd,IDC_MOUSEWHEELACTION,localization_get_string(LOCALIZATION_ID_OPTIONS_ACTION_PREV_NEXT_COMBOBOX));
-			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_MOUSEWHEELACTION),config_mouse_wheel_action);
+			os_SetDlgItemText_localization_id(hwnd,IDC_MOUSE_WHEEL_ACTION_STATIC,LOCALIZATION_ID_MOUSE_WHEEL_ACTION_STATIC);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_MOUSEWHEELACTION_COMBOBOX,LOCALIZATION_ID_OPTIONS_ACTION_ZOOM_COMBOBOXITEM);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_MOUSEWHEELACTION_COMBOBOX,LOCALIZATION_ID_OPTIONS_ACTION_NEXT_PREV_COMBOBOXITEM);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_MOUSEWHEELACTION_COMBOBOX,LOCALIZATION_ID_OPTIONS_ACTION_PREV_NEXT_COMBOBOXITEM);
+			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_MOUSEWHEELACTION_COMBOBOX),config_mouse_wheel_action);
+
+			os_SetDlgItemText_localization_id(hwnd,IDC_COMMANDS_STATIC,LOCALIZATION_ID_COMMANDS_STATIC);
+			os_SetDlgItemText_localization_id(hwnd,IDC_SETTINGS_FOR_SELECTED_COMMAND_STATIC,LOCALIZATION_ID_SETTINGS_FOR_SELECTED_COMMAND);
+			os_SetDlgItemText_localization_id(hwnd,IDC_ADD_KEY_BUTTON,LOCALIZATION_ID_ADD_KEY_BUTTON);
+			os_SetDlgItemText_localization_id(hwnd,IDC_EDIT_KEY_BUTTON,LOCALIZATION_ID_EDIT_KEY_BUTTON);
+			os_SetDlgItemText_localization_id(hwnd,IDC_REMOVE_KEY_BUTTON,LOCALIZATION_ID_REMOVE_KEY_BUTTON);
 			
 			{
 				int i;
@@ -8230,15 +8251,15 @@ static INT_PTR CALLBACK _viv_options_controls_proc(HWND hwnd,UINT msg,WPARAM wPa
 					}
 					break;
 					
-				case IDC_REMOVE_KEY:
+				case IDC_REMOVE_KEY_BUTTON:
 					_viv_options_remove_key(hwnd);
 					break;
 					
-				case IDC_EDIT_KEY:
+				case IDC_EDIT_KEY_BUTTON:
 					_viv_options_edit_key(hwnd,ListBox_GetCurSel(GetDlgItem(hwnd,IDC_KEYS_LIST)));
 					break;
 					
-				case IDC_ADD_KEY:
+				case IDC_ADD_KEY_BUTTON:
 					_viv_options_edit_key(hwnd,LB_ERR);
 					break;
 			}
@@ -8259,67 +8280,90 @@ static INT_PTR CALLBACK _viv_options_controls_proc(HWND hwnd,UINT msg,WPARAM wPa
 	
 	return FALSE;
 }
+
 static INT_PTR CALLBACK _viv_options_view_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	switch(msg)
 	{
 		case WM_INITDIALOG:
 			
-			os_SetDlgItemText(hwnd,IDC_SHRINK_BLIT_MODE_STATIC,localization_get_string(LOCALIZATION_ID_SHRINK_BLIT_MODE));
-			os_SetDlgItemText(hwnd,IDC_MAGNIFY_BLIT_MODE_STATIC,localization_get_string(LOCALIZATION_ID_MAGNIFY_BLIT_MODE));
-			os_ComboBox_AddString(hwnd,IDC_COMBO1,localization_get_string(LOCALIZATION_ID_BLIT_MODE_NEAREST));
-			os_ComboBox_AddString(hwnd,IDC_COMBO1,localization_get_string(LOCALIZATION_ID_BLIT_MODE_LINEAR));
+			os_SetDlgItemText_localization_id(hwnd,IDC_SHRINK_BLIT_MODE_STATIC,LOCALIZATION_ID_SHRINK_BLIT_MODE_STATIC);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_SHRINK_BLIT_MODE_COMBOBOX,LOCALIZATION_ID_BLIT_MODE_NEAREST_COMBOBOXITEM);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_SHRINK_BLIT_MODE_COMBOBOX,LOCALIZATION_ID_BLIT_MODE_LINEAR_COMBOBOXITEM);
 			
 			if (config_shrink_blit_mode == CONFIG_SHRINK_BLIT_MODE_HALFTONE)
 			{
-				ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_COMBO1),1);
+				ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_SHRINK_BLIT_MODE_COMBOBOX),1);
 			}
 			else
 			{
-				ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_COMBO1),0);
+				ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_SHRINK_BLIT_MODE_COMBOBOX),0);
 			}
 
-			os_ComboBox_AddString(hwnd,IDC_COMBO2,localization_get_string(LOCALIZATION_ID_BLIT_MODE_NEAREST));
-			os_ComboBox_AddString(hwnd,IDC_COMBO2,localization_get_string(LOCALIZATION_ID_BLIT_MODE_LINEAR));
+			os_SetDlgItemText_localization_id(hwnd,IDC_MAGNIFY_BLIT_MODE_STATIC,LOCALIZATION_ID_MAGNIFY_BLIT_MODE);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_MAGNIFY_BLIT_MODE_COMBOBOX,LOCALIZATION_ID_BLIT_MODE_NEAREST_COMBOBOXITEM);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_MAGNIFY_BLIT_MODE_COMBOBOX,LOCALIZATION_ID_BLIT_MODE_LINEAR_COMBOBOXITEM);
 			
 			if (config_mag_filter == CONFIG_MAG_FILTER_HALFTONE)
 			{
-				ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_COMBO2),1);
+				ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_MAGNIFY_BLIT_MODE_COMBOBOX),1);
 			}
 			else
 			{
-				ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_COMBO2),0);
+				ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_MAGNIFY_BLIT_MODE_COMBOBOX),0);
 			}
 
-			os_ComboBox_AddString(hwnd,IDC_TITLE_BAR_FORMAT,(const utf8_t *)"Full Path");
-			os_ComboBox_AddString(hwnd,IDC_TITLE_BAR_FORMAT,(const utf8_t *)"Filename Only");
-			os_ComboBox_AddString(hwnd,IDC_TITLE_BAR_FORMAT,(const utf8_t *)"None");
-			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_TITLE_BAR_FORMAT),config_title_bar_format);
+			os_SetDlgItemText_localization_id(hwnd,IDC_TITLE_BAR_FORMAT_STATIC,LOCALIZATION_ID_OPTIONS_TITLE_BAR_FORMAT_STATIC);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_TITLE_BAR_FORMAT_COMBOBOX,LOCALIZATION_ID_OPTIONS_TITLE_BAR_FORMAT_FULL_PATH_COMBOBOXITEM);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_TITLE_BAR_FORMAT_COMBOBOX,LOCALIZATION_ID_OPTIONS_TITLE_BAR_FORMAT_FILENAME_ONLY_COMBOBOXITEM);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_TITLE_BAR_FORMAT_COMBOBOX,LOCALIZATION_ID_OPTIONS_TITLE_BAR_FORMAT_NONE_COMBOBOXITEM);
+			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_TITLE_BAR_FORMAT_COMBOBOX),config_title_bar_format);
 					
 			CheckDlgButton(hwnd,IDC_AUTO_ZOOM,config_auto_zoom ? BST_CHECKED : BST_UNCHECKED);
 			
-			os_ComboBox_AddString(hwnd,IDC_COMBO4,(const utf8_t *)"50%");
-			os_ComboBox_AddString(hwnd,IDC_COMBO4,(const utf8_t *)"100%");
-			os_ComboBox_AddString(hwnd,IDC_COMBO4,(const utf8_t *)"200%");
-			os_ComboBox_AddString(hwnd,IDC_COMBO4,(const utf8_t *)"Auto Fit");
-			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_COMBO4),config_auto_zoom_type);
-			EnableWindow(GetDlgItem(hwnd,IDC_COMBO4),IsDlgButtonChecked(hwnd,IDC_AUTO_ZOOM) == BST_CHECKED);
+			os_SetDlgItemText_localization_id(hwnd,IDC_AUTO_ZOOM,LOCALIZATION_ID_OPTIONS_VIEW_AUTO_SIZE_WINDOW_STATIC);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_AUTO_SIZE_WINDOW_COMBOBOX,LOCALIZATION_ID_OPTIONS_VIEW_AUTO_SIZE_WINDOW_50_PERCENT_COMBOBOXITEM);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_AUTO_SIZE_WINDOW_COMBOBOX,LOCALIZATION_ID_OPTIONS_VIEW_AUTO_SIZE_WINDOW_100_PERCENT_COMBOBOXITEM);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_AUTO_SIZE_WINDOW_COMBOBOX,LOCALIZATION_ID_OPTIONS_VIEW_AUTO_SIZE_WINDOW_200_PERCENT_COMBOBOXITEM);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_AUTO_SIZE_WINDOW_COMBOBOX,LOCALIZATION_ID_OPTIONS_VIEW_AUTO_SIZE_WINDOW_AUTO_FIT_COMBOBOXITEM);
+			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_AUTO_SIZE_WINDOW_COMBOBOX),config_auto_zoom_type);
+			EnableWindow(GetDlgItem(hwnd,IDC_AUTO_SIZE_WINDOW_COMBOBOX),IsDlgButtonChecked(hwnd,IDC_AUTO_ZOOM) == BST_CHECKED);
 
-			CheckDlgButton(hwnd,IDC_LOOP_ANIMATIONS_ONCE,config_loop_animations_once ? BST_CHECKED : BST_UNCHECKED);
-			CheckDlgButton(hwnd,IDC_PRELOAD_NEXT_IMAGE,config_preload_next ? BST_CHECKED : BST_UNCHECKED);
-			CheckDlgButton(hwnd,IDC_CACHE_LAST_IMAGE,config_cache_last ? BST_CHECKED : BST_UNCHECKED);
+			os_SetDlgItemText_localization_id(hwnd,IDC_LOOP_ANIMATIONS_ONCE_STATIC,LOCALIZATION_ID_PLAY_ANIMATIONS_ONCE_STATIC);
+			CheckDlgButton(hwnd,IDC_LOOP_ANIMATIONS_ONCE_STATIC,config_loop_animations_once ? BST_CHECKED : BST_UNCHECKED);
+
+			os_SetDlgItemText_localization_id(hwnd,IDC_PRELOAD_NEXT_IMAGE_STATIC,LOCALIZATION_ID_PRELOAD_NEXT_IMAGE_STATIC);
+			CheckDlgButton(hwnd,IDC_PRELOAD_NEXT_IMAGE_STATIC,config_preload_next ? BST_CHECKED : BST_UNCHECKED);
+
+			os_SetDlgItemText_localization_id(hwnd,IDC_CACHE_LAST_IMAGE_STATIC,LOCALIZATION_ID_CACHE_LAST_IMAGE_STATIC);
+			CheckDlgButton(hwnd,IDC_CACHE_LAST_IMAGE_STATIC,config_cache_last ? BST_CHECKED : BST_UNCHECKED);
 			
-			SetWindowLongPtr(GetDlgItem(hwnd,IDC_WINDOWEDBACKGROUNDCOLOR),GWLP_USERDATA,RGB(config_windowed_background_color_r,config_windowed_background_color_g,config_windowed_background_color_b));
-			_viv_update_color_button_bitmap(GetDlgItem(hwnd,IDC_WINDOWEDBACKGROUNDCOLOR));
+			{
+				int static_wide;
+				
+				static_wide = 0;
+				
+				os_SetDlgItemText_localization_id(hwnd,IDC_WINDOWEDBACKGROUNDCOLOR_STATIC,LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_STATIC);
+				SetWindowLongPtr(GetDlgItem(hwnd,IDC_WINDOWEDBACKGROUNDCOLOR_BUTTON),GWLP_USERDATA,RGB(config_windowed_background_color_r,config_windowed_background_color_g,config_windowed_background_color_b));
+				_viv_update_color_button_bitmap(GetDlgItem(hwnd,IDC_WINDOWEDBACKGROUNDCOLOR_BUTTON));
+				static_wide = os_expand_static_wide(hwnd,IDC_WINDOWEDBACKGROUNDCOLOR_STATIC,static_wide);
 
-			SetWindowLongPtr(GetDlgItem(hwnd,IDC_FULLSCREENBACKGROUNDCOLOR),GWLP_USERDATA,RGB(config_fullscreen_background_color_r,config_fullscreen_background_color_g,config_fullscreen_background_color_b));
-			_viv_update_color_button_bitmap(GetDlgItem(hwnd,IDC_FULLSCREENBACKGROUNDCOLOR));
+				os_SetDlgItemText_localization_id(hwnd,IDC_FULLSCREENBACKGROUNDCOLOR_STATIC,LOCALIZATION_ID_FULLSCREEN_BACKGROUND_COLOR_STATIC);
+				SetWindowLongPtr(GetDlgItem(hwnd,IDC_FULLSCREENBACKGROUNDCOLOR_BUTTON),GWLP_USERDATA,RGB(config_fullscreen_background_color_r,config_fullscreen_background_color_g,config_fullscreen_background_color_b));
+				_viv_update_color_button_bitmap(GetDlgItem(hwnd,IDC_FULLSCREENBACKGROUNDCOLOR_BUTTON));
+				static_wide = os_expand_static_wide(hwnd,IDC_FULLSCREENBACKGROUNDCOLOR_STATIC,static_wide);
+				
+				os_set_dialog_item_x_wide(hwnd,IDC_WINDOWEDBACKGROUNDCOLOR_STATIC,0,static_wide+6);
+				os_set_dialog_item_x_wide(hwnd,IDC_WINDOWEDBACKGROUNDCOLOR_BUTTON,static_wide+6,75);
+				os_set_dialog_item_x_wide(hwnd,IDC_FULLSCREENBACKGROUNDCOLOR_STATIC,0,static_wide+6);
+				os_set_dialog_item_x_wide(hwnd,IDC_FULLSCREENBACKGROUNDCOLOR_BUTTON,static_wide+6,75);
+			}
 					
 			return FALSE;
 			
 		case WM_DESTROY:	
-			_viv_delete_color_button_bitmap(GetDlgItem(hwnd,IDC_WINDOWEDBACKGROUNDCOLOR));
-			_viv_delete_color_button_bitmap(GetDlgItem(hwnd,IDC_FULLSCREENBACKGROUNDCOLOR));
+			_viv_delete_color_button_bitmap(GetDlgItem(hwnd,IDC_WINDOWEDBACKGROUNDCOLOR_BUTTON));
+			_viv_delete_color_button_bitmap(GetDlgItem(hwnd,IDC_FULLSCREENBACKGROUNDCOLOR_BUTTON));
 			break;
 		
 		case WM_COMMAND:
@@ -8328,12 +8372,12 @@ static INT_PTR CALLBACK _viv_options_view_proc(HWND hwnd,UINT msg,WPARAM wParam,
 			{
 				case IDC_AUTO_ZOOM:
 				
-					EnableWindow(GetDlgItem(hwnd,IDC_COMBO4),IsDlgButtonChecked(hwnd,IDC_AUTO_ZOOM) == BST_CHECKED);
+					EnableWindow(GetDlgItem(hwnd,IDC_AUTO_SIZE_WINDOW_COMBOBOX),IsDlgButtonChecked(hwnd,IDC_AUTO_ZOOM) == BST_CHECKED);
 				
 					break; 
 				
-				case IDC_WINDOWEDBACKGROUNDCOLOR:
-				case IDC_FULLSCREENBACKGROUNDCOLOR:
+				case IDC_WINDOWEDBACKGROUNDCOLOR_BUTTON:
+				case IDC_FULLSCREENBACKGROUNDCOLOR_BUTTON:
 					
 					{
 						COLORREF color;
@@ -8465,18 +8509,9 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 		case WM_INITDIALOG:
 
 			// update text.
-			{
-				wchar_t caption_wbuf[STRING_SIZE];
-				
-				string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_OPTIONS_CAPTION));
-				SetWindowText(hwnd,caption_wbuf);
-
-				string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_OK));
-				SetDlgItemText(hwnd,IDOK,caption_wbuf);
-
-				string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_CANCEL));
-				SetDlgItemText(hwnd,IDCANCEL,caption_wbuf);
-			}
+			os_SetWindowText_localization_id(hwnd,LOCALIZATION_ID_OPTIONS_CAPTION);
+			os_SetDlgItemText_localization_id(hwnd,IDOK,LOCALIZATION_ID_OK_BUTTON);
+			os_SetDlgItemText_localization_id(hwnd,IDCANCEL,LOCALIZATION_ID_CANCEL_BUTTON);
 			
 			os_center_dialog(hwnd);
 
@@ -8619,11 +8654,11 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 						
 						old_shrink_blit_mode = config_shrink_blit_mode;
 						
-						config_left_click_action = ComboBox_GetCurSel(GetDlgItem(controls_page,IDC_LEFTCLICKACTION));
-						config_right_click_action = ComboBox_GetCurSel(GetDlgItem(controls_page,IDC_RIGHTCLICKACTION));
-						config_mouse_wheel_action = ComboBox_GetCurSel(GetDlgItem(controls_page,IDC_MOUSEWHEELACTION));
+						config_left_click_action = ComboBox_GetCurSel(GetDlgItem(controls_page,IDC_LEFTCLICKACTION_COMBOBOX));
+						config_right_click_action = ComboBox_GetCurSel(GetDlgItem(controls_page,IDC_RIGHTCLICKACTION_COMBOBOX));
+						config_mouse_wheel_action = ComboBox_GetCurSel(GetDlgItem(controls_page,IDC_MOUSEWHEELACTION_COMBOBOX));
 						
-						if (ComboBox_GetCurSel(GetDlgItem(view_page,IDC_COMBO1)) == 1)
+						if (ComboBox_GetCurSel(GetDlgItem(view_page,IDC_SHRINK_BLIT_MODE_COMBOBOX)) == 1)
 						{
 							config_shrink_blit_mode = CONFIG_SHRINK_BLIT_MODE_HALFTONE;
 						}
@@ -8632,7 +8667,7 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 							config_shrink_blit_mode = CONFIG_SHRINK_BLIT_MODE_COLORONCOLOR;
 						}
 						
-						colorref = (COLORREF)GetWindowLongPtr(GetDlgItem(view_page,IDC_WINDOWEDBACKGROUNDCOLOR),GWLP_USERDATA);
+						colorref = (COLORREF)GetWindowLongPtr(GetDlgItem(view_page,IDC_WINDOWEDBACKGROUNDCOLOR_BUTTON),GWLP_USERDATA);
 
 						if ((GetRValue(colorref) != config_windowed_background_color_r) || (GetGValue(colorref) != config_windowed_background_color_g) || (GetBValue(colorref) != config_windowed_background_color_b))
 						{
@@ -8643,7 +8678,7 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 							InvalidateRect(_viv_hwnd,0,FALSE);
 						}
 						
-						colorref = (COLORREF)GetWindowLongPtr(GetDlgItem(view_page,IDC_FULLSCREENBACKGROUNDCOLOR),GWLP_USERDATA);
+						colorref = (COLORREF)GetWindowLongPtr(GetDlgItem(view_page,IDC_FULLSCREENBACKGROUNDCOLOR_BUTTON),GWLP_USERDATA);
 						
 						if ((GetRValue(colorref) != config_fullscreen_background_color_r) || (GetGValue(colorref) != config_fullscreen_background_color_g) || (GetBValue(colorref) != config_fullscreen_background_color_b))
 						{
@@ -8661,7 +8696,7 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 						
 						old_shrink_blit_mode = config_mag_filter;
 						
-						if (ComboBox_GetCurSel(GetDlgItem(view_page,IDC_COMBO2)) == 1)
+						if (ComboBox_GetCurSel(GetDlgItem(view_page,IDC_MAGNIFY_BLIT_MODE_COMBOBOX)) == 1)
 						{
 							config_mag_filter = CONFIG_SHRINK_BLIT_MODE_HALFTONE;
 						}
@@ -8675,19 +8710,20 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 							InvalidateRect(_viv_hwnd,0,FALSE);
 						}
 
-					config_title_bar_format = ComboBox_GetCurSel(GetDlgItem(view_page,IDC_TITLE_BAR_FORMAT));
+					config_title_bar_format = ComboBox_GetCurSel(GetDlgItem(view_page,IDC_TITLE_BAR_FORMAT_COMBOBOX));
 					_viv_update_title();
 
 					config_auto_zoom = IsDlgButtonChecked(view_page,IDC_AUTO_ZOOM) == BST_CHECKED ? 1 : 0;
-					config_auto_zoom_type = ComboBox_GetCurSel(GetDlgItem(view_page,IDC_COMBO4));
-					config_loop_animations_once = IsDlgButtonChecked(view_page,IDC_LOOP_ANIMATIONS_ONCE) == BST_CHECKED ? 1 : 0;
-					config_preload_next = IsDlgButtonChecked(view_page,IDC_PRELOAD_NEXT_IMAGE) == BST_CHECKED ? 1 : 0;
-					config_cache_last = IsDlgButtonChecked(view_page,IDC_CACHE_LAST_IMAGE) == BST_CHECKED ? 1 : 0;
+					config_auto_zoom_type = ComboBox_GetCurSel(GetDlgItem(view_page,IDC_AUTO_SIZE_WINDOW_COMBOBOX));
+					config_loop_animations_once = IsDlgButtonChecked(view_page,IDC_LOOP_ANIMATIONS_ONCE_STATIC) == BST_CHECKED ? 1 : 0;
+					config_preload_next = IsDlgButtonChecked(view_page,IDC_PRELOAD_NEXT_IMAGE_STATIC) == BST_CHECKED ? 1 : 0;
+					config_cache_last = IsDlgButtonChecked(view_page,IDC_CACHE_LAST_IMAGE_STATIC) == BST_CHECKED ? 1 : 0;
 					
 					// copy keys.
 					_viv_key_list_copy(_viv_key_list,(_viv_key_list_t *)GetWindowLongPtr(GetDlgItem(controls_page,IDC_COMMANDS_LIST),GWLP_USERDATA));
 					
 					// reinit menu.
+
 					{
 						HMENU new_hmenu;
 						
@@ -9006,7 +9042,7 @@ static int _viv_set_registry_string(HKEY hkey,const utf8_t *value,const wchar_t 
 		value_wp = 0;
 	}	
 
-	reg_ret = RegSetValueExW(hkey,value_wp,0,REG_SZ,(BYTE *)wbuf,(string_length(wbuf) + 1) * sizeof(wchar_t));
+	reg_ret = RegSetValueExW(hkey,value_wp,0,REG_SZ,(BYTE *)wbuf,(string_get_length(wbuf) + 1) * sizeof(wchar_t));
 	if (reg_ret == ERROR_SUCCESS)
 	{
 		return 1;
@@ -9573,26 +9609,51 @@ static INT_PTR CALLBACK _viv_custom_rate_proc(HWND hwnd,UINT msg,WPARAM wParam,L
 	switch(msg)
 	{
 		case WM_INITDIALOG:
-		{
-			os_center_dialog(hwnd);
 
-			SetDlgItemInt(hwnd,IDC_CUSTOM_RATE_EDIT,config_slideshow_custom_rate,FALSE);
+			{
+				int static_wide;
+				RECT rect;
+				int wide;
+				
+				os_center_dialog(hwnd);
+				GetClientRect(hwnd,&rect);
+				wide = rect.right - rect.left - 12 - 12;
 
-			os_ComboBox_AddString(hwnd,IDC_CUSTOM_RATE_TYPE_COMBO,(const utf8_t *)"milliseconds");
-			os_ComboBox_AddString(hwnd,IDC_CUSTOM_RATE_TYPE_COMBO,(const utf8_t *)"seconds");
-			os_ComboBox_AddString(hwnd,IDC_CUSTOM_RATE_TYPE_COMBO,(const utf8_t *)"minutes");
-			
-			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_CUSTOM_RATE_TYPE_COMBO),config_slideshow_custom_rate_type);
+				os_SetWindowText_localization_id(hwnd,LOCALIZATION_ID_SET_CUSTOM_RATE_CAPTION);
+
+				os_SetDlgItemText_localization_id(hwnd,IDOK,LOCALIZATION_ID_OK_BUTTON);
+				os_SetDlgItemText_localization_id(hwnd,IDCANCEL,LOCALIZATION_ID_CANCEL_BUTTON);
+
+				SetDlgItemInt(hwnd,IDC_CUSTOM_RATE_EDIT,config_slideshow_custom_rate,FALSE);
+
+				os_SetDlgItemText_localization_id(hwnd,IDC_CUSTOM_RATE_STATIC,LOCALIZATION_ID_CUSTOM_RATE_STATIC);
+				static_wide = os_get_static_wide(hwnd,IDC_CUSTOM_RATE_STATIC);
+				os_set_dialog_item_x_wide(hwnd,IDC_CUSTOM_RATE_STATIC,12,static_wide+6);
+	
+				{
+					int edit_combo_wide;
+					
+					edit_combo_wide = (wide - (static_wide+6) - 6) / 2;
+					
+					os_set_dialog_item_x_wide(hwnd,IDC_CUSTOM_RATE_EDIT,12 + static_wide+6,edit_combo_wide);
+					os_set_dialog_item_x_wide(hwnd,IDC_CUSTOM_RATE_TYPE_COMBOBOX,12 + static_wide+6 + edit_combo_wide + 6,edit_combo_wide);
+				}
+				
+				os_ComboBox_AddString_localization_id(hwnd,IDC_CUSTOM_RATE_TYPE_COMBOBOX,LOCALIZATION_ID_CUSTOM_RATE_MILLISECONDS);
+				os_ComboBox_AddString_localization_id(hwnd,IDC_CUSTOM_RATE_TYPE_COMBOBOX,LOCALIZATION_ID_CUSTOM_RATE_SECONDS);
+				os_ComboBox_AddString_localization_id(hwnd,IDC_CUSTOM_RATE_TYPE_COMBOBOX,LOCALIZATION_ID_CUSTOM_RATE_MINUTES);
+				
+				ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_CUSTOM_RATE_TYPE_COMBOBOX),config_slideshow_custom_rate_type);
+			}
 
 			return TRUE;
-		}
 		
 		case WM_COMMAND:
 		
 			switch(LOWORD(wParam))
 			{
 				case IDOK:
-					config_slideshow_custom_rate_type = ComboBox_GetCurSel(GetDlgItem(hwnd,IDC_CUSTOM_RATE_TYPE_COMBO));
+					config_slideshow_custom_rate_type = ComboBox_GetCurSel(GetDlgItem(hwnd,IDC_CUSTOM_RATE_TYPE_COMBOBOX));
 					config_slideshow_custom_rate = GetDlgItemInt(hwnd,IDC_CUSTOM_RATE_EDIT,NULL,FALSE);
 					EndDialog(hwnd,1);
 					break;
@@ -9659,16 +9720,16 @@ static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 
 			string_copy_utf8_string(version_wbuf,localization_get_string(LOCALIZATION_ID_ABOUT_CAPTION));
 			SetWindowText(hwnd,version_wbuf);
-			os_SetDlgItemText(hwnd,IDC_ABOUTTITLE,localization_get_string(LOCALIZATION_ID_APP_NAME));
-			os_SetDlgItemText(hwnd,IDC_ABOUTVOIDIMAGEVIEWER,localization_get_string(LOCALIZATION_ID_APP_NAME));
+			os_SetDlgItemText_localization_id(hwnd,IDC_ABOUTTITLE,LOCALIZATION_ID_APP_NAME);
+			os_SetDlgItemText_localization_id(hwnd,IDC_ABOUTVOIDIMAGEVIEWER,LOCALIZATION_ID_APP_NAME);
 			string_printf(version_wbuf,"%d.%d.%d.%d%s %s",VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD,VERSION_TYPE,VERSION_TARGET_MACHINE);
 			SetDlgItemText(hwnd,IDC_ABOUTVERSION,version_wbuf);
 			string_printf(version_wbuf,localization_get_string(LOCALIZATION_ID_ABOUT_COPYRIGHT_FORMAT),VERSION_YEAR);
 			SetDlgItemText(hwnd,IDC_ABOUTCOPYRIGHT,version_wbuf);
-			os_SetDlgItemText(hwnd,IDC_ABOUTEMAIL,localization_get_string(LOCALIZATION_ID_ABOUT_EMAIL));
-			os_SetDlgItemText(hwnd,IDC_ABOUTWEBSITE,localization_get_string(LOCALIZATION_ID_ABOUT_WEBSITE));
-			os_SetDlgItemText(hwnd,IDOK,localization_get_string(LOCALIZATION_ID_OK));
-			os_SetDlgItemText(hwnd,IDCANCEL,localization_get_string(LOCALIZATION_ID_CANCEL));
+			os_SetDlgItemText_localization_id(hwnd,IDC_ABOUTEMAIL,LOCALIZATION_ID_ABOUT_EMAIL);
+			os_SetDlgItemText_localization_id(hwnd,IDC_ABOUTWEBSITE,LOCALIZATION_ID_ABOUT_WEBSITE);
+			os_SetDlgItemText_localization_id(hwnd,IDOK,LOCALIZATION_ID_OK_BUTTON);
+			os_SetDlgItemText_localization_id(hwnd,IDCANCEL,LOCALIZATION_ID_CANCEL_BUTTON);
 			
 			if (!_viv_about_hfont)
 			{
@@ -11104,7 +11165,7 @@ static void _viv_status_update(void)
 				
 				last_font = SelectObject(hdc,hfont);
 				
-				if (GetTextExtentPoint32(hdc,dimension_buf,string_length(dimension_buf),&size))
+				if (GetTextExtentPoint32(hdc,dimension_buf,string_get_length(dimension_buf),&size))
 				{
 					dimension_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
 					
@@ -11116,7 +11177,7 @@ static void _viv_status_update(void)
 
 				if (*frame_buf)
 				{
-					if (GetTextExtentPoint32(hdc,frame_buf,string_length(frame_buf),&size))
+					if (GetTextExtentPoint32(hdc,frame_buf,string_get_length(frame_buf),&size))
 					{
 						frame_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
 						
@@ -11129,7 +11190,7 @@ static void _viv_status_update(void)
 
 				if (*preload_buf)
 				{
-					if (GetTextExtentPoint32(hdc,preload_buf,string_length(preload_buf),&size))
+					if (GetTextExtentPoint32(hdc,preload_buf,string_get_length(preload_buf),&size))
 					{
 						preload_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
 					}
@@ -11137,7 +11198,7 @@ static void _viv_status_update(void)
 
 				if (*pixel_pos_buf)
 				{
-					if (GetTextExtentPoint32(hdc,pixel_pos_buf,string_length(pixel_pos_buf),&size))
+					if (GetTextExtentPoint32(hdc,pixel_pos_buf,string_get_length(pixel_pos_buf),&size))
 					{
 						pixel_pos_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
 					}
@@ -11145,7 +11206,7 @@ static void _viv_status_update(void)
 
 				if (*pixel_rgb_buf)
 				{
-					if (GetTextExtentPoint32(hdc,pixel_rgb_buf,string_length(pixel_rgb_buf),&size))
+					if (GetTextExtentPoint32(hdc,pixel_rgb_buf,string_get_length(pixel_rgb_buf),&size))
 					{
 						pixel_rgb_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
 					}
@@ -12868,116 +12929,121 @@ static LRESULT CALLBACK _viv_jumpto_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 	switch(msg)
 	{
 		case WM_INITDIALOG:
-		{
-			int cur_index;
-			
-			cur_index = LB_ERR;
-				
-			os_center_dialog(hwnd);
-			
-			_viv_nav_item_free_all();
-			
-			if (_viv_playlist_start)
+
 			{
-				_viv_playlist_t *d;
+				int cur_index;
 				
-				d = _viv_playlist_start;
-				while(d)
-				{
-					_viv_nav_item_add(&d->fd);
-				
-					d = d->next;
-				}
-			}
-			else
-			if (*_viv_current_fd->cFileName)
-			{		
-				WIN32_FIND_DATA fd;
-				HANDLE h;
-				wchar_t search_wbuf[STRING_SIZE];
-				wchar_t path_wbuf[STRING_SIZE];
+				cur_index = LB_ERR;
 
-				string_get_path_part(path_wbuf,_viv_current_fd->cFileName);
-				
-				string_copy(search_wbuf,path_wbuf);
-				string_cat_utf8(search_wbuf,(const utf8_t *)"\\*.*");
-
-				h = FindFirstFile(search_wbuf,&fd);
-				
-				if (h != INVALID_HANDLE_VALUE)
-				{
-					for(;;)
-					{
-						if (_viv_is_valid_filename(&fd))
-						{
-							string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-							string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
-							
-							_viv_nav_item_add(&fd);
-						}
-						
-						if (!FindNextFile(h,&fd)) break;
-					}
-
-					FindClose(h);
-				}
-			}
-			
-			if (_viv_nav_item_count)
-			{
-				_viv_nav_item_t **d;
-				_viv_nav_item_t *navitem;
-				
-				_viv_nav_items = (_viv_nav_item_t **)mem_alloc(_viv_nav_item_count * sizeof(_viv_nav_item_t *));
-				d = _viv_nav_items;
-				
-				navitem = __viv_nav_item_start;
-				while(navitem)
-				{
-					*d++ = navitem;
+				os_SetWindowText_localization_id(hwnd,LOCALIZATION_ID_JUMP_TO_TITLE);
+				os_SetDlgItemText_localization_id(hwnd,IDOK,LOCALIZATION_ID_OK_BUTTON);
+				os_SetDlgItemText_localization_id(hwnd,IDCANCEL,LOCALIZATION_ID_CANCEL_BUTTON);
 					
-					navitem = navitem->next;
-				}
-			}
-			
-			// sort by name 
-			os_qsort(_viv_nav_items,_viv_nav_item_count,_viv_nav_compare);
-			
-			// find current.
-			{
-				_viv_nav_item_t **p;
-				SIZE_T run;
-				int index;
+				os_center_dialog(hwnd);
 				
-				p = _viv_nav_items;
-				run = _viv_nav_item_count;
-				index = 0;
+				_viv_nav_item_free_all();
 				
-				while(run)
+				if (_viv_playlist_start)
 				{
-					if (string_compare((*p)->fd.cFileName,_viv_current_fd->cFileName) == 0)
+					_viv_playlist_t *d;
+					
+					d = _viv_playlist_start;
+					while(d)
 					{
-						cur_index = index;
+						_viv_nav_item_add(&d->fd);
+					
+						d = d->next;
 					}
-				
-					index++;
-					p++;
-					run--;
 				}
-			}
-			
-			_viv_jumpto_on_size(hwnd);
-			_viv_jumpto_on_search(hwnd);
-			
-			if (cur_index != LB_ERR)
-			{
-				ListBox_SetCurSel(GetDlgItem(hwnd,IDC_JUMPTO_LIST),cur_index);
+				else
+				if (*_viv_current_fd->cFileName)
+				{		
+					WIN32_FIND_DATA fd;
+					HANDLE h;
+					wchar_t search_wbuf[STRING_SIZE];
+					wchar_t path_wbuf[STRING_SIZE];
+
+					string_get_path_part(path_wbuf,_viv_current_fd->cFileName);
+					
+					string_copy(search_wbuf,path_wbuf);
+					string_cat_utf8(search_wbuf,(const utf8_t *)"\\*.*");
+
+					h = FindFirstFile(search_wbuf,&fd);
+					
+					if (h != INVALID_HANDLE_VALUE)
+					{
+						for(;;)
+						{
+							if (_viv_is_valid_filename(&fd))
+							{
+								string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
+								string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
+								
+								_viv_nav_item_add(&fd);
+							}
+							
+							if (!FindNextFile(h,&fd)) break;
+						}
+
+						FindClose(h);
+					}
+				}
 				
-				_viv_center_listbox_item(GetDlgItem(hwnd,IDC_JUMPTO_LIST),cur_index);
+				if (_viv_nav_item_count)
+				{
+					_viv_nav_item_t **d;
+					_viv_nav_item_t *navitem;
+					
+					_viv_nav_items = (_viv_nav_item_t **)mem_alloc(_viv_nav_item_count * sizeof(_viv_nav_item_t *));
+					d = _viv_nav_items;
+					
+					navitem = __viv_nav_item_start;
+					while(navitem)
+					{
+						*d++ = navitem;
+						
+						navitem = navitem->next;
+					}
+				}
+				
+				// sort by name 
+				os_qsort(_viv_nav_items,_viv_nav_item_count,_viv_nav_compare);
+				
+				// find current.
+				{
+					_viv_nav_item_t **p;
+					SIZE_T run;
+					int index;
+					
+					p = _viv_nav_items;
+					run = _viv_nav_item_count;
+					index = 0;
+					
+					while(run)
+					{
+						if (string_compare((*p)->fd.cFileName,_viv_current_fd->cFileName) == 0)
+						{
+							cur_index = index;
+						}
+					
+						index++;
+						p++;
+						run--;
+					}
+				}
+				
+				_viv_jumpto_on_size(hwnd);
+				_viv_jumpto_on_search(hwnd);
+				
+				if (cur_index != LB_ERR)
+				{
+					ListBox_SetCurSel(GetDlgItem(hwnd,IDC_JUMPTO_LIST),cur_index);
+					
+					_viv_center_listbox_item(GetDlgItem(hwnd,IDC_JUMPTO_LIST),cur_index);
+				}
 			}
 			
 			return TRUE;
-		}
 			
 		case WM_COMMAND:
 		
@@ -13189,18 +13255,15 @@ static INT_PTR CALLBACK _viv_search_everything_proc(HWND hwnd,UINT msg,WPARAM wP
 	switch(msg)
 	{
 		case WM_INITDIALOG:
-		{
-			wchar_t caption_wbuf[STRING_SIZE];
 			
 			os_center_dialog(hwnd);
 			
 			SetWindowLongPtr(hwnd,GWLP_USERDATA,lParam);
 			
-			string_copy_utf8_string(caption_wbuf,lParam ? "Add Everything Search" : "Load Everything Search");
-			SetWindowText(hwnd,caption_wbuf);
+			os_SetWindowText_localization_id(hwnd,lParam ? LOCALIZATION_ID_EVERYTHING_ADD_EVERYTHING_SEARCH_CAPTION : LOCALIZATION_ID_EVERYTHING_LOAD_EVERYTHING_SEARCH_CAPTION);
+			os_SetDlgItemText_localization_id(hwnd,IDC_SEARCH_EVERYTHING_RANDOM_CHECKBOX,LOCALIZATION_ID_RANDOMIZE);
 			
 			return TRUE;
-		}
 		
 		case WM_COMMAND:
 		
@@ -13212,7 +13275,7 @@ static INT_PTR CALLBACK _viv_search_everything_proc(HWND hwnd,UINT msg,WPARAM wP
 					
 					GetDlgItemText(hwnd,IDC_EVERYTHING_EDIT,search_wbuf,STRING_SIZE);
 					
-					if (_viv_send_everything_search(hwnd,GetWindowLongPtr(hwnd,GWLP_USERDATA),IsDlgButtonChecked(hwnd,IDC_SEARCH_EVERYTHING_RANDOM) == BST_CHECKED,search_wbuf))
+					if (_viv_send_everything_search(hwnd,GetWindowLongPtr(hwnd,GWLP_USERDATA),IsDlgButtonChecked(hwnd,IDC_SEARCH_EVERYTHING_RANDOM_CHECKBOX) == BST_CHECKED,search_wbuf))
 					{
 						EndDialog(hwnd,0);
 					}
@@ -13283,7 +13346,7 @@ static int _viv_send_everything_search(HWND hwnd,int add,int randomize,const wch
 			string_cat(new_search,search);
 			string_cat_utf8(new_search,">");
 
-			size = (DWORD)(sizeof(EVERYTHING_IPC_QUERY2) + (string_length(new_search) + 1) * sizeof(wchar_t));
+			size = (DWORD)(sizeof(EVERYTHING_IPC_QUERY2) + (string_get_length(new_search) + 1) * sizeof(wchar_t));
 			
 			_viv_everything_request_flags = EVERYTHING_IPC_QUERY2_REQUEST_FULL_PATH_AND_NAME; 
 					
@@ -13312,7 +13375,7 @@ static int _viv_send_everything_search(HWND hwnd,int add,int randomize,const wch
 			q->request_flags = _viv_everything_request_flags;
 			
 			q->sort_type = EVERYTHING_IPC_SORT_NAME_ASCENDING;
-			os_copy_memory(q+1,new_search,(string_length(new_search) + 1) * sizeof(wchar_t));
+			os_copy_memory(q+1,new_search,(string_get_length(new_search) + 1) * sizeof(wchar_t));
 			
 			cds.dwData = EVERYTHING_IPC_COPYDATA_QUERY2;
 			cds.cbData = size;
@@ -13746,7 +13809,7 @@ static void _viv_send_random_everything_search(void)
 		string_cat(new_search,_viv_random);
 		string_cat_utf8(new_search,">");
 
-		size = (DWORD)(sizeof(EVERYTHING_IPC_QUERY2) + (string_length(new_search) + 1) * sizeof(wchar_t));
+		size = (DWORD)(sizeof(EVERYTHING_IPC_QUERY2) + (string_get_length(new_search) + 1) * sizeof(wchar_t));
 		
 		_viv_everything_request_flags = EVERYTHING_IPC_QUERY2_REQUEST_FULL_PATH_AND_NAME; 
 				
@@ -13777,7 +13840,7 @@ static void _viv_send_random_everything_search(void)
 		debug_printf("rand index %d\n",q->offset);
 		
 		q->sort_type = EVERYTHING_IPC_SORT_NAME_ASCENDING;
-		os_copy_memory(q+1,new_search,(string_length(new_search) + 1) * sizeof(wchar_t));
+		os_copy_memory(q+1,new_search,(string_get_length(new_search) + 1) * sizeof(wchar_t));
 		
 		cds.dwData = EVERYTHING_IPC_COPYDATA_QUERY2;
 		cds.cbData = size;

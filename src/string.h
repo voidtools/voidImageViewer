@@ -27,7 +27,7 @@ extern "C" {
 
 #define STRING_SIZE		1024
 
-uintptr_t string_length(const wchar_t *text);
+uintptr_t string_get_length(const wchar_t *text);
 wchar_t *string_alloc(const wchar_t *s);
 wchar_t *string_alloc_utf8(const utf8_t *s);
 void string_copy(wchar_t *d,const wchar_t *s);

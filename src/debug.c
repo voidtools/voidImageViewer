@@ -49,6 +49,6 @@ void debug_printf(const char *format,...)
 	string_vprintf(wbuf,format,args);
 	va_end(args);
 	
-	WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE),wbuf,string_length(wbuf),&number_of_chars_written,NULL);
+	WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE),wbuf,string_get_length(wbuf),&number_of_chars_written,NULL);
 }
 #endif							

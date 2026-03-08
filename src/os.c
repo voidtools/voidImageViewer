@@ -26,6 +26,8 @@
 #define _OS_QSORT_CUTOFF	8            /* testing shows that this is good value */
 #define _OS_QSORT_STKSIZ	((8*sizeof(void*)) - 2)
 
+#define _OS_DRAWTEXT_MAX_LEN		(4096-1)
+
 typedef struct _os_COMDLG_FILTERSPEC_s 
 {
 	wchar_t *pszName;
@@ -649,6 +651,11 @@ int os_ComboBox_AddString(HWND hwnd,int id,const utf8_t *s)
 	return ComboBox_AddString(GetDlgItem(hwnd,id),wbuf);
 }
 
+int os_ComboBox_AddString_localization_id(HWND hwnd,int id,localization_id_t localization_id)
+{
+	return os_ComboBox_AddString(hwnd,id,localization_get_string(localization_id));
+}
+
 void os_SetDlgItemText(HWND hwnd,int id,const utf8_t *s)
 {	
 	wchar_t wbuf[STRING_SIZE];
@@ -656,6 +663,25 @@ void os_SetDlgItemText(HWND hwnd,int id,const utf8_t *s)
 	string_copy_utf8_string(wbuf,s);
 	
 	SetDlgItemText(hwnd,id,wbuf);
+}
+
+void os_SetWindowText(HWND hwnd,const utf8_t *s)
+{	
+	wchar_t wbuf[STRING_SIZE];
+	
+	string_copy_utf8_string(wbuf,s);
+	
+	SetWindowText(hwnd,wbuf);
+}
+
+void os_SetDlgItemText_localization_id(HWND hwnd,int id,localization_id_t localization_id)
+{	
+	os_SetDlgItemText(hwnd,id,localization_get_string(localization_id));
+}
+
+void os_SetWindowText_localization_id(HWND hwnd,localization_id_t localization_id)
+{	
+	os_SetWindowText(hwnd,localization_get_string(localization_id));
 }
 
 HWND os_CreateWindowEx(DWORD dwExStyle,const utf8_t *lpClassName,const utf8_t *lpWindowName,DWORD dwStyle,int X,int Y,int nWidth,int nHeight,HWND hWndParent,HMENU hMenu,HINSTANCE hInstance,LPVOID lpParam)
@@ -1641,5 +1667,117 @@ void os_adjust_window_rect(HWND hwnd,RECT *window_rect,int window_x,int window_y
 
 //DEBUG:
 //debug_printf((const utf8_t *)"%d %d %d %d\n",window_rect->left,window_rect->top,window_rect->right,window_rect->bottom);
+}
+
+int os_get_text_wideW(HDC hdc,const wchar_t *s,uintptr_t slen_in_wchars)
+{
+	int ret;
+
+	ret = 0;
+	
+	if (slen_in_wchars)
+	{
+		if (slen_in_wchars <= INT_MAX)
+		{
+/*
+			SIZE size;
+			
+			GetTextExtentPoint32W(hdc,s,(int)slen_in_wchars,&size);
+			
+			ret = size.cx;
+*/			
+			
+			RECT rect;
+			
+			rect.left = 0;
+			rect.right = 0;
+			rect.top = 0;
+			rect.bottom = 0;
+			
+			if (slen_in_wchars > _OS_DRAWTEXT_MAX_LEN)
+			{
+				slen_in_wchars = _OS_DRAWTEXT_MAX_LEN;
+			}
+
+			// DrawText performance is about the same as GetTextExtentPoint32W.
+			// DrawText works with unicode characters that map to non-printable ascii chars. (eg: music note)
+			// GetTextExtentPoint32W does not work for some unicode chars (eg: music note)
+			
+			if (DrawText(hdc,s,(int)slen_in_wchars,&rect,DT_NOCLIP| DT_CALCRECT))
+			{
+				ret = rect.right - rect.left;
+			}
+		}
+	}
+	
+	return ret;
+}
+
+int os_get_static_wide(HWND hwnd,int id)
+{
+	HWND dialog_item_hwnd;
+	HDC hdc;
+	int wide;
+	
+	dialog_item_hwnd = GetDlgItem(hwnd,id);
+	wide = 0;
+
+	// get the text width
+	hdc = GetDC(dialog_item_hwnd);
+	if (hdc)
+	{
+		HFONT hfont;
+		HGDIOBJ lastfont;
+		wchar_t wbuf[STRING_SIZE];
+
+		hfont = GetWindowFont(dialog_item_hwnd);
+		lastfont = SelectObject(hdc,hfont);
+
+		GetWindowText(dialog_item_hwnd,wbuf,STRING_SIZE);
+
+		wide = os_get_text_wideW(hdc,wbuf,string_get_length(wbuf));
+		
+		SelectObject(hdc,lastfont);
+		
+		ReleaseDC(hwnd,hdc);
+	}
+	
+	return wide;
+}
+
+int os_expand_static_wide(HWND hwnd,int id,int static_wide)
+{
+	int wide;
+	
+	wide = os_get_static_wide(hwnd,id);
+	
+	if (wide > static_wide)
+	{
+		return wide;
+	}
+	
+	return static_wide;
+}
+
+
+void os_set_window_rect(HWND hwnd,int x,int y,int wide,int high)
+{
+	SetWindowPos(hwnd,0,x,y,wide,high,SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE);
+}
+
+void os_set_dialog_item_x_wide(HWND hwnd,int id,int x,int wide)
+{
+	HWND dialog_item_hwnd;
+	RECT rect;
+	POINT pt;
+	
+	dialog_item_hwnd = GetDlgItem(hwnd,id);
+
+	GetWindowRect(dialog_item_hwnd,&rect);
+	pt.x = rect.left;
+	pt.y = rect.top;
+	ScreenToClient(hwnd,&pt);
+	
+	os_set_window_rect(dialog_item_hwnd,x,pt.y,wide,rect.bottom-rect.top);
 }
 

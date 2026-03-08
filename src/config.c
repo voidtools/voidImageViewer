@@ -89,6 +89,7 @@ BYTE config_windowed_hide_cursor = 1;
 BYTE config_pixel_info = 0;
 BYTE config_orientation = 1;
 BYTE config_title_bar_format = 1; // 0=full path, 1=filename, 2=none
+int config_add_command_line_timeout = 500; // in milliseconds
 
 static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 {
@@ -159,6 +160,7 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_orientation = ini_get_int(ini,(const utf8_t *)"orientation",config_orientation);
 		config_toolbar_move_window = ini_get_int(ini,(const utf8_t *)"toolbar_move_window",config_toolbar_move_window);
 		config_title_bar_format = ini_get_int(ini,(const utf8_t *)"title_bar_format",config_title_bar_format);
+		config_add_command_line_timeout = ini_get_int(ini,(const utf8_t *)"add_command_line_timeout",config_add_command_line_timeout);
 
 		if (is_root)
 		{
@@ -342,7 +344,8 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"orientation",config_orientation);
 			_config_write_int(h,"toolbar_move_window",config_toolbar_move_window);
 			_config_write_int(h,"title_bar_format",config_title_bar_format);
-		
+			_config_write_int(h,"add_command_line_timeout",config_add_command_line_timeout);
+					
 			// save keys
 			{
 				int i;

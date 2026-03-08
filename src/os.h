@@ -52,7 +52,11 @@ void os_MonitorRectFromWindow(HWND hwnd,int is_fullscreen,RECT *out_monitor_rect
 void os_MonitorRectFromRect(RECT *window_rect,int is_fullscreen,RECT *out_monitor_rect);
 void os_MonitorRectFromCursor(int is_fullscreen,RECT *out_monitor_rect);
 int os_ComboBox_AddString(HWND hwnd,int id,const utf8_t *s);
+int os_ComboBox_AddString_localization_id(HWND hwnd,int id,localization_id_t localization_id);
 void os_SetDlgItemText(HWND hwnd,int id,const utf8_t *s);
+void os_SetDlgItemText_localization_id(HWND hwnd,int id,localization_id_t localization_id);
+void os_SetWindowText(HWND hwnd,const utf8_t *s);
+void os_SetWindowText_localization_id(HWND hwnd,localization_id_t localization_id);
 HWND os_CreateWindowEx(DWORD dwExStyle,const utf8_t *lpClassName,const utf8_t *lpWindowName,DWORD dwStyle,int X,int Y,int nWidth,int nHeight,HWND hWndParent,HMENU hMenu,HINSTANCE hInstance,LPVOID lpParam);
 void os_RegisterClassEx(UINT style,WNDPROC lpfnWndProc,HICON hIcon,HCURSOR hCursor,HBRUSH hbrBackground,const utf8_t *name,HICON hIconSm);
 int os_is_admin(void);
@@ -84,6 +88,10 @@ int os_get_orientation(const wchar_t *filename);
 void os_adjust_window_rect(HWND hwnd,RECT *window_rect,int window_x,int window_y,int client_wide,int client_high);
 DWORD os_get_window_style(HWND hwnd);
 DWORD os_get_window_ex_style(HWND hwnd);
+int os_get_static_wide(HWND hwnd,int id);
+int os_expand_static_wide(HWND hwnd,int id,int static_wide);
+void os_set_window_rect(HWND hwnd,int x,int y,int wide,int high);
+void os_set_dialog_item_x_wide(HWND hwnd,int id,int x,int wide);
 
 extern HINSTANCE os_hinstance;
 extern DWORD os_major_version;

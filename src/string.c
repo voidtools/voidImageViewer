@@ -25,7 +25,7 @@
 
 static const utf8_t *_string_get_utf8_char(const utf8_t *s,int *pch);
 
-uintptr_t string_length(const wchar_t *text)
+uintptr_t string_get_length(const wchar_t *text)
 {
 	const wchar_t *p;
 	
@@ -44,7 +44,7 @@ wchar_t *string_alloc(const wchar_t *s)
 	uintptr_t wlen;
 	wchar_t *p;
 	
-	wlen = string_length(s);
+	wlen = string_get_length(s);
 	p = (wchar_t *)mem_alloc((wlen + 1) * sizeof(wchar_t));
 	
 	CopyMemory(p,s,(wlen + 1) * sizeof(wchar_t));
@@ -152,7 +152,7 @@ void string_cat_path_separator(wchar_t *buf)
 {
 	uintptr_t len;
 	
-	len = string_length(buf);
+	len = string_get_length(buf);
 	
 	if ((len) && (buf[len-1] == '\\'))
 	{
@@ -450,9 +450,9 @@ void string_vprintf(wchar_t *wbuf,const char *format,va_list argptr)
 
 						string_format_number(numbuf,num % 1000);
 						
-						if (string_length(numbuf) <= 3)
+						if (string_get_length(numbuf) <= 3)
 						{
-							for(lz=0;lz<3-string_length(numbuf);lz++)
+							for(lz=0;lz<3-string_get_length(numbuf);lz++)
 							{
 								if (d < e)
 								{
