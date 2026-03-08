@@ -598,7 +598,7 @@
       </Command>
     </PreBuildEvent>
     <ClCompile>
-      <AdditionalOptions>/MP %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/MP  /utf-8 %(AdditionalOptions)</AdditionalOptions>
       <Optimization>MaxSpeed</Optimization>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
