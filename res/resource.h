@@ -25,6 +25,7 @@
 #define IDD_RENAME                      127
 #define IDD_JUMPTO                      128
 #define IDD_EVERYTHING                  129
+#define IDD_ZOOM                        130
 #define IDC_TAB1                        1003
 #define IDC_BMP                         1006
 #define IDC_GIF                         1007
@@ -108,14 +109,25 @@
 #define IDC_EDIT_KEYBOARD_SHORTCUT_KEY_STATIC 1070
 #define IDC_EDIT_KEYBOARD_SHORTCUT_KEY_CURRENTLY_USED_BY_STATIC 1071
 #define IDC_CUSTOM_RATE_STATIC             1072
+#define IDC_TAB4                           1073
+#define IDC_ZOOM_STEP_STATIC               1074
+#define IDC_ZOOM_STEP_EDIT                 1075
+#define IDC_ZOOM_STEP_PERCENT_STATIC       1076
+#define IDC_ZOOM_STEP_DEFAULT_STATIC       1077
+#define IDC_ZOOM_CALC_METHOD_STATIC        1078
+#define IDC_ZOOM_CALC_RELATIVE_RADIO       1079
+#define IDC_ZOOM_CALC_ABSOLUTE_RADIO       1080
+#define IDC_ZOOM_CALC_FIXED_TABLE_RADIO    1081
+#define IDC_ZOOM_FIXED_TABLE_EDIT          1082
+#define IDC_ZOOM_LOAD_DEFAULT_TABLE_BUTTON 1083
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
-#define _APS_NEXT_RESOURCE_VALUE        130
+#define _APS_NEXT_RESOURCE_VALUE        131
 #define _APS_NEXT_COMMAND_VALUE         40048
-#define _APS_NEXT_CONTROL_VALUE         1073
+#define _APS_NEXT_CONTROL_VALUE         1084
 #endif
 #endif

@@ -91,6 +91,9 @@ BYTE config_pixel_info = 0;
 BYTE config_orientation = 1;
 BYTE config_title_bar_format = 1; // 0=full path, 1=filename, 2=none
 int config_add_command_line_timeout = 500; // in milliseconds
+BYTE config_zoom_calc_method = CONFIG_ZOOM_CALC_RELATIVE;
+int config_zoom_step = CONFIG_ZOOM_DEFAULT_STEP;
+wchar_t config_zoom_fixed_table[STRING_SIZE] = CONFIG_ZOOM_DEFAULT_FIXED_TABLE;
 
 static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 {
@@ -163,6 +166,15 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_toolbar_move_window = ini_get_int(ini,(const utf8_t *)"toolbar_move_window",config_toolbar_move_window);
 		config_title_bar_format = ini_get_int(ini,(const utf8_t *)"title_bar_format",config_title_bar_format);
 		config_add_command_line_timeout = ini_get_int(ini,(const utf8_t *)"add_command_line_timeout",config_add_command_line_timeout);
+		config_zoom_calc_method = ini_get_int(ini,(const utf8_t *)"zoom_calc_method",config_zoom_calc_method);
+		config_zoom_step = ini_get_int(ini,(const utf8_t *)"zoom_step",config_zoom_step);
+		{
+			const utf8_t *fixed_table = ini_get_string(ini,(const utf8_t *)"zoom_fixed_table");
+			if (fixed_table && *fixed_table)
+			{
+				string_copy_utf8_string(config_zoom_fixed_table,fixed_table);
+			}
+		}
 
 		if (is_root)
 		{
@@ -348,6 +360,9 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"toolbar_move_window",config_toolbar_move_window);
 			_config_write_int(h,"title_bar_format",config_title_bar_format);
 			_config_write_int(h,"add_command_line_timeout",config_add_command_line_timeout);
+			_config_write_int(h,"zoom_calc_method",config_zoom_calc_method);
+			_config_write_int(h,"zoom_step",config_zoom_step);
+			_config_write_string(h,"zoom_fixed_table",config_zoom_fixed_table);
 					
 			// save keys
 			{

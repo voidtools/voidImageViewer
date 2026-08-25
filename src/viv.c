@@ -496,6 +496,9 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwndDlg,UINT uMsg,WPARAM wParam,L
 static INT_PTR CALLBACK _viv_options_general_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 static INT_PTR CALLBACK _viv_options_view_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 static INT_PTR CALLBACK _viv_options_controls_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
+static INT_PTR CALLBACK _viv_options_zoom_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
+static double _viv_calculate_next_zoom(double current_percent,int zoom_in);
+static int _viv_parse_fixed_table(const wchar_t *table_str,double *values,int max_values);
 static void _viv_install_association_by_extension(const char *association,const char *description,const char *icon_location);
 static void _viv_uninstall_association_by_extension(const char *association);
 static int _viv_is_association(const char *association);
@@ -675,6 +678,10 @@ static BYTE _viv_animation_play = 1; // play or pause animations
 static BYTE _viv_1to1 = 0; // temporarily show the image with 100% scaling
 static BYTE _viv_have_old_zoom = 0; // restore this zoom level after leaving 1:1 mode.
 static int _viv_old_zoom_pos = 0; // restore this zoom level after leaving 1:1 mode.
+static BYTE _viv_is_custom_zoom = 0; // custom zoom level active
+static double _viv_custom_zoom_percent = 100.0; // custom zoom in percent
+static BYTE _viv_old_is_custom_zoom = 0;
+static double _viv_old_custom_zoom_percent = 100.0;
 WIN32_FIND_DATA *_viv_current_fd = 0; // the current image find data including the full path and filename.
 WIN32_FIND_DATA *_viv_preload_fd = 0;
 static int _viv_view_x = 0; // the current image offset in pixels
@@ -732,12 +739,12 @@ static volatile int _viv_load_image_terminate = 0;
 static _viv_reply_t *_viv_reply_start = 0;
 static _viv_reply_t *_viv_reply_last = 0;
 static wchar_t *_viv_status_temp_text = 0;
-static localization_id_t _viv_options_page_localization_id_array[] = {LOCALIZATION_ID_OPTIONS_GENERAL_DIALOG,LOCALIZATION_ID_OPTIONS_VIEW_DIALOG,LOCALIZATION_ID_OPTIONS_CONTROLS_DIALOG};
-static int _viv_options_tab_ids[] = {IDC_TAB1,IDC_TAB2,IDC_TAB3};
-static int _viv_options_dialog_ids[] = {IDD_GENERAL,IDD_VIEW,IDD_CONTROLS};
+static localization_id_t _viv_options_page_localization_id_array[] = {LOCALIZATION_ID_OPTIONS_GENERAL_DIALOG,LOCALIZATION_ID_OPTIONS_VIEW_DIALOG,LOCALIZATION_ID_OPTIONS_CONTROLS_DIALOG,LOCALIZATION_ID_OPTIONS_ZOOM_DIALOG};
+static int _viv_options_tab_ids[] = {IDC_TAB1,IDC_TAB2,IDC_TAB3,IDC_TAB4};
+static int _viv_options_dialog_ids[] = {IDD_GENERAL,IDD_VIEW,IDD_CONTROLS,IDD_ZOOM};
 #define _VIV_OPTIONS_PAGE_COUNT	(sizeof(_viv_options_dialog_ids) / sizeof(int))
-static int _viv_options_page_ids[] = {VIV_ID_OPTIONS_GENERAL,VIV_ID_OPTIONS_VIEW,VIV_ID_OPTIONS_CONTROLS};
-static DLGPROC _viv_options_page_procs[] = {_viv_options_general_proc,_viv_options_view_proc,_viv_options_controls_proc};
+static int _viv_options_page_ids[] = {VIV_ID_OPTIONS_GENERAL,VIV_ID_OPTIONS_VIEW,VIV_ID_OPTIONS_CONTROLS,VIV_ID_OPTIONS_ZOOM};
+static DLGPROC _viv_options_page_procs[] = {_viv_options_general_proc,_viv_options_view_proc,_viv_options_controls_proc,_viv_options_zoom_proc};
 static HFONT _viv_about_hfont = 0;
 static wchar_t *_viv_last_open_file = 0;
 static wchar_t *_viv_last_open_folder = 0;
@@ -1277,12 +1284,16 @@ static void _viv_clear(void)
 	_viv_frame_count = 0;
 	_viv_frame_loaded_count = 0;
 	_viv_zoom_pos = 0;
+	_viv_is_custom_zoom = 0;
+	_viv_custom_zoom_percent = 100.0;
 	_viv_view_x = 0;
 	_viv_view_y = 0;
 	_viv_view_ix = 0.0;
 	_viv_view_iy = 0.0;
 	_viv_1to1 = 0;
 	_viv_have_old_zoom = 0;
+	_viv_old_is_custom_zoom = 0;
+	_viv_old_custom_zoom_percent = 100.0;
 	_viv_image_wide = 0;
 	_viv_image_high = 0;
 	_viv_animation_play = 1;
@@ -1672,9 +1683,12 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 
 		case VIV_ID_VIEW_ZOOM_RESET:
 			_viv_1to1 = 0;
+			_viv_is_custom_zoom = 0;
+			_viv_custom_zoom_percent = 100.0;
 			_viv_zoom_pos = 0;
 			_viv_view_set(_viv_view_x,_viv_view_y,1);
 			InvalidateRect(_viv_hwnd,0,FALSE);
+			_viv_toolbar_update_buttons();
 			break;
 	
 		case VIV_ID_HELP_HELP:
@@ -6879,6 +6893,19 @@ static void _viv_get_render_size(int *prw,int *prh)
 		return;
 	}
 			
+	if (_viv_is_custom_zoom)
+	{
+		rw = (int)((double)_viv_image_wide * _viv_custom_zoom_percent / 100.0 + 0.5);
+		rh = (int)((double)_viv_image_high * _viv_custom_zoom_percent / 100.0 + 0.5);
+		if (rw <= 0) rw = 1;
+		if (rh <= 0) rh = 1;
+
+		*prw = rw;
+		*prh = rh;
+
+		return;
+	}
+			
 	if (_viv_is_fullscreen)
 	{
 		fill_window = config_fullscreen_fill_window;
@@ -8499,6 +8526,199 @@ static INT_PTR CALLBACK _viv_options_view_proc(HWND hwnd,UINT msg,WPARAM wParam,
 	return FALSE;
 }
 
+static int _viv_parse_fixed_table(const wchar_t *table_str,double *values,int max_values)
+{
+	const wchar_t *p;
+	int count = 0;
+
+	if (!table_str || !*table_str)
+	{
+		table_str = CONFIG_ZOOM_DEFAULT_FIXED_TABLE;
+	}
+
+	p = table_str;
+	while (*p && (count < max_values))
+	{
+		while (*p && ((*p == L' ') || (*p == L'\t') || (*p == L';') || (*p == L',')))
+		{
+			p++;
+		}
+		if (!*p) break;
+
+		if (((*p >= L'0') && (*p <= L'9')) || (*p == L'.'))
+		{
+			double val = 0.0;
+			double frac = 0.0;
+			double div = 10.0;
+
+			while ((*p >= L'0') && (*p <= L'9'))
+			{
+				val = (val * 10.0) + (*p - L'0');
+				p++;
+			}
+			if (*p == L'.')
+			{
+				p++;
+				while ((*p >= L'0') && (*p <= L'9'))
+				{
+					frac += (*p - L'0') / div;
+					div *= 10.0;
+					p++;
+				}
+			}
+			val += frac;
+			if (val > 0.0)
+			{
+				values[count++] = val;
+			}
+		}
+		else
+		{
+			p++;
+		}
+	}
+
+	{
+		int i, j;
+		for (i = 0; i < count - 1; i++)
+		{
+			for (j = i + 1; j < count; j++)
+			{
+				if (values[j] < values[i])
+				{
+					double tmp = values[i];
+					values[i] = values[j];
+					values[j] = tmp;
+				}
+			}
+		}
+	}
+
+	return count;
+}
+
+static double _viv_calculate_next_zoom(double current_percent,int zoom_in)
+{
+	double new_percent = current_percent;
+	int step = config_zoom_step > 0 ? config_zoom_step : CONFIG_ZOOM_DEFAULT_STEP;
+
+	if (config_zoom_calc_method == CONFIG_ZOOM_CALC_RELATIVE)
+	{
+		if (zoom_in)
+		{
+			new_percent = current_percent * (1.0 + ((double)step / 100.0));
+		}
+		else
+		{
+			new_percent = current_percent / (1.0 + ((double)step / 100.0));
+		}
+	}
+	else if (config_zoom_calc_method == CONFIG_ZOOM_CALC_ABSOLUTE)
+	{
+		if (zoom_in)
+		{
+			new_percent = current_percent + (double)step;
+		}
+		else
+		{
+			new_percent = current_percent - (double)step;
+		}
+	}
+	else if (config_zoom_calc_method == CONFIG_ZOOM_CALC_FIXED_TABLE)
+	{
+		double table_values[64];
+		int table_count = _viv_parse_fixed_table(config_zoom_fixed_table, table_values, 64);
+		if (table_count <= 0)
+		{
+			table_count = _viv_parse_fixed_table(CONFIG_ZOOM_DEFAULT_FIXED_TABLE, table_values, 64);
+		}
+
+		if (table_count > 0)
+		{
+			int i;
+			if (zoom_in)
+			{
+				new_percent = table_values[table_count - 1];
+				for (i = 0; i < table_count; i++)
+				{
+					if (table_values[i] > current_percent + 0.001)
+					{
+						new_percent = table_values[i];
+						break;
+					}
+				}
+			}
+			else
+			{
+				new_percent = table_values[0];
+				for (i = table_count - 1; i >= 0; i--)
+				{
+					if (table_values[i] < current_percent - 0.001)
+					{
+						new_percent = table_values[i];
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	if (new_percent < 0.1) new_percent = 0.1;
+	if (new_percent > 10000.0) new_percent = 10000.0;
+
+	return new_percent;
+}
+
+static INT_PTR CALLBACK _viv_options_zoom_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+{
+	switch(msg)
+	{
+		case WM_INITDIALOG:
+		{
+			wchar_t wbuf[STRING_SIZE];
+
+			os_SetDlgItemText_localization_id(hwnd,IDC_ZOOM_STEP_STATIC,LOCALIZATION_ID_OPTIONS_ZOOM_STEP_STATIC);
+			os_SetDlgItemText_localization_id(hwnd,IDC_ZOOM_STEP_DEFAULT_STATIC,LOCALIZATION_ID_OPTIONS_ZOOM_STEP_DEFAULT_STATIC);
+			os_SetDlgItemText_localization_id(hwnd,IDC_ZOOM_CALC_METHOD_STATIC,LOCALIZATION_ID_OPTIONS_ZOOM_CALC_METHOD_STATIC);
+			os_SetDlgItemText_localization_id(hwnd,IDC_ZOOM_CALC_RELATIVE_RADIO,LOCALIZATION_ID_OPTIONS_ZOOM_CALC_RELATIVE_RADIO);
+			os_SetDlgItemText_localization_id(hwnd,IDC_ZOOM_CALC_ABSOLUTE_RADIO,LOCALIZATION_ID_OPTIONS_ZOOM_CALC_ABSOLUTE_RADIO);
+			os_SetDlgItemText_localization_id(hwnd,IDC_ZOOM_CALC_FIXED_TABLE_RADIO,LOCALIZATION_ID_OPTIONS_ZOOM_CALC_FIXED_TABLE_RADIO);
+			os_SetDlgItemText_localization_id(hwnd,IDC_ZOOM_LOAD_DEFAULT_TABLE_BUTTON,LOCALIZATION_ID_OPTIONS_ZOOM_LOAD_DEFAULT_TABLE_BUTTON);
+
+			string_format_number(wbuf,config_zoom_step);
+			SetDlgItemText(hwnd,IDC_ZOOM_STEP_EDIT,wbuf);
+
+			if (config_zoom_calc_method == CONFIG_ZOOM_CALC_RELATIVE)
+			{
+				CheckRadioButton(hwnd,IDC_ZOOM_CALC_RELATIVE_RADIO,IDC_ZOOM_CALC_FIXED_TABLE_RADIO,IDC_ZOOM_CALC_RELATIVE_RADIO);
+			}
+			else if (config_zoom_calc_method == CONFIG_ZOOM_CALC_ABSOLUTE)
+			{
+				CheckRadioButton(hwnd,IDC_ZOOM_CALC_RELATIVE_RADIO,IDC_ZOOM_CALC_FIXED_TABLE_RADIO,IDC_ZOOM_CALC_ABSOLUTE_RADIO);
+			}
+			else
+			{
+				CheckRadioButton(hwnd,IDC_ZOOM_CALC_RELATIVE_RADIO,IDC_ZOOM_CALC_FIXED_TABLE_RADIO,IDC_ZOOM_CALC_FIXED_TABLE_RADIO);
+			}
+
+			SetDlgItemText(hwnd,IDC_ZOOM_FIXED_TABLE_EDIT,config_zoom_fixed_table);
+
+			return FALSE;
+		}
+
+		case WM_COMMAND:
+			switch(LOWORD(wParam))
+			{
+				case IDC_ZOOM_LOAD_DEFAULT_TABLE_BUTTON:
+					SetDlgItemText(hwnd,IDC_ZOOM_FIXED_TABLE_EDIT,CONFIG_ZOOM_DEFAULT_FIXED_TABLE);
+					break;
+			}
+			break;
+	}
+
+	return FALSE;
+}
+
 static void _viv_options_treeview_changed(HWND hwnd)
 {
 	TV_ITEM tvi;
@@ -8828,6 +9048,38 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 					config_loop_animations_once = IsDlgButtonChecked(view_page,IDC_LOOP_ANIMATIONS_ONCE_STATIC) == BST_CHECKED ? 1 : 0;
 					config_preload_next = IsDlgButtonChecked(view_page,IDC_PRELOAD_NEXT_IMAGE_STATIC) == BST_CHECKED ? 1 : 0;
 					config_cache_last = IsDlgButtonChecked(view_page,IDC_CACHE_LAST_IMAGE_STATIC) == BST_CHECKED ? 1 : 0;
+
+					{
+						HWND zoom_page;
+						zoom_page = GetDlgItem(hwnd,VIV_ID_OPTIONS_ZOOM);
+						if (zoom_page)
+						{
+							wchar_t wbuf[STRING_SIZE];
+							int step;
+
+							GetDlgItemText(zoom_page,IDC_ZOOM_STEP_EDIT,wbuf,STRING_SIZE);
+							step = string_to_int(wbuf);
+							if (step > 0)
+							{
+								config_zoom_step = step;
+							}
+
+							if (IsDlgButtonChecked(zoom_page,IDC_ZOOM_CALC_RELATIVE_RADIO) == BST_CHECKED)
+							{
+								config_zoom_calc_method = CONFIG_ZOOM_CALC_RELATIVE;
+							}
+							else if (IsDlgButtonChecked(zoom_page,IDC_ZOOM_CALC_ABSOLUTE_RADIO) == BST_CHECKED)
+							{
+								config_zoom_calc_method = CONFIG_ZOOM_CALC_ABSOLUTE;
+							}
+							else if (IsDlgButtonChecked(zoom_page,IDC_ZOOM_CALC_FIXED_TABLE_RADIO) == BST_CHECKED)
+							{
+								config_zoom_calc_method = CONFIG_ZOOM_CALC_FIXED_TABLE;
+							}
+
+							GetDlgItemText(zoom_page,IDC_ZOOM_FIXED_TABLE_EDIT,config_zoom_fixed_table,STRING_SIZE);
+						}
+					}
 					
 					// copy keys.
 					_viv_key_list_copy(_viv_key_list,(_viv_key_list_t *)GetWindowLongPtr(GetDlgItem(controls_page,IDC_COMMANDS_LIST),GWLP_USERDATA));
@@ -9375,9 +9627,12 @@ static void _viv_view_1to1(void)
 		if (_viv_have_old_zoom)
 		{
 			_viv_1to1 = 0;
+			_viv_is_custom_zoom = _viv_old_is_custom_zoom;
+			_viv_custom_zoom_percent = _viv_old_custom_zoom_percent;
 			_viv_zoom_pos = _viv_old_zoom_pos;
 			_viv_view_set(_viv_view_x,_viv_view_y,1);
 			InvalidateRect(_viv_hwnd,0,FALSE);
+			_viv_toolbar_update_buttons();
 			
 			return;
 		}
@@ -9385,11 +9640,15 @@ static void _viv_view_1to1(void)
 	
 	_viv_have_old_zoom = 1;
 	_viv_old_zoom_pos = _viv_zoom_pos;
+	_viv_old_is_custom_zoom = _viv_is_custom_zoom;
+	_viv_old_custom_zoom_percent = _viv_custom_zoom_percent;
 	
 	_viv_1to1 = 1;
+	_viv_is_custom_zoom = 0;
 	_viv_zoom_pos = 0;
 	_viv_view_set(_viv_view_x,_viv_view_y,1);
 	InvalidateRect(_viv_hwnd,0,FALSE);
+	_viv_toolbar_update_buttons();
 }
 
 static void _viv_playlist_add_current_if_empty(void)
@@ -11746,7 +12005,7 @@ static void _viv_toolbar_update_buttons(void)
 		
 		tbbinfo.cbSize = sizeof(TBBUTTONINFO);
 		tbbinfo.dwMask = TBIF_STATE;
-		tbbinfo.fsState = ((_viv_zoom_pos == 0) && (!_viv_1to1)) ? (0) : (TBSTATE_ENABLED);
+		tbbinfo.fsState = ((!_viv_is_custom_zoom) && (_viv_zoom_pos == 0) && (!_viv_1to1)) ? (0) : (TBSTATE_ENABLED);
 		
 		SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONINFO,VIV_ID_VIEW_BESTFIT,(LPARAM)&tbbinfo);
 	}
@@ -14078,70 +14337,42 @@ static void _viv_do_mousewheel_action(int action,int delta,int x,int y)
 		if (_viv_1to1)
 		{
 			_viv_1to1 = 0;
-			
-			if (delta > 0)
+		}
+
+		{
+			double current_percent;
+			double new_percent;
+
+			if (_viv_image_wide > 0)
 			{
-				for(_viv_zoom_pos = 0;_viv_zoom_pos<_VIV_ZOOM_MAX;_viv_zoom_pos++)
-				{
-					_viv_get_render_size(&rw,&rh);
-					
-					if (rw > old_rw)
-					{
-						break;
-					}
-				}
+				current_percent = ((double)old_rw / (double)_viv_image_wide) * 100.0;
 			}
 			else
 			{
-				for(_viv_zoom_pos = _VIV_ZOOM_MAX-1;_viv_zoom_pos>=0;_viv_zoom_pos--)
-				{
-					_viv_get_render_size(&rw,&rh);
-					
-					if (rw < old_rw)
-					{
-						break;
-					}
-				}
+				current_percent = 100.0;
 			}
-		}
-		else
-		{
+
 			if (delta > 0)
 			{
-				_viv_zoom_pos++;
+				new_percent = _viv_calculate_next_zoom(current_percent, 1);
+			}
+			else if (delta < 0)
+			{
+				new_percent = _viv_calculate_next_zoom(current_percent, 0);
 			}
 			else
 			{
-				_viv_zoom_pos--;
+				new_percent = current_percent;
 			}
+
+			_viv_is_custom_zoom = 1;
+			_viv_custom_zoom_percent = new_percent;
 		}
 		
-		if (_viv_zoom_pos < 0) _viv_zoom_pos = 0;
-		if (_viv_zoom_pos > _VIV_ZOOM_MAX-1) _viv_zoom_pos = _VIV_ZOOM_MAX-1;
-		
-		if (_viv_zoom_pos != old_zoom_pos)
+		_viv_get_render_size(&rw,&rh);
+
+		if ((rw != old_rw) || (rh != old_rh))
 		{
-			_viv_get_render_size(&rw,&rh);
-	/*
-			if (_viv_zoom_pos == 1)
-			{
-				if ((rw < _viv_image_wide) || (rw < _viv_image_wide))
-				{
-					rw = _viv_image_wide;
-					rh = _viv_image_high;
-				}
-			}
-	*/
-			// 
-			// new_cursor_x = 
-	//			rx = (wide / 2) - (rw / 2)
-
-	//debug_printf("%d %d\n",(wide / 2) - (rw / 2),(high / 2) - (rh / 2));
-	//debug_printf("%d %d\n",old_cursor_px,(old_cursor_px * 100) / old_rw);
-						
-	//debug_printf("old %d %d new %d %d\n",old_cursor_px,old_cursor_py,(wide / 2) - (rw / 2) - cursor_x + ((old_cursor_px * rw) / old_rw),(high / 2) - (rh / 2) - cursor_y + ((old_cursor_py * rh) / old_rh))		;
-	//debug_printf("wide / 2 = %d, rw/2=%d, old_cursor_px * rw=%d\n",wide/2,rw/2,old_cursor_px * rw)		;
-
 			if (old_rw)
 			{
 				new_cursor_x = ((__int64)old_cursor_px * (__int64)rw) / (__int64)old_rw;
@@ -14163,6 +14394,7 @@ static void _viv_do_mousewheel_action(int action,int delta,int x,int y)
 			_viv_view_set((wide / 2) - (rw / 2) - cursor_x + new_cursor_x,(high / 2) - (rh / 2) - cursor_y + new_cursor_y,1);
 			
 			InvalidateRect(_viv_hwnd,0,FALSE);
+			_viv_toolbar_update_buttons();
 		}
 	}
 	else

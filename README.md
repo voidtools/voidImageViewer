@@ -45,6 +45,32 @@ void Image Viewer Controls Options:
 
 
 
+## Changelog
+
+### Version 1.1.0.0 (Latest)
+- **New Feature: Zoom Options Tab & Calculation Engine**
+  - Added dedicated **Zoom options** tab in Options dialog (`IDD_ZOOM`).
+  - Added customizable zoom calculation methods:
+    - **Relative step:** Multiplicative scaling using configured zoom step % (default: 10%).
+    - **Absolute step:** Additive scaling by fixed percentage point steps.
+    - **Fixed table:** Step-by-step navigation through a user-defined list of zoom percentage levels (default: `1;2;3;10;14;16;19;21;25;28;33;38;43;50;57;66;76;87;100;115;132;150;174;200;230;260;300;350;400;450;500;600;700;800;900;1000;1200;1400;1600;2000;3000;`).
+    - Added **Load default table** button to quickly restore default values.
+- **Improved Zoom Handling:** Pixel under cursor remains stationary during mouse wheel and shortcut zooms across all zoom methods.
+- **Expanded Localization:** Added full UI translations for the Zoom options page in English (`en-US`), Indonesian (`id-ID`), and Simplified Chinese (`zh-CN`).
+- **Configuration Persistence:** Zoom settings (`zoom_calc_method`, `zoom_step`, `zoom_fixed_table`) automatically saved to and loaded from `voidImageViewer.ini`.
+
+| Feature / Behavior | Before (v1.0.1.0) | After (v1.1.0.0) |
+| :--- | :--- | :--- |
+| **Zoom Calculation Method** | Hardcoded fixed exponential power steps (`_viv_zoom_pos` from 0 to 63) | Choice between **Relative step (%)**, **Absolute step (%)**, or customizable **Fixed table** |
+| **Zoom Step Config** | Fixed / non-configurable | Configurable zoom step percentage (default `10%`) |
+| **Fixed Table Values** | Not available | Semicolon-delimited custom table support (up to 50 ordered values) with default reset |
+| **Settings UI** | 3 tabs (*General*, *View*, *Controls*) | 4 tabs (*General*, *View*, *Controls*, ***Zoom options***) |
+| **Localization** | Dialog strings for 3 tabs | Full multilingual translations for all 4 tabs (English, Indonesian, Chinese) |
+| **INI Storage** | No zoom calculation preferences saved | Saves `zoom_calc_method`, `zoom_step`, `zoom_fixed_table` to INI |
+
+<br/><br/><br/>
+
 See also
 --------
 https://www.voidtools.com/forum/viewtopic.php?t=5623
+

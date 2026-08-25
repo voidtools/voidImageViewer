@@ -64,6 +64,7 @@ BEGIN
     CONTROL         "",IDC_TAB1,"SysTabControl32",WS_TABSTOP,96,6,260,240
     CONTROL         "",IDC_TAB2,"SysTabControl32",WS_TABSTOP,96,6,260,240
     CONTROL         "",IDC_TAB3,"SysTabControl32",WS_TABSTOP,96,6,260,240
+    CONTROL         "",IDC_TAB4,"SysTabControl32",WS_TABSTOP,96,6,260,240
     LTEXT           "Static",IDC_PAGEPLACEHOLDER,106,26,236,214,NOT WS_VISIBLE
 END
 
@@ -111,6 +112,23 @@ BEGIN
     PUSHBUTTON      "&Add...",IDC_ADD_KEY,188,158,50,14
     PUSHBUTTON      "&Edit...",IDC_EDIT_KEY,187,177,50,14
     PUSHBUTTON      "Remo&ve",IDC_REMOVE_KEY,187,195,50,14
+END
+
+IDD_ZOOM DIALOGEX 0, 0, 244, 200
+STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CLIPSIBLINGS
+EXSTYLE WS_EX_CONTROLPARENT
+FONT 8, "MS Shell Dlg", 0, 0, 0x0
+BEGIN
+    LTEXT           "Zoom &step:",IDC_ZOOM_STEP_STATIC,0,2,42,12,SS_CENTERIMAGE
+    EDITTEXT        IDC_ZOOM_STEP_EDIT,46,2,24,12,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "%",IDC_ZOOM_STEP_PERCENT_STATIC,73,2,8,12,SS_CENTERIMAGE
+    LTEXT           "(default: 10 %)",IDC_ZOOM_STEP_DEFAULT_STATIC,86,2,100,12,SS_CENTERIMAGE
+    LTEXT           "Zoom calculation method:",IDC_ZOOM_CALC_METHOD_STATIC,0,22,244,10
+    CONTROL         "&Relative step",IDC_ZOOM_CALC_RELATIVE_RADIO,"Button",BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,10,36,220,10
+    CONTROL         "&Absolute step",IDC_ZOOM_CALC_ABSOLUTE_RADIO,"Button",BS_AUTORADIOBUTTON,10,50,220,10
+    CONTROL         "Use &fixed table: (for experts: max. 50 ordered values from 3 to 4000)",IDC_ZOOM_CALC_FIXED_TABLE_RADIO,"Button",BS_AUTORADIOBUTTON,10,64,234,10
+    EDITTEXT        IDC_ZOOM_FIXED_TABLE_EDIT,18,78,140,14,ES_AUTOHSCROLL | WS_TABSTOP
+    PUSHBUTTON      "&Load default table",IDC_ZOOM_LOAD_DEFAULT_TABLE_BUTTON,162,78,76,14,WS_TABSTOP
 END
 
 IDD_CUSTOM_RATE DIALOGEX 0, 0, 202, 63
@@ -210,8 +228,8 @@ IDI_BESTFIT             ICON                    "bestfit.ico"
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,1,0
- PRODUCTVERSION 1,0,1,0
+ FILEVERSION 1,1,0,0
+ PRODUCTVERSION 1,1,0,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -227,12 +245,12 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "FileDescription", "voidImageViewer"
-            VALUE "FileVersion", "1.0.1.0"
+            VALUE "FileVersion", "1.1.0.0"
             VALUE "InternalName", "voidImageViewer"
             VALUE "LegalCopyright", "Copyright © 2026 voidtools"
             VALUE "OriginalFilename", "voidImageViewer.exe"
             VALUE "ProductName", "voidImageViewer"
-            VALUE "ProductVersion", "1.0.1.0"
+            VALUE "ProductVersion", "1.1.0.0"
         END
     END
     BLOCK "VarFileInfo"
