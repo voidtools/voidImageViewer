@@ -50,21 +50,30 @@ void Image Viewer Controls Options:
 ### Version 1.2.0.0 (Latest)
 - **New Feature: Compare Images (Side-by-Side Image Comparison)**
   - Added multi-pane **Compare Images** window accessible via `View` -> `Compare Images...` or shortcut (`Ctrl+Alt+C`).
-  - **Synchronized Navigation & Zoom:**
-    - Mouse wheel zooms all compared images simultaneously using the exact same zoom engine (`_viv_calculate_next_zoom`).
+  - **Drag & Drop Support:**
+    - Directly drag & drop image files from File Explorer to either the left or right pane to compare.
+    - Dropping 2 files simultaneously automatically loads them into the left and right panes.
+  - **"Use Current Image" Toggle:**
+    - Convenient checkbox on each pane to instantly load the image currently open in the main viewer.
+    - Automatically disables on the other pane when active to avoid duplicate/conflicting states.
+  - **Synchronized Navigation & Precise Zoom:**
+    - Mouse wheel zooms all compared images simultaneously using the exact same zoom engine (`_viv_calculate_next_zoom`) with synchronized viewport centers to eliminate drift.
     - Left-click drag pans all compared images synchronously.
     - **Individual Pane Mode:** Hold `Ctrl` key or use **Right Mouse Button** to zoom or pan only the hovered image pane.
   - **Per-Pane Mini Toolbar:**
     - Previous (`<`) and Next (`>`) buttons to browse folder/playlist images per pane.
     - Zoom In (`+`), Zoom Out (`-`), Zoom % display, `1:1` (Actual size), and `Fit` (Best Fit) buttons.
     - Rotate clockwise button (`90°`).
-    - Change/Select image file button (`X`).
+    - Change/Select image file button (`...`).
   - **Top Control Bar:**
     - Helpful shortcut and mouse tips.
     - **Auto-Fit** toggle to automatically scale images to fit pane viewports.
     - **Smooth** toggle (Halftone / High-quality interpolation).
     - **Filename** toggle with bright green overlay text (`filename`, `dimensions`, `file size`).
     - **Close** button (or `ESC` key) to quickly return to main viewer.
+  - **Full Format Support & Alpha Transparency:**
+    - Native support for PNG (with alpha transparency), GIF, animated GIF, BMP, ICO, TIFF, JPEG, and WebP (via `libwebp` fallback decoder).
+    - Clean alpha blending over the window background color, preventing black background issues on transparent images.
   - **Full Multilingual Localization:** Added translations for all compare UI elements in English (`en-US`), Indonesian (`id-ID`), and Simplified Chinese (`zh-CN`).
 
 ### Version 1.1.0.0
