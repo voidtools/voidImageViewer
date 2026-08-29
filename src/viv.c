@@ -13715,6 +13715,138 @@ static void _viv_compare_free_pane_image(_viv_compare_pane_t *pane)
 	pane->filesize = 0;
 }
 
+typedef struct {
+	_viv_compare_pane_t *pane;
+	DWORD wide;
+	DWORD high;
+	int has_alpha;
+	int orientation;
+} _viv_compare_webp_ctx_t;
+
+static int _viv_compare_webp_info_proc(void *user_data, DWORD frame_count, DWORD wide, DWORD high, int has_alpha)
+{
+	_viv_compare_webp_ctx_t *ctx = (_viv_compare_webp_ctx_t *)user_data;
+	ctx->wide = wide;
+	ctx->high = high;
+	ctx->has_alpha = has_alpha;
+	return 1;
+}
+
+static int _viv_compare_webp_frame_proc(void *user_data, BYTE *pixels, int delay)
+{
+	_viv_compare_webp_ctx_t *ctx = (_viv_compare_webp_ctx_t *)user_data;
+	_viv_compare_pane_t *pane = ctx->pane;
+	HDC screen_hdc;
+	
+	if (pane->hbitmap)
+	{
+		return 0;
+	}
+	
+	if (ctx->has_alpha)
+	{
+		BYTE *p = pixels;
+		DWORD run = ctx->wide * ctx->high;
+		while (run--)
+		{
+			int a = p[3];
+			if (a != 255)
+			{
+				int r = p[0], g = p[1], b = p[2];
+				p[0] = config_windowed_background_color_r + ((r - config_windowed_background_color_r) * a) / 255;
+				p[1] = config_windowed_background_color_g + ((g - config_windowed_background_color_g) * a) / 255;
+				p[2] = config_windowed_background_color_b + ((b - config_windowed_background_color_b) * a) / 255;
+				p[3] = 255;
+			}
+			p += 4;
+		}
+	}
+	
+	// Convert RGBA to BGR
+	{
+		const BYTE *p = pixels;
+		BYTE *d = pixels;
+		DWORD high_run = ctx->high;
+		
+		while (high_run)
+		{
+			BYTE *wd = d;
+			DWORD wide_run = ctx->wide;
+			while (wide_run)
+			{
+				int r = p[0], g = p[1], b = p[2];
+				p += 4;
+				wd[0] = b;
+				wd[1] = g;
+				wd[2] = r;
+				wd += 3;
+				wide_run--;
+			}
+			d += (((ctx->wide * 3) + 3) / 4) * 4;
+			high_run--;
+		}
+	}
+	
+	screen_hdc = GetDC(NULL);
+	if (screen_hdc)
+	{
+		HDC mem_hdc = CreateCompatibleDC(screen_hdc);
+		if (mem_hdc)
+		{
+			HBITMAP hbitmap = _viv_create_bitmap(screen_hdc, ctx->wide, ctx->high);
+			if (hbitmap)
+			{
+				BITMAPINFO bmi;
+				ZeroMemory(&bmi, sizeof(BITMAPINFO));
+				bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+				bmi.bmiHeader.biWidth = ctx->wide;
+				bmi.bmiHeader.biHeight = -(int)ctx->high;
+				bmi.bmiHeader.biPlanes = 1;
+				bmi.bmiHeader.biBitCount = 24;
+				bmi.bmiHeader.biCompression = BI_RGB;
+				
+				SetDIBits(mem_hdc, hbitmap, 0, ctx->high, pixels, &bmi, DIB_RGB_COLORS);
+				
+				if (ctx->orientation > 1)
+				{
+					HBITMAP oriented = _viv_orientate_hbitmap(hbitmap, ctx->orientation);
+					if (oriented)
+					{
+						DeleteObject(hbitmap);
+						hbitmap = oriented;
+						
+						switch (ctx->orientation)
+						{
+							case 5:
+							case 6:
+							case 7:
+							case 8:
+							{
+								DWORD tmp = ctx->wide;
+								ctx->wide = ctx->high;
+								ctx->high = tmp;
+								break;
+							}
+						}
+					}
+				}
+				
+				pane->hbitmap = hbitmap;
+				pane->image_wide = ctx->wide;
+				pane->image_high = ctx->high;
+				pane->zoom_percent = 100.0;
+				pane->is_autofit = 1;
+				pane->view_x = 0;
+				pane->view_y = 0;
+			}
+			DeleteDC(mem_hdc);
+		}
+		ReleaseDC(NULL, screen_hdc);
+	}
+	
+	return 1;
+}
+
 static BOOL _viv_compare_load_image(const wchar_t *filename, _viv_compare_pane_t *pane)
 {
 	HANDLE h;
@@ -13847,7 +13979,32 @@ static BOOL _viv_compare_load_image(const wchar_t *filename, _viv_compare_pane_t
 						void *g = NULL;
 						if (os_GdipCreateFromHDC(mem_hdc, &g) == 0 && g)
 						{
-							os_GdipSetCompositingMode(g, 1);
+							UINT image_flags = 0;
+							
+							if (os_GdipImageSelectActiveFrame)
+							{
+								os_GdipImageSelectActiveFrame(image, &_viv_FrameDimensionTime, 0);
+							}
+							
+							if (os_GdipGetImageFlags)
+							{
+								os_GdipGetImageFlags(image, &image_flags);
+							}
+							
+							// If has alpha, fill background with window background color and use SourceOver
+							if (image_flags & 2)
+							{
+								RECT rc = {0, 0, (int)raw_wide, (int)raw_high};
+								HBRUSH bg_br = CreateSolidBrush(RGB(config_windowed_background_color_r, config_windowed_background_color_g, config_windowed_background_color_b));
+								FillRect(mem_hdc, &rc, bg_br);
+								DeleteObject(bg_br);
+								os_GdipSetCompositingMode(g, 0); // CompositingModeSourceOver
+							}
+							else
+							{
+								os_GdipSetCompositingMode(g, 1); // CompositingModeSourceCopy
+							}
+							
 							os_GdipSetCompositingQuality(g, 1);
 							os_GdipSetInterpolationMode(g, 5);
 							os_GdipSetPixelOffsetMode(g, 3);
@@ -13857,7 +14014,7 @@ static BOOL _viv_compare_load_image(const wchar_t *filename, _viv_compare_pane_t
 							
 							SelectObject(mem_hdc, last_hbitmap);
 							
-							if (pane->orientation)
+							if (pane->orientation > 1)
 							{
 								HBITMAP oriented = _viv_orientate_hbitmap(hbitmap, pane->orientation);
 								if (oriented)
@@ -13901,6 +14058,18 @@ static BOOL _viv_compare_load_image(const wchar_t *filename, _viv_compare_pane_t
 			}
 		}
 		os_GdipDisposeImage(image);
+	}
+	else
+	{
+		// Fallback to WebP loader
+		_viv_compare_webp_ctx_t ctx;
+		ctx.pane = pane;
+		ctx.wide = 0;
+		ctx.high = 0;
+		ctx.has_alpha = 0;
+		ctx.orientation = pane->orientation;
+		
+		webp_load(stream, &ctx, _viv_compare_webp_info_proc, _viv_compare_webp_frame_proc);
 	}
 	
 	IStream_Release(stream);
