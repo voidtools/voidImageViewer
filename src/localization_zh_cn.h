@@ -322,4 +322,5 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"适合", // LOCALIZATION_ID_COMPARE_BEST_FIT,
 	"旋转", // LOCALIZATION_ID_COMPARE_ROTATE,
 	"选择图像", // LOCALIZATION_ID_COMPARE_SELECT_IMAGE,
+	"使用当前图像", // LOCALIZATION_ID_COMPARE_USE_CURRENT,
 };

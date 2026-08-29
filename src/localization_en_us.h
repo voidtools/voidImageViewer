@@ -321,4 +321,5 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Fit", // LOCALIZATION_ID_COMPARE_BEST_FIT,
 	"Rotate", // LOCALIZATION_ID_COMPARE_ROTATE,
 	"Select Image", // LOCALIZATION_ID_COMPARE_SELECT_IMAGE,
+	"Use Current Image", // LOCALIZATION_ID_COMPARE_USE_CURRENT,
 };

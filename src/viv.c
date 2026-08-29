@@ -13619,6 +13619,7 @@ enum {
 	_VIV_COMPARE_BTN_FIT,
 	_VIV_COMPARE_BTN_ROTATE,
 	_VIV_COMPARE_BTN_SELECT,
+	_VIV_COMPARE_BTN_USE_CURRENT,
 	
 	_VIV_COMPARE_TOP_AUTOFIT = 101,
 	_VIV_COMPARE_TOP_SMOOTH = 102,
@@ -13656,6 +13657,9 @@ typedef struct _viv_compare_pane_s
 	RECT btn_fit_rect;
 	RECT btn_rotate_rect;
 	RECT btn_select_rect;
+	RECT use_current_rect;
+
+	int use_current;
 
 	_viv_playlist_t *playlist_item;
 } _viv_compare_pane_t;
@@ -13966,6 +13970,7 @@ static void _viv_compare_update_layout(_viv_compare_state_t *cs, int wide, int h
 		pane->btn_fit_rect = (RECT){bx, by, bx + 32, by + bh}; bx += 36;
 		pane->btn_rotate_rect = (RECT){bx, by, bx + 32, by + bh}; bx += 36;
 		pane->btn_select_rect = (RECT){p_right - 30, by, p_right - 6, by + bh};
+		pane->use_current_rect = (RECT){p_right - 215, by, p_right - 36, by + bh};
 	}
 }
 
@@ -13994,6 +13999,7 @@ static int _viv_compare_hit_test(_viv_compare_state_t *cs, int x, int y, int *ou
 			if (PtInRect(&pane->btn_1to1_rect, (POINT){x, y})) { *out_btn = _VIV_COMPARE_BTN_1TO1; return 0; }
 			if (PtInRect(&pane->btn_fit_rect, (POINT){x, y})) { *out_btn = _VIV_COMPARE_BTN_FIT; return 0; }
 			if (PtInRect(&pane->btn_rotate_rect, (POINT){x, y})) { *out_btn = _VIV_COMPARE_BTN_ROTATE; return 0; }
+			if (PtInRect(&pane->use_current_rect, (POINT){x, y})) { *out_btn = _VIV_COMPARE_BTN_USE_CURRENT; return 0; }
 			if (PtInRect(&pane->btn_select_rect, (POINT){x, y})) { *out_btn = _VIV_COMPARE_BTN_SELECT; return 0; }
 			return 0;
 		}
@@ -14075,6 +14081,7 @@ static void _viv_compare_pick_image_for_pane(HWND hwnd, _viv_compare_pane_t *pan
 	
 	if (GetOpenFileNameW(&ofn))
 	{
+		pane->use_current = 0;
 		_viv_compare_load_image(filename, pane);
 		pane->playlist_item = NULL;
 		InvalidateRect(hwnd, NULL, FALSE);
@@ -14128,6 +14135,44 @@ static void _viv_compare_draw_checkbox(HDC hdc, const RECT *rect, const wchar_t 
 	
 	SetBkMode(hdc, TRANSPARENT);
 	SetTextColor(hdc, RGB(30, 30, 30));
+	DrawTextW(hdc, text, -1, &text_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+	
+	SelectObject(hdc, old_pen);
+	SelectObject(hdc, old_br);
+	SelectObject(hdc, old_font);
+	DeleteObject(pen);
+	DeleteObject(br);
+}
+
+static void _viv_compare_draw_checkbox_ex(HDC hdc, const RECT *rect, const wchar_t *text, int is_checked, int is_hovered, int is_disabled, HFONT font)
+{
+	HGDIOBJ old_font = SelectObject(hdc, font);
+	RECT box_rect = {rect->left, rect->top + (rect->bottom - rect->top - 14) / 2, rect->left + 14, rect->top + (rect->bottom - rect->top - 14) / 2 + 14};
+	RECT text_rect = {rect->left + 18, rect->top, rect->right, rect->bottom};
+	COLORREF box_bg = is_disabled ? RGB(230, 230, 230) : RGB(255, 255, 255);
+	COLORREF border_col = is_disabled ? RGB(180, 180, 180) : (is_hovered ? RGB(50, 120, 220) : RGB(140, 140, 140));
+	COLORREF text_col = is_disabled ? RGB(150, 150, 150) : RGB(30, 30, 30);
+	
+	HBRUSH br = CreateSolidBrush(box_bg);
+	HPEN pen = CreatePen(PS_SOLID, 1, border_col);
+	HGDIOBJ old_br = SelectObject(hdc, br);
+	HGDIOBJ old_pen = SelectObject(hdc, pen);
+	
+	Rectangle(hdc, box_rect.left, box_rect.top, box_rect.right, box_rect.bottom);
+	
+	if (is_checked && !is_disabled)
+	{
+		HPEN check_pen = CreatePen(PS_SOLID, 2, RGB(20, 120, 20));
+		HGDIOBJ old_cpen = SelectObject(hdc, check_pen);
+		MoveToEx(hdc, box_rect.left + 3, box_rect.top + 7, NULL);
+		LineTo(hdc, box_rect.left + 6, box_rect.top + 10);
+		LineTo(hdc, box_rect.left + 11, box_rect.top + 3);
+		SelectObject(hdc, old_cpen);
+		DeleteObject(check_pen);
+	}
+	
+	SetBkMode(hdc, TRANSPARENT);
+	SetTextColor(hdc, text_col);
 	DrawTextW(hdc, text, -1, &text_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 	
 	SelectObject(hdc, old_pen);
@@ -14250,6 +14295,28 @@ static void _viv_compare_paint(HWND hwnd, _viv_compare_state_t *cs)
 			_viv_compare_draw_button(mem_hdc, &pane->btn_1to1_rect, L"1:1", (cs->hovered_pane == i && cs->hovered_btn == _VIV_COMPARE_BTN_1TO1), cs->font_ui);
 			_viv_compare_draw_button(mem_hdc, &pane->btn_fit_rect, L"Fit", (cs->hovered_pane == i && cs->hovered_btn == _VIV_COMPARE_BTN_FIT), cs->font_ui);
 			_viv_compare_draw_button(mem_hdc, &pane->btn_rotate_rect, L"90°", (cs->hovered_pane == i && cs->hovered_btn == _VIV_COMPARE_BTN_ROTATE), cs->font_ui);
+			
+			// Use Current Image checkbox — greyed out if another pane already uses current
+			{
+				int other_uses_current = 0;
+				int k;
+				wchar_t uc_label[STRING_SIZE];
+				for (k = 0; k < cs->pane_count; k++)
+				{
+					if (k != i && cs->panes[k].use_current)
+					{
+						other_uses_current = 1;
+						break;
+					}
+				}
+				string_copy_utf8_string(uc_label, localization_get_string(LOCALIZATION_ID_COMPARE_USE_CURRENT));
+				_viv_compare_draw_checkbox_ex(mem_hdc, &pane->use_current_rect, uc_label,
+					pane->use_current,
+					(!other_uses_current) && (cs->hovered_pane == i && cs->hovered_btn == _VIV_COMPARE_BTN_USE_CURRENT),
+					other_uses_current, /* disabled */
+					cs->font_ui);
+			}
+			
 			_viv_compare_draw_button(mem_hdc, &pane->btn_select_rect, L"...", (cs->hovered_pane == i && cs->hovered_btn == _VIV_COMPARE_BTN_SELECT), cs->font_bold);
 		}
 		
@@ -14630,6 +14697,38 @@ static LRESULT CALLBACK _viv_compare_proc(HWND hwnd, UINT msg, WPARAM wParam, LP
 								p->image_high = tmp;
 								InvalidateRect(hwnd, NULL, FALSE);
 							}
+						}
+						return 0;
+					}
+					else if (btn_idx == _VIV_COMPARE_BTN_USE_CURRENT)
+					{
+						// Only allow if no other pane already uses current
+						int other_uses = 0;
+						int k;
+						for (k = 0; k < cs->pane_count; k++)
+						{
+							if (k != pane_idx && cs->panes[k].use_current)
+							{
+								other_uses = 1;
+								break;
+							}
+						}
+						if (!other_uses)
+						{
+							p->use_current = !p->use_current;
+							if (p->use_current && *_viv_current_fd->cFileName)
+							{
+								_viv_playlist_t *cur_item = _viv_playlist_from_fd(_viv_current_fd);
+								p->playlist_item = cur_item;
+								_viv_compare_load_image(_viv_current_fd->cFileName, p);
+							}
+							else if (!p->use_current)
+							{
+								_viv_compare_free_pane_image(p);
+								p->playlist_item = NULL;
+								p->filename[0] = 0;
+							}
+							InvalidateRect(hwnd, NULL, FALSE);
 						}
 						return 0;
 					}

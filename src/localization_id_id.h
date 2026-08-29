@@ -321,4 +321,5 @@ static const utf8_t *_localization_string_array_id_id[LOCALIZATION_ID_COUNT] =
 	"Pas", // LOCALIZATION_ID_COMPARE_BEST_FIT,
 	"Putar", // LOCALIZATION_ID_COMPARE_ROTATE,
 	"Pilih Gambar", // LOCALIZATION_ID_COMPARE_SELECT_IMAGE,
+	"Gunakan Gambar Saat Ini", // LOCALIZATION_ID_COMPARE_USE_CURRENT,
 };
