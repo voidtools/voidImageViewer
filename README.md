@@ -47,7 +47,27 @@ void Image Viewer Controls Options:
 
 ## Changelog
 
-### Version 1.1.0.0 (Latest)
+### Version 1.2.0.0 (Latest)
+- **New Feature: Compare Images (Side-by-Side Image Comparison)**
+  - Added multi-pane **Compare Images** window accessible via `View` -> `Compare Images...` or shortcut (`Ctrl+Alt+C`).
+  - **Synchronized Navigation & Zoom:**
+    - Mouse wheel zooms all compared images simultaneously using the exact same zoom engine (`_viv_calculate_next_zoom`).
+    - Left-click drag pans all compared images synchronously.
+    - **Individual Pane Mode:** Hold `Ctrl` key or use **Right Mouse Button** to zoom or pan only the hovered image pane.
+  - **Per-Pane Mini Toolbar:**
+    - Previous (`<`) and Next (`>`) buttons to browse folder/playlist images per pane.
+    - Zoom In (`+`), Zoom Out (`-`), Zoom % display, `1:1` (Actual size), and `Fit` (Best Fit) buttons.
+    - Rotate clockwise button (`90°`).
+    - Change/Select image file button (`X`).
+  - **Top Control Bar:**
+    - Helpful shortcut and mouse tips.
+    - **Auto-Fit** toggle to automatically scale images to fit pane viewports.
+    - **Smooth** toggle (Halftone / High-quality interpolation).
+    - **Filename** toggle with bright green overlay text (`filename`, `dimensions`, `file size`).
+    - **Close** button (or `ESC` key) to quickly return to main viewer.
+  - **Full Multilingual Localization:** Added translations for all compare UI elements in English (`en-US`), Indonesian (`id-ID`), and Simplified Chinese (`zh-CN`).
+
+### Version 1.1.0.0
 - **New Feature: Zoom Options Tab & Calculation Engine**
   - Added dedicated **Zoom options** tab in Options dialog (`IDD_ZOOM`).
   - Added customizable zoom calculation methods:

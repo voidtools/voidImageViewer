@@ -305,4 +305,20 @@ static const utf8_t *_localization_string_array_id_id[LOCALIZATION_ID_COUNT] =
 	"Gambar TIFF",
 	"Gambar TIFF",
 	"Gambar WebP",
+
+	// Compare Images
+	"Bandingkan Gambar...", // LOCALIZATION_ID_COMPARE_IMAGES,
+	"Tips: Seret gambar dengan tombol mouse KIRI; Gulir RODA mouse untuk zoom; Tekan tombol Ctrl atau tombol mouse Kanan untuk memproses gambar individual.", // LOCALIZATION_ID_COMPARE_TIPS,
+	"Pas Otomatis", // LOCALIZATION_ID_COMPARE_AUTO_FIT,
+	"Halus", // LOCALIZATION_ID_COMPARE_SMOOTH,
+	"Nama Berkas", // LOCALIZATION_ID_COMPARE_FILENAME,
+	"Tutup", // LOCALIZATION_ID_COMPARE_CLOSE,
+	"Sebelumnya", // LOCALIZATION_ID_COMPARE_PREV,
+	"Berikutnya", // LOCALIZATION_ID_COMPARE_NEXT,
+	"Perbesar", // LOCALIZATION_ID_COMPARE_ZOOM_IN,
+	"Perkecil", // LOCALIZATION_ID_COMPARE_ZOOM_OUT,
+	"1:1", // LOCALIZATION_ID_COMPARE_ACTUAL_SIZE,
+	"Pas", // LOCALIZATION_ID_COMPARE_BEST_FIT,
+	"Putar", // LOCALIZATION_ID_COMPARE_ROTATE,
+	"Pilih Gambar", // LOCALIZATION_ID_COMPARE_SELECT_IMAGE,
 };

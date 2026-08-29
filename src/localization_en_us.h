@@ -305,4 +305,20 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"TIFF Image",
 	"TIFF Image",
 	"WebP Image",
+
+	// Compare Images
+	"Compare Images...", // LOCALIZATION_ID_COMPARE_IMAGES,
+	"Tips: Drag images with LEFT mouse button; Scroll mouse WHEEL to zoom in/out; Press Ctrl key or Right mouse button to work with individual images.", // LOCALIZATION_ID_COMPARE_TIPS,
+	"Auto-Fit", // LOCALIZATION_ID_COMPARE_AUTO_FIT,
+	"Smooth", // LOCALIZATION_ID_COMPARE_SMOOTH,
+	"Filename", // LOCALIZATION_ID_COMPARE_FILENAME,
+	"Close", // LOCALIZATION_ID_COMPARE_CLOSE,
+	"Previous", // LOCALIZATION_ID_COMPARE_PREV,
+	"Next", // LOCALIZATION_ID_COMPARE_NEXT,
+	"Zoom In", // LOCALIZATION_ID_COMPARE_ZOOM_IN,
+	"Zoom Out", // LOCALIZATION_ID_COMPARE_ZOOM_OUT,
+	"1:1", // LOCALIZATION_ID_COMPARE_ACTUAL_SIZE,
+	"Fit", // LOCALIZATION_ID_COMPARE_BEST_FIT,
+	"Rotate", // LOCALIZATION_ID_COMPARE_ROTATE,
+	"Select Image", // LOCALIZATION_ID_COMPARE_SELECT_IMAGE,
 };

@@ -594,6 +594,8 @@ static INT_PTR CALLBACK _viv_rename_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 static void _viv_shuffle_playlist(void);
 static void _viv_show_jumpto(void);
 static LRESULT CALLBACK _viv_jumpto_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
+static void _viv_compare_show(void);
+static LRESULT CALLBACK _viv_compare_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 static void _viv_jumpto_on_size(HWND hwnd);
 static void _viv_jumpto_on_search(HWND hwnd);
 static void _viv_jumpto_open_sel(HWND hwnd);
@@ -855,6 +857,7 @@ static _viv_command_t _viv_commands[] =
 	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW,0},
 	{LOCALIZATION_ID_FULLSCREEN,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_FULLSCREEN},
 	{LOCALIZATION_ID_SLIDESHOW,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_SLIDESHOW},
+	{LOCALIZATION_ID_COMPARE_IMAGES,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_COMPARE_IMAGES},
 	{LOCALIZATION_ID_VIEW_WINDOW_SIZE,MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_WINDOW_SIZE},
 	{LOCALIZATION_ID_VIEW_WINDOW_SIZE_50_PERCENT,MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,VIV_ID_VIEW_WINDOW_SIZE_50},
 	{LOCALIZATION_ID_VIEW_WINDOW_SIZE_100_PERCENT,MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,VIV_ID_VIEW_WINDOW_SIZE_100},
@@ -998,6 +1001,7 @@ _viv_default_key_t _viv_default_keys[] =
 	{VIV_ID_VIEW_1TO1,CONFIG_KEYFLAG_CTRL | CONFIG_KEYFLAG_ALT | '0'},
 	{VIV_ID_VIEW_FULLSCREEN,CONFIG_KEYFLAG_ALT | VK_RETURN},
 	{VIV_ID_VIEW_SLIDESHOW,VK_F11},
+	{VIV_ID_VIEW_COMPARE_IMAGES,CONFIG_KEYFLAG_CTRL | CONFIG_KEYFLAG_ALT | 'C'},
 	{VIV_ID_VIEW_WINDOW_SIZE_50,CONFIG_KEYFLAG_ALT | '1'},
 	{VIV_ID_VIEW_WINDOW_SIZE_100,CONFIG_KEYFLAG_ALT | '2'},
 	{VIV_ID_VIEW_WINDOW_SIZE_200,CONFIG_KEYFLAG_ALT | '3'},
@@ -2081,6 +2085,12 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 		case VIV_ID_VIEW_SLIDESHOW:
 
 			_viv_slideshow();
+						
+			break;
+			
+		case VIV_ID_VIEW_COMPARE_IMAGES:
+
+			_viv_compare_show();
 						
 			break;
 			
@@ -13589,6 +13599,1337 @@ static void _viv_show_jumpto(void)
 		
 		EnableWindow(_viv_hwnd,TRUE);
 		DestroyWindow(dialog_hwnd);
+	}
+}
+
+//
+// Compare Images Implementation
+//
+
+#define _VIV_COMPARE_PANE_COUNT 2
+
+enum {
+	_VIV_COMPARE_BTN_NONE = 0,
+	_VIV_COMPARE_BTN_PREV,
+	_VIV_COMPARE_BTN_NEXT,
+	_VIV_COMPARE_BTN_ZOOM_IN,
+	_VIV_COMPARE_BTN_ZOOM_OUT,
+	_VIV_COMPARE_BTN_ZOOM_TEXT,
+	_VIV_COMPARE_BTN_1TO1,
+	_VIV_COMPARE_BTN_FIT,
+	_VIV_COMPARE_BTN_ROTATE,
+	_VIV_COMPARE_BTN_SELECT,
+	
+	_VIV_COMPARE_TOP_AUTOFIT = 101,
+	_VIV_COMPARE_TOP_SMOOTH = 102,
+	_VIV_COMPARE_TOP_FILENAME = 103,
+	_VIV_COMPARE_TOP_CLOSE = 104
+};
+
+typedef struct _viv_compare_pane_s
+{
+	wchar_t filename[STRING_SIZE];
+	VIV_UINT64 filesize;
+	int image_wide;
+	int image_high;
+	HBITMAP hbitmap;
+	_viv_mipmap_t *mipmap;
+	int orientation;
+	
+	double zoom_percent;
+	int is_custom_zoom;
+	int is_1to1;
+	int is_autofit;
+	int view_x;
+	int view_y;
+	
+	RECT pane_rect;
+	RECT toolbar_rect;
+	RECT viewport_rect;
+	
+	RECT btn_prev_rect;
+	RECT btn_next_rect;
+	RECT btn_zoom_in_rect;
+	RECT btn_zoom_out_rect;
+	RECT zoom_text_rect;
+	RECT btn_1to1_rect;
+	RECT btn_fit_rect;
+	RECT btn_rotate_rect;
+	RECT btn_select_rect;
+
+	_viv_playlist_t *playlist_item;
+} _viv_compare_pane_t;
+
+typedef struct _viv_compare_state_s
+{
+	HWND hwnd;
+	int pane_count;
+	_viv_compare_pane_t panes[_VIV_COMPARE_PANE_COUNT];
+	
+	int opt_autofit;
+	int opt_smooth;
+	int opt_filename;
+	
+	RECT topbar_rect;
+	RECT tips_rect;
+	RECT autofit_rect;
+	RECT smooth_rect;
+	RECT filename_rect;
+	RECT close_btn_rect;
+	
+	int is_dragging;
+	int drag_last_x;
+	int drag_last_y;
+	int drag_pane_index;
+	int drag_is_individual;
+	
+	int hovered_pane;
+	int hovered_btn;
+	int hovered_top;
+	
+	HFONT font_ui;
+	HFONT font_bold;
+	HFONT font_overlay;
+} _viv_compare_state_t;
+
+static _viv_compare_state_t *_viv_compare_state = NULL;
+
+static void _viv_compare_free_pane_image(_viv_compare_pane_t *pane)
+{
+	if (pane->mipmap)
+	{
+		_viv_mipmap_free(pane->mipmap);
+		pane->mipmap = NULL;
+	}
+	if (pane->hbitmap)
+	{
+		DeleteObject(pane->hbitmap);
+		pane->hbitmap = NULL;
+	}
+	pane->image_wide = 0;
+	pane->image_high = 0;
+	pane->filesize = 0;
+}
+
+static BOOL _viv_compare_load_image(const wchar_t *filename, _viv_compare_pane_t *pane)
+{
+	HANDLE h;
+	DWORD size;
+	HANDLE global_handle;
+	char *buf;
+	IStream *stream = NULL;
+	void *image = NULL;
+	int load_ret = 1;
+	WIN32_FIND_DATA fd;
+	
+	_viv_compare_free_pane_image(pane);
+	
+	if (!filename || !*filename)
+	{
+		pane->filename[0] = 0;
+		return FALSE;
+	}
+	
+	string_copy(pane->filename, filename);
+	
+	if (os_GetFileAttributesExW && os_GetFileAttributesExW(filename, GetFileExInfoStandard, &fd))
+	{
+		pane->filesize = ((VIV_UINT64)fd.nFileSizeHigh << 32) | fd.nFileSizeLow;
+	}
+	else
+	{
+		pane->filesize = 0;
+	}
+	
+	h = CreateFileW(filename, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | ((os_major_version >= 5) ? FILE_SHARE_DELETE : 0), 0, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, 0);
+	if (h == INVALID_HANDLE_VALUE)
+	{
+		return FALSE;
+	}
+	
+	size = GetFileSize(h, 0);
+	if (pane->filesize == 0)
+	{
+		pane->filesize = size;
+	}
+	
+	global_handle = GlobalAlloc(GMEM_MOVEABLE, size);
+	if (!global_handle)
+	{
+		CloseHandle(h);
+		return FALSE;
+	}
+	
+	buf = (char *)GlobalLock(global_handle);
+	if (buf)
+	{
+		DWORD numread;
+		DWORD totreadsize = size;
+		char *d = buf;
+		
+		while (totreadsize)
+		{
+			DWORD readsize = 1 * 1024 * 1024;
+			if (readsize > totreadsize) readsize = totreadsize;
+			if (ReadFile(h, d, readsize, &numread, 0))
+			{
+				if (!numread) break;
+				d += numread;
+				totreadsize -= numread;
+			}
+			else
+			{
+				break;
+			}
+		}
+		GlobalUnlock(global_handle);
+		
+		if (totreadsize == 0)
+		{
+			if (SUCCEEDED(CreateStreamOnHGlobal(global_handle, TRUE, &stream)))
+			{
+				global_handle = 0;
+			}
+		}
+	}
+	
+	if (global_handle)
+	{
+		GlobalFree(global_handle);
+	}
+	CloseHandle(h);
+	
+	if (!stream)
+	{
+		return FALSE;
+	}
+	
+	if (config_orientation)
+	{
+		pane->orientation = os_get_orientation(filename);
+	}
+	else
+	{
+		pane->orientation = 0;
+	}
+	
+	if (os_GdipLoadImageFromStream)
+	{
+		if (config_icm && os_GdipLoadImageFromStreamICM)
+		{
+			load_ret = os_GdipLoadImageFromStreamICM(stream, &image);
+		}
+		else
+		{
+			load_ret = os_GdipLoadImageFromStream(stream, &image);
+		}
+	}
+	
+	if (load_ret == 0 && image)
+	{
+		UINT raw_wide = 0, raw_high = 0;
+		if (os_GdipGetImageWidth(image, &raw_wide) == 0 && os_GdipGetImageHeight(image, &raw_high) == 0)
+		{
+			HDC screen_hdc = GetDC(0);
+			if (screen_hdc)
+			{
+				HDC mem_hdc = CreateCompatibleDC(screen_hdc);
+				if (mem_hdc)
+				{
+					HBITMAP hbitmap = _viv_create_bitmap(screen_hdc, raw_wide, raw_high);
+					if (hbitmap)
+					{
+						HGDIOBJ last_hbitmap = SelectObject(mem_hdc, hbitmap);
+						void *g = NULL;
+						if (os_GdipCreateFromHDC(mem_hdc, &g) == 0 && g)
+						{
+							os_GdipSetCompositingMode(g, 1);
+							os_GdipSetCompositingQuality(g, 1);
+							os_GdipSetInterpolationMode(g, 5);
+							os_GdipSetPixelOffsetMode(g, 3);
+							os_GdipSetSmoothingMode(g, 3);
+							os_GdipDrawImageRectI(g, image, 0, 0, raw_wide, raw_high);
+							os_GdipDeleteGraphics(g);
+							
+							SelectObject(mem_hdc, last_hbitmap);
+							
+							if (pane->orientation)
+							{
+								HBITMAP oriented = _viv_orientate_hbitmap(hbitmap, pane->orientation);
+								if (oriented)
+								{
+									DeleteObject(hbitmap);
+									hbitmap = oriented;
+									
+									switch (pane->orientation)
+									{
+										case 5:
+										case 6:
+										case 7:
+										case 8:
+										{
+											UINT tmp = raw_wide;
+											raw_wide = raw_high;
+											raw_high = tmp;
+											break;
+										}
+									}
+								}
+							}
+							
+							pane->hbitmap = hbitmap;
+							pane->image_wide = raw_wide;
+							pane->image_high = raw_high;
+							pane->zoom_percent = 100.0;
+							pane->is_autofit = 1;
+							pane->view_x = 0;
+							pane->view_y = 0;
+						}
+						else
+						{
+							SelectObject(mem_hdc, last_hbitmap);
+							DeleteObject(hbitmap);
+						}
+					}
+					DeleteDC(mem_hdc);
+				}
+				ReleaseDC(0, screen_hdc);
+			}
+		}
+		os_GdipDisposeImage(image);
+	}
+	
+	IStream_Release(stream);
+	return (pane->hbitmap != NULL);
+}
+
+static void _viv_compare_format_filesize(wchar_t *buf, VIV_UINT64 size)
+{
+	if (size >= 1024 * 1024 * 1024)
+	{
+		double gb = (double)size / (1024.0 * 1024.0 * 1024.0);
+		string_printf(buf, L"%.2f GB", gb);
+	}
+	else if (size >= 1024 * 1024)
+	{
+		double mb = (double)size / (1024.0 * 1024.0);
+		string_printf(buf, L"%.2f MB", mb);
+	}
+	else if (size >= 1024)
+	{
+		double kb = (double)size / 1024.0;
+		string_printf(buf, L"%.1f KB", kb);
+	}
+	else
+	{
+		string_printf(buf, L"%I64u Bytes", size);
+	}
+}
+
+static void _viv_compare_update_layout(_viv_compare_state_t *cs, int wide, int high)
+{
+	int top_h = 32;
+	int toolbar_h = 28;
+	int pane_w, i;
+	
+	if (wide < 100) wide = 100;
+	if (high < 100) high = 100;
+	
+	cs->topbar_rect = (RECT){0, 0, wide, top_h};
+	cs->tips_rect = (RECT){10, 6, wide - 420, top_h - 2};
+	cs->autofit_rect = (RECT){wide - 410, 6, wide - 330, top_h - 6};
+	cs->smooth_rect = (RECT){wide - 320, 6, wide - 240, top_h - 6};
+	cs->filename_rect = (RECT){wide - 230, 6, wide - 130, top_h - 6};
+	cs->close_btn_rect = (RECT){wide - 110, 4, wide - 10, top_h - 4};
+	
+	pane_w = wide / cs->pane_count;
+	for (i = 0; i < cs->pane_count; i++)
+	{
+		int p_left = i * pane_w;
+		int p_right = (i == cs->pane_count - 1) ? wide : (p_left + pane_w);
+		_viv_compare_pane_t *pane = &cs->panes[i];
+		
+		pane->pane_rect = (RECT){p_left, top_h, p_right, high};
+		pane->toolbar_rect = (RECT){p_left, top_h, p_right, top_h + toolbar_h};
+		pane->viewport_rect = (RECT){p_left, top_h + toolbar_h, p_right, high};
+		
+		int by = top_h + 3;
+		int bh = toolbar_h - 6;
+		int bx = p_left + 6;
+		
+		pane->btn_prev_rect = (RECT){bx, by, bx + 22, by + bh}; bx += 24;
+		pane->btn_next_rect = (RECT){bx, by, bx + 22, by + bh}; bx += 28;
+		pane->btn_zoom_in_rect = (RECT){bx, by, bx + 22, by + bh}; bx += 24;
+		pane->btn_zoom_out_rect = (RECT){bx, by, bx + 22, by + bh}; bx += 24;
+		pane->zoom_text_rect = (RECT){bx, by, bx + 55, by + bh}; bx += 59;
+		pane->btn_1to1_rect = (RECT){bx, by, bx + 32, by + bh}; bx += 36;
+		pane->btn_fit_rect = (RECT){bx, by, bx + 32, by + bh}; bx += 36;
+		pane->btn_rotate_rect = (RECT){bx, by, bx + 32, by + bh}; bx += 36;
+		pane->btn_select_rect = (RECT){p_right - 30, by, p_right - 6, by + bh};
+	}
+}
+
+static int _viv_compare_hit_test(_viv_compare_state_t *cs, int x, int y, int *out_pane, int *out_btn)
+{
+	int i;
+	*out_pane = -1;
+	*out_btn = _VIV_COMPARE_BTN_NONE;
+	
+	if (PtInRect(&cs->close_btn_rect, (POINT){x, y})) return _VIV_COMPARE_TOP_CLOSE;
+	if (PtInRect(&cs->autofit_rect, (POINT){x, y})) return _VIV_COMPARE_TOP_AUTOFIT;
+	if (PtInRect(&cs->smooth_rect, (POINT){x, y})) return _VIV_COMPARE_TOP_SMOOTH;
+	if (PtInRect(&cs->filename_rect, (POINT){x, y})) return _VIV_COMPARE_TOP_FILENAME;
+	
+	for (i = 0; i < cs->pane_count; i++)
+	{
+		_viv_compare_pane_t *pane = &cs->panes[i];
+		if (PtInRect(&pane->pane_rect, (POINT){x, y}))
+		{
+			*out_pane = i;
+			if (PtInRect(&pane->btn_prev_rect, (POINT){x, y})) { *out_btn = _VIV_COMPARE_BTN_PREV; return 0; }
+			if (PtInRect(&pane->btn_next_rect, (POINT){x, y})) { *out_btn = _VIV_COMPARE_BTN_NEXT; return 0; }
+			if (PtInRect(&pane->btn_zoom_in_rect, (POINT){x, y})) { *out_btn = _VIV_COMPARE_BTN_ZOOM_IN; return 0; }
+			if (PtInRect(&pane->btn_zoom_out_rect, (POINT){x, y})) { *out_btn = _VIV_COMPARE_BTN_ZOOM_OUT; return 0; }
+			if (PtInRect(&pane->zoom_text_rect, (POINT){x, y})) { *out_btn = _VIV_COMPARE_BTN_ZOOM_TEXT; return 0; }
+			if (PtInRect(&pane->btn_1to1_rect, (POINT){x, y})) { *out_btn = _VIV_COMPARE_BTN_1TO1; return 0; }
+			if (PtInRect(&pane->btn_fit_rect, (POINT){x, y})) { *out_btn = _VIV_COMPARE_BTN_FIT; return 0; }
+			if (PtInRect(&pane->btn_rotate_rect, (POINT){x, y})) { *out_btn = _VIV_COMPARE_BTN_ROTATE; return 0; }
+			if (PtInRect(&pane->btn_select_rect, (POINT){x, y})) { *out_btn = _VIV_COMPARE_BTN_SELECT; return 0; }
+			return 0;
+		}
+	}
+	return 0;
+}
+
+static void _viv_compare_zoom_pane(_viv_compare_pane_t *pane, int zoom_in, int center_x, int center_y)
+{
+	int vw, vh, old_rw, old_rh, rx, ry, old_cursor_px, old_cursor_py;
+	int new_rw, new_rh;
+	__int64 new_cursor_px, new_cursor_py;
+	
+	if (!pane->hbitmap || pane->image_wide <= 0 || pane->image_high <= 0)
+		return;
+		
+	vw = pane->viewport_rect.right - pane->viewport_rect.left;
+	vh = pane->viewport_rect.bottom - pane->viewport_rect.top;
+	if (vw <= 0 || vh <= 0) return;
+	
+	old_rw = (int)((pane->image_wide * pane->zoom_percent) / 100.0 + 0.5);
+	old_rh = (int)((pane->image_high * pane->zoom_percent) / 100.0 + 0.5);
+	if (old_rw < 1) old_rw = 1;
+	if (old_rh < 1) old_rh = 1;
+	
+	rx = pane->viewport_rect.left + (vw / 2) - (old_rw / 2) - pane->view_x;
+	ry = pane->viewport_rect.top + (vh / 2) - (old_rh / 2) - pane->view_y;
+	
+	old_cursor_px = center_x - rx;
+	old_cursor_py = center_y - ry;
+	
+	pane->zoom_percent = _viv_calculate_next_zoom(pane->zoom_percent, zoom_in);
+	pane->is_autofit = 0;
+	pane->is_custom_zoom = 1;
+	pane->is_1to1 = 0;
+	
+	new_rw = (int)((pane->image_wide * pane->zoom_percent) / 100.0 + 0.5);
+	new_rh = (int)((pane->image_high * pane->zoom_percent) / 100.0 + 0.5);
+	if (new_rw < 1) new_rw = 1;
+	if (new_rh < 1) new_rh = 1;
+	
+	new_cursor_px = old_rw ? ((__int64)old_cursor_px * new_rw) / old_rw : 0;
+	new_cursor_py = old_rh ? ((__int64)old_cursor_py * new_rh) / old_rh : 0;
+	
+	pane->view_x = (vw / 2) - (new_rw / 2) - (center_x - pane->viewport_rect.left) + (int)new_cursor_px;
+	pane->view_y = (vh / 2) - (new_rh / 2) - (center_y - pane->viewport_rect.top) + (int)new_cursor_py;
+}
+
+static void _viv_compare_pick_image_for_pane(HWND hwnd, _viv_compare_pane_t *pane)
+{
+	OPENFILENAMEW ofn;
+	wchar_t filename[STRING_SIZE];
+	wchar_t filter[STRING_SIZE];
+	int i;
+	
+	filename[0] = 0;
+	ZeroMemory(&ofn, sizeof(OPENFILENAMEW));
+	ofn.lStructSize = sizeof(OPENFILENAMEW);
+	ofn.hwndOwner = hwnd;
+	
+	string_copy_utf8_string(filter, localization_get_string(LOCALIZATION_ID_OPEN_ALL_IMAGE_FILES));
+	i = string_get_length(filter);
+	filter[i++] = 0;
+	string_copy(filter + i, L"*.bmp;*.gif;*.ico;*.jpg;*.jpeg;*.png;*.tif;*.tiff;*.webp");
+	i += string_get_length(filter + i);
+	filter[i++] = 0;
+	string_copy_utf8_string(filter + i, localization_get_string(LOCALIZATION_ID_OPEN_ALL_FILES));
+	i += string_get_length(filter + i);
+	filter[i++] = 0;
+	string_copy(filter + i, L"*.*");
+	i += string_get_length(filter + i);
+	filter[i++] = 0;
+	filter[i++] = 0;
+	
+	ofn.lpstrFilter = filter;
+	ofn.lpstrFile = filename;
+	ofn.nMaxFile = STRING_SIZE;
+	ofn.Flags = OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
+	
+	if (GetOpenFileNameW(&ofn))
+	{
+		_viv_compare_load_image(filename, pane);
+		pane->playlist_item = NULL;
+		InvalidateRect(hwnd, NULL, FALSE);
+	}
+}
+
+static void _viv_compare_draw_button(HDC hdc, const RECT *rect, const wchar_t *text, int is_hovered, HFONT font)
+{
+	HGDIOBJ old_font = SelectObject(hdc, font);
+	HBRUSH br = CreateSolidBrush(is_hovered ? RGB(215, 230, 250) : RGB(242, 242, 242));
+	HPEN pen = CreatePen(PS_SOLID, 1, is_hovered ? RGB(100, 150, 220) : RGB(190, 190, 190));
+	HGDIOBJ old_br = SelectObject(hdc, br);
+	HGDIOBJ old_pen = SelectObject(hdc, pen);
+	
+	RoundRect(hdc, rect->left, rect->top, rect->right, rect->bottom, 4, 4);
+	
+	SetBkMode(hdc, TRANSPARENT);
+	SetTextColor(hdc, RGB(20, 20, 20));
+	DrawTextW(hdc, text, -1, (LPRECT)rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+	
+	SelectObject(hdc, old_pen);
+	SelectObject(hdc, old_br);
+	SelectObject(hdc, old_font);
+	DeleteObject(pen);
+	DeleteObject(br);
+}
+
+static void _viv_compare_draw_checkbox(HDC hdc, const RECT *rect, const wchar_t *text, int is_checked, int is_hovered, HFONT font)
+{
+	HGDIOBJ old_font = SelectObject(hdc, font);
+	RECT box_rect = {rect->left, rect->top + (rect->bottom - rect->top - 14) / 2, rect->left + 14, rect->top + (rect->bottom - rect->top - 14) / 2 + 14};
+	RECT text_rect = {rect->left + 18, rect->top, rect->right, rect->bottom};
+	
+	HBRUSH br = CreateSolidBrush(RGB(255, 255, 255));
+	HPEN pen = CreatePen(PS_SOLID, 1, is_hovered ? RGB(50, 120, 220) : RGB(140, 140, 140));
+	HGDIOBJ old_br = SelectObject(hdc, br);
+	HGDIOBJ old_pen = SelectObject(hdc, pen);
+	
+	Rectangle(hdc, box_rect.left, box_rect.top, box_rect.right, box_rect.bottom);
+	
+	if (is_checked)
+	{
+		HPEN check_pen = CreatePen(PS_SOLID, 2, RGB(20, 120, 20));
+		HGDIOBJ old_cpen = SelectObject(hdc, check_pen);
+		MoveToEx(hdc, box_rect.left + 3, box_rect.top + 7, NULL);
+		LineTo(hdc, box_rect.left + 6, box_rect.top + 10);
+		LineTo(hdc, box_rect.left + 11, box_rect.top + 3);
+		SelectObject(hdc, old_cpen);
+		DeleteObject(check_pen);
+	}
+	
+	SetBkMode(hdc, TRANSPARENT);
+	SetTextColor(hdc, RGB(30, 30, 30));
+	DrawTextW(hdc, text, -1, &text_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+	
+	SelectObject(hdc, old_pen);
+	SelectObject(hdc, old_br);
+	SelectObject(hdc, old_font);
+	DeleteObject(pen);
+	DeleteObject(br);
+}
+
+static void _viv_compare_paint(HWND hwnd, _viv_compare_state_t *cs)
+{
+	PAINTSTRUCT ps;
+	HDC hdc = BeginPaint(hwnd, &ps);
+	RECT rc;
+	int wide, high, i;
+	HDC mem_hdc;
+	HBITMAP mem_hbitmap;
+	HGDIOBJ old_mem_bitmap;
+	
+	GetClientRect(hwnd, &rc);
+	wide = rc.right - rc.left;
+	high = rc.bottom - rc.top;
+	
+	if (wide <= 0 || high <= 0)
+	{
+		EndPaint(hwnd, &ps);
+		return;
+	}
+	
+	mem_hdc = CreateCompatibleDC(hdc);
+	mem_hbitmap = CreateCompatibleBitmap(hdc, wide, high);
+	old_mem_bitmap = SelectObject(mem_hdc, mem_hbitmap);
+	
+	_viv_compare_update_layout(cs, wide, high);
+	
+	// 1. Draw Top Bar Background
+	{
+		HBRUSH top_br = CreateSolidBrush(RGB(242, 242, 245));
+		HPEN top_pen = CreatePen(PS_SOLID, 1, RGB(185, 185, 195));
+		HGDIOBJ old_br = SelectObject(mem_hdc, top_br);
+		HGDIOBJ old_pen = SelectObject(mem_hdc, top_pen);
+		
+		FillRect(mem_hdc, &cs->topbar_rect, top_br);
+		MoveToEx(mem_hdc, 0, cs->topbar_rect.bottom - 1, NULL);
+		LineTo(mem_hdc, wide, cs->topbar_rect.bottom - 1);
+		
+		SelectObject(mem_hdc, old_pen);
+		SelectObject(mem_hdc, old_br);
+		DeleteObject(top_pen);
+		DeleteObject(top_br);
+		
+		// Tips Text
+		{
+			wchar_t tips_wbuf[STRING_SIZE];
+			string_copy_utf8_string(tips_wbuf, localization_get_string(LOCALIZATION_ID_COMPARE_TIPS));
+			HGDIOBJ old_font = SelectObject(mem_hdc, cs->font_ui);
+			SetBkMode(mem_hdc, TRANSPARENT);
+			SetTextColor(mem_hdc, RGB(60, 60, 60));
+			DrawTextW(mem_hdc, tips_wbuf, -1, &cs->tips_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+			SelectObject(mem_hdc, old_font);
+		}
+		
+		// Checkboxes
+		{
+			wchar_t label[STRING_SIZE];
+			string_copy_utf8_string(label, localization_get_string(LOCALIZATION_ID_COMPARE_AUTO_FIT));
+			_viv_compare_draw_checkbox(mem_hdc, &cs->autofit_rect, label, cs->opt_autofit, cs->hovered_top == _VIV_COMPARE_TOP_AUTOFIT, cs->font_ui);
+			
+			string_copy_utf8_string(label, localization_get_string(LOCALIZATION_ID_COMPARE_SMOOTH));
+			_viv_compare_draw_checkbox(mem_hdc, &cs->smooth_rect, label, cs->opt_smooth, cs->hovered_top == _VIV_COMPARE_TOP_SMOOTH, cs->font_ui);
+			
+			string_copy_utf8_string(label, localization_get_string(LOCALIZATION_ID_COMPARE_FILENAME));
+			_viv_compare_draw_checkbox(mem_hdc, &cs->filename_rect, label, cs->opt_filename, cs->hovered_top == _VIV_COMPARE_TOP_FILENAME, cs->font_ui);
+		}
+		
+		// Close Button
+		{
+			wchar_t close_label[STRING_SIZE];
+			string_copy_utf8_string(close_label, localization_get_string(LOCALIZATION_ID_COMPARE_CLOSE));
+			_viv_compare_draw_button(mem_hdc, &cs->close_btn_rect, close_label, cs->hovered_top == _VIV_COMPARE_TOP_CLOSE, cs->font_bold);
+		}
+	}
+	
+	// 2. Draw Panes
+	for (i = 0; i < cs->pane_count; i++)
+	{
+		_viv_compare_pane_t *pane = &cs->panes[i];
+		int vw = pane->viewport_rect.right - pane->viewport_rect.left;
+		int vh = pane->viewport_rect.bottom - pane->viewport_rect.top;
+		
+		// Toolbar
+		{
+			HBRUSH tb_br = CreateSolidBrush(RGB(236, 238, 242));
+			HPEN tb_pen = CreatePen(PS_SOLID, 1, RGB(195, 198, 205));
+			HGDIOBJ old_br = SelectObject(mem_hdc, tb_br);
+			HGDIOBJ old_pen = SelectObject(mem_hdc, tb_pen);
+			
+			FillRect(mem_hdc, &pane->toolbar_rect, tb_br);
+			MoveToEx(mem_hdc, pane->toolbar_rect.left, pane->toolbar_rect.bottom - 1, NULL);
+			LineTo(mem_hdc, pane->toolbar_rect.right, pane->toolbar_rect.bottom - 1);
+			
+			SelectObject(mem_hdc, old_pen);
+			SelectObject(mem_hdc, old_br);
+			DeleteObject(tb_pen);
+			DeleteObject(tb_br);
+			
+			// Buttons
+			_viv_compare_draw_button(mem_hdc, &pane->btn_prev_rect, L"<", (cs->hovered_pane == i && cs->hovered_btn == _VIV_COMPARE_BTN_PREV), cs->font_bold);
+			_viv_compare_draw_button(mem_hdc, &pane->btn_next_rect, L">", (cs->hovered_pane == i && cs->hovered_btn == _VIV_COMPARE_BTN_NEXT), cs->font_bold);
+			_viv_compare_draw_button(mem_hdc, &pane->btn_zoom_in_rect, L"+", (cs->hovered_pane == i && cs->hovered_btn == _VIV_COMPARE_BTN_ZOOM_IN), cs->font_bold);
+			_viv_compare_draw_button(mem_hdc, &pane->btn_zoom_out_rect, L"-", (cs->hovered_pane == i && cs->hovered_btn == _VIV_COMPARE_BTN_ZOOM_OUT), cs->font_bold);
+			
+			// Zoom text
+			{
+				wchar_t ztext[64];
+				string_printf(ztext, L"%.0f%%", pane->zoom_percent);
+				_viv_compare_draw_button(mem_hdc, &pane->zoom_text_rect, ztext, (cs->hovered_pane == i && cs->hovered_btn == _VIV_COMPARE_BTN_ZOOM_TEXT), cs->font_ui);
+			}
+			
+			_viv_compare_draw_button(mem_hdc, &pane->btn_1to1_rect, L"1:1", (cs->hovered_pane == i && cs->hovered_btn == _VIV_COMPARE_BTN_1TO1), cs->font_ui);
+			_viv_compare_draw_button(mem_hdc, &pane->btn_fit_rect, L"Fit", (cs->hovered_pane == i && cs->hovered_btn == _VIV_COMPARE_BTN_FIT), cs->font_ui);
+			_viv_compare_draw_button(mem_hdc, &pane->btn_rotate_rect, L"90°", (cs->hovered_pane == i && cs->hovered_btn == _VIV_COMPARE_BTN_ROTATE), cs->font_ui);
+			_viv_compare_draw_button(mem_hdc, &pane->btn_select_rect, L"...", (cs->hovered_pane == i && cs->hovered_btn == _VIV_COMPARE_BTN_SELECT), cs->font_bold);
+		}
+		
+		// Viewport
+		{
+			HBRUSH vp_br = CreateSolidBrush(RGB(75, 75, 80));
+			FillRect(mem_hdc, &pane->viewport_rect, vp_br);
+			DeleteObject(vp_br);
+			
+			if (pane->hbitmap && pane->image_wide > 0 && pane->image_high > 0)
+			{
+				int rw, rh, rx, ry;
+				HRGN clip_rgn;
+				
+				if (pane->is_autofit && vw > 0 && vh > 0)
+				{
+					double sx = (double)vw / (double)pane->image_wide;
+					double sy = (double)vh / (double)pane->image_high;
+					double sc = sx < sy ? sx : sy;
+					if (sc > 1.0) sc = 1.0;
+					pane->zoom_percent = sc * 100.0;
+				}
+				
+				rw = (int)((pane->image_wide * pane->zoom_percent) / 100.0 + 0.5);
+				rh = (int)((pane->image_high * pane->zoom_percent) / 100.0 + 0.5);
+				if (rw < 1) rw = 1;
+				if (rh < 1) rh = 1;
+				
+				rx = pane->viewport_rect.left + (vw / 2) - (rw / 2) - pane->view_x;
+				ry = pane->viewport_rect.top + (vh / 2) - (rh / 2) - pane->view_y;
+				
+				clip_rgn = CreateRectRgn(pane->viewport_rect.left, pane->viewport_rect.top, pane->viewport_rect.right, pane->viewport_rect.bottom);
+				SelectClipRgn(mem_hdc, clip_rgn);
+				
+				{
+					HDC img_dc = CreateCompatibleDC(mem_hdc);
+					int mip_w, mip_h;
+					HBITMAP mip = _viv_get_mipmap(pane->hbitmap, pane->image_wide, pane->image_high, rw, rh, &mip_w, &mip_h, &pane->mipmap);
+					if (mip)
+					{
+						HGDIOBJ old_img = SelectObject(img_dc, mip);
+						int last_mode = 0;
+						if (cs->opt_smooth)
+						{
+							last_mode = SetStretchBltMode(mem_hdc, HALFTONE);
+							SetBrushOrgEx(mem_hdc, -rx, -ry, NULL);
+						}
+						else
+						{
+							last_mode = SetStretchBltMode(mem_hdc, COLORONCOLOR);
+						}
+						
+						if (rw == mip_w && rh == mip_h)
+						{
+							BitBlt(mem_hdc, rx, ry, rw, rh, img_dc, 0, 0, SRCCOPY);
+						}
+						else
+						{
+							StretchBlt(mem_hdc, rx, ry, rw, rh, img_dc, 0, 0, mip_w, mip_h, SRCCOPY);
+						}
+						
+						SetStretchBltMode(mem_hdc, last_mode);
+						SelectObject(img_dc, old_img);
+					}
+					DeleteDC(img_dc);
+				}
+				
+				// Green Text Overlay
+				if (cs->opt_filename && *pane->filename)
+				{
+					wchar_t filename_part[STRING_SIZE];
+					wchar_t size_part[64];
+					wchar_t overlay_str[STRING_SIZE * 2];
+					RECT text_rc;
+					
+					string_get_filename_part(filename_part, pane->filename);
+					_viv_compare_format_filesize(size_part, pane->filesize);
+					string_printf(overlay_str, L"%s , %d x %d , %s", filename_part, pane->image_wide, pane->image_high, size_part);
+					
+					text_rc = (RECT){pane->viewport_rect.left + 10, pane->viewport_rect.top + 10, pane->viewport_rect.right - 10, pane->viewport_rect.top + 40};
+					
+					HGDIOBJ old_font = SelectObject(mem_hdc, cs->font_overlay);
+					SetBkMode(mem_hdc, TRANSPARENT);
+					
+					// Text Shadow
+					SetTextColor(mem_hdc, RGB(0, 0, 0));
+					OffsetRect(&text_rc, 1, 1);
+					DrawTextW(mem_hdc, overlay_str, -1, &text_rc, DT_LEFT | DT_TOP | DT_SINGLELINE | DT_END_ELLIPSIS);
+					
+					// Green Text
+					SetTextColor(mem_hdc, RGB(0, 235, 0));
+					OffsetRect(&text_rc, -1, -1);
+					DrawTextW(mem_hdc, overlay_str, -1, &text_rc, DT_LEFT | DT_TOP | DT_SINGLELINE | DT_END_ELLIPSIS);
+					
+					SelectObject(mem_hdc, old_font);
+				}
+				
+				SelectClipRgn(mem_hdc, NULL);
+				DeleteObject(clip_rgn);
+			}
+			else
+			{
+				HGDIOBJ old_font = SelectObject(mem_hdc, cs->font_ui);
+				RECT center_rc = pane->viewport_rect;
+				SetBkMode(mem_hdc, TRANSPARENT);
+				SetTextColor(mem_hdc, RGB(180, 180, 180));
+				DrawTextW(mem_hdc, L"[No Image - Click ... to select file]", -1, &center_rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+				SelectObject(mem_hdc, old_font);
+			}
+		}
+		
+		// Splitter line between panes
+		if (i < cs->pane_count - 1)
+		{
+			HPEN split_pen = CreatePen(PS_SOLID, 1, RGB(40, 40, 45));
+			HGDIOBJ old_spen = SelectObject(mem_hdc, split_pen);
+			MoveToEx(mem_hdc, pane->pane_rect.right, cs->topbar_rect.bottom, NULL);
+			LineTo(mem_hdc, pane->pane_rect.right, high);
+			SelectObject(mem_hdc, old_spen);
+			DeleteObject(split_pen);
+		}
+	}
+	
+	BitBlt(hdc, 0, 0, wide, high, mem_hdc, 0, 0, SRCCOPY);
+	
+	SelectObject(mem_hdc, old_mem_bitmap);
+	DeleteObject(mem_hbitmap);
+	DeleteDC(mem_hdc);
+	
+	EndPaint(hwnd, &ps);
+}
+
+static LRESULT CALLBACK _viv_compare_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+	_viv_compare_state_t *cs = _viv_compare_state;
+	
+	switch (msg)
+	{
+		case WM_CREATE:
+			return 0;
+			
+		case WM_ERASEBKGND:
+			return 1;
+			
+		case WM_PAINT:
+			if (cs)
+			{
+				_viv_compare_paint(hwnd, cs);
+			}
+			return 0;
+			
+		case WM_SIZE:
+			if (cs)
+			{
+				int wide = LOWORD(lParam);
+				int high = HIWORD(lParam);
+				_viv_compare_update_layout(cs, wide, high);
+				InvalidateRect(hwnd, NULL, FALSE);
+			}
+			return 0;
+			
+		case WM_MOUSEMOVE:
+			if (cs)
+			{
+				int x = GET_X_LPARAM(lParam);
+				int y = GET_Y_LPARAM(lParam);
+				
+				if (cs->is_dragging)
+				{
+					int dx = x - cs->drag_last_x;
+					int dy = y - cs->drag_last_y;
+					cs->drag_last_x = x;
+					cs->drag_last_y = y;
+					
+					if (cs->drag_is_individual && cs->drag_pane_index >= 0 && cs->drag_pane_index < cs->pane_count)
+					{
+						cs->panes[cs->drag_pane_index].view_x -= dx;
+						cs->panes[cs->drag_pane_index].view_y -= dy;
+					}
+					else
+					{
+						int i;
+						for (i = 0; i < cs->pane_count; i++)
+						{
+							cs->panes[i].view_x -= dx;
+							cs->panes[i].view_y -= dy;
+						}
+					}
+					InvalidateRect(hwnd, NULL, FALSE);
+				}
+				else
+				{
+					int pane_idx, btn_idx;
+					int top_res = _viv_compare_hit_test(cs, x, y, &pane_idx, &btn_idx);
+					
+					if (top_res != cs->hovered_top || pane_idx != cs->hovered_pane || btn_idx != cs->hovered_btn)
+					{
+						cs->hovered_top = top_res;
+						cs->hovered_pane = pane_idx;
+						cs->hovered_btn = btn_idx;
+						InvalidateRect(hwnd, NULL, FALSE);
+					}
+				}
+			}
+			return 0;
+			
+		case WM_LBUTTONDOWN:
+			if (cs)
+			{
+				int x = GET_X_LPARAM(lParam);
+				int y = GET_Y_LPARAM(lParam);
+				int pane_idx, btn_idx;
+				int top_res = _viv_compare_hit_test(cs, x, y, &pane_idx, &btn_idx);
+				
+				if (top_res == _VIV_COMPARE_TOP_CLOSE)
+				{
+					DestroyWindow(hwnd);
+					return 0;
+				}
+				else if (top_res == _VIV_COMPARE_TOP_AUTOFIT)
+				{
+					int i;
+					cs->opt_autofit = !cs->opt_autofit;
+					for (i = 0; i < cs->pane_count; i++)
+					{
+						cs->panes[i].is_autofit = cs->opt_autofit;
+						cs->panes[i].view_x = 0;
+						cs->panes[i].view_y = 0;
+					}
+					InvalidateRect(hwnd, NULL, FALSE);
+					return 0;
+				}
+				else if (top_res == _VIV_COMPARE_TOP_SMOOTH)
+				{
+					cs->opt_smooth = !cs->opt_smooth;
+					InvalidateRect(hwnd, NULL, FALSE);
+					return 0;
+				}
+				else if (top_res == _VIV_COMPARE_TOP_FILENAME)
+				{
+					cs->opt_filename = !cs->opt_filename;
+					InvalidateRect(hwnd, NULL, FALSE);
+					return 0;
+				}
+				
+				if (pane_idx >= 0 && pane_idx < cs->pane_count)
+				{
+					_viv_compare_pane_t *p = &cs->panes[pane_idx];
+					if (btn_idx == _VIV_COMPARE_BTN_PREV)
+					{
+						if (p->playlist_item && p->playlist_item->prev)
+						{
+							p->playlist_item = p->playlist_item->prev;
+							_viv_compare_load_image(p->playlist_item->fd.cFileName, p);
+							InvalidateRect(hwnd, NULL, FALSE);
+						}
+						return 0;
+					}
+					else if (btn_idx == _VIV_COMPARE_BTN_NEXT)
+					{
+						if (p->playlist_item && p->playlist_item->next)
+						{
+							p->playlist_item = p->playlist_item->next;
+							_viv_compare_load_image(p->playlist_item->fd.cFileName, p);
+							InvalidateRect(hwnd, NULL, FALSE);
+						}
+						return 0;
+					}
+					else if (btn_idx == _VIV_COMPARE_BTN_ZOOM_IN)
+					{
+						int is_indiv = (GetKeyState(VK_CONTROL) < 0);
+						if (is_indiv)
+						{
+							int cx = (p->viewport_rect.left + p->viewport_rect.right) / 2;
+							int cy = (p->viewport_rect.top + p->viewport_rect.bottom) / 2;
+							_viv_compare_zoom_pane(p, 1, cx, cy);
+						}
+						else
+						{
+							int k;
+							for (k = 0; k < cs->pane_count; k++)
+							{
+								int cx = (cs->panes[k].viewport_rect.left + cs->panes[k].viewport_rect.right) / 2;
+								int cy = (cs->panes[k].viewport_rect.top + cs->panes[k].viewport_rect.bottom) / 2;
+								_viv_compare_zoom_pane(&cs->panes[k], 1, cx, cy);
+							}
+						}
+						InvalidateRect(hwnd, NULL, FALSE);
+						return 0;
+					}
+					else if (btn_idx == _VIV_COMPARE_BTN_ZOOM_OUT)
+					{
+						int is_indiv = (GetKeyState(VK_CONTROL) < 0);
+						if (is_indiv)
+						{
+							int cx = (p->viewport_rect.left + p->viewport_rect.right) / 2;
+							int cy = (p->viewport_rect.top + p->viewport_rect.bottom) / 2;
+							_viv_compare_zoom_pane(p, 0, cx, cy);
+						}
+						else
+						{
+							int k;
+							for (k = 0; k < cs->pane_count; k++)
+							{
+								int cx = (cs->panes[k].viewport_rect.left + cs->panes[k].viewport_rect.right) / 2;
+								int cy = (cs->panes[k].viewport_rect.top + cs->panes[k].viewport_rect.bottom) / 2;
+								_viv_compare_zoom_pane(&cs->panes[k], 0, cx, cy);
+							}
+						}
+						InvalidateRect(hwnd, NULL, FALSE);
+						return 0;
+					}
+					else if (btn_idx == _VIV_COMPARE_BTN_1TO1)
+					{
+						int is_indiv = (GetKeyState(VK_CONTROL) < 0);
+						if (is_indiv)
+						{
+							p->zoom_percent = 100.0;
+							p->is_1to1 = 1;
+							p->is_autofit = 0;
+							p->view_x = 0;
+							p->view_y = 0;
+						}
+						else
+						{
+							int k;
+							for (k = 0; k < cs->pane_count; k++)
+							{
+								cs->panes[k].zoom_percent = 100.0;
+								cs->panes[k].is_1to1 = 1;
+								cs->panes[k].is_autofit = 0;
+								cs->panes[k].view_x = 0;
+								cs->panes[k].view_y = 0;
+							}
+						}
+						InvalidateRect(hwnd, NULL, FALSE);
+						return 0;
+					}
+					else if (btn_idx == _VIV_COMPARE_BTN_FIT)
+					{
+						int is_indiv = (GetKeyState(VK_CONTROL) < 0);
+						if (is_indiv)
+						{
+							p->is_autofit = 1;
+							p->view_x = 0;
+							p->view_y = 0;
+						}
+						else
+						{
+							int k;
+							for (k = 0; k < cs->pane_count; k++)
+							{
+								cs->panes[k].is_autofit = 1;
+								cs->panes[k].view_x = 0;
+								cs->panes[k].view_y = 0;
+							}
+						}
+						InvalidateRect(hwnd, NULL, FALSE);
+						return 0;
+					}
+					else if (btn_idx == _VIV_COMPARE_BTN_ROTATE)
+					{
+						if (p->hbitmap)
+						{
+							HBITMAP rot = _viv_orientate_hbitmap(p->hbitmap, 6); // 90 deg cw
+							if (rot)
+							{
+								int tmp;
+								DeleteObject(p->hbitmap);
+								p->hbitmap = rot;
+								if (p->mipmap)
+								{
+									_viv_mipmap_free(p->mipmap);
+									p->mipmap = NULL;
+								}
+								tmp = p->image_wide;
+								p->image_wide = p->image_high;
+								p->image_high = tmp;
+								InvalidateRect(hwnd, NULL, FALSE);
+							}
+						}
+						return 0;
+					}
+					else if (btn_idx == _VIV_COMPARE_BTN_SELECT)
+					{
+						_viv_compare_pick_image_for_pane(hwnd, p);
+						return 0;
+					}
+					
+					// Click inside viewport: Start Dragging
+					if (PtInRect(&p->viewport_rect, (POINT){x, y}))
+					{
+						cs->is_dragging = 1;
+						cs->drag_last_x = x;
+						cs->drag_last_y = y;
+						cs->drag_pane_index = pane_idx;
+						cs->drag_is_individual = (GetKeyState(VK_CONTROL) < 0);
+						SetCapture(hwnd);
+					}
+				}
+			}
+			return 0;
+			
+		case WM_LBUTTONUP:
+		case WM_RBUTTONUP:
+			if (cs && cs->is_dragging)
+			{
+				cs->is_dragging = 0;
+				ReleaseCapture();
+			}
+			return 0;
+			
+		case WM_RBUTTONDOWN:
+			if (cs)
+			{
+				int x = GET_X_LPARAM(lParam);
+				int y = GET_Y_LPARAM(lParam);
+				int pane_idx, btn_idx;
+				_viv_compare_hit_test(cs, x, y, &pane_idx, &btn_idx);
+				
+				if (pane_idx >= 0 && pane_idx < cs->pane_count)
+				{
+					if (PtInRect(&cs->panes[pane_idx].viewport_rect, (POINT){x, y}))
+					{
+						cs->is_dragging = 1;
+						cs->drag_last_x = x;
+						cs->drag_last_y = y;
+						cs->drag_pane_index = pane_idx;
+						cs->drag_is_individual = 1; // Right-drag is always individual
+						SetCapture(hwnd);
+					}
+				}
+			}
+			return 0;
+			
+		case WM_MOUSEWHEEL:
+			if (cs)
+			{
+				POINT pt;
+				int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+				int zoom_in = (delta > 0);
+				int is_indiv;
+				int pane_idx, btn_idx;
+				
+				pt.x = GET_X_LPARAM(lParam);
+				pt.y = GET_Y_LPARAM(lParam);
+				ScreenToClient(hwnd, &pt);
+				
+				_viv_compare_hit_test(cs, pt.x, pt.y, &pane_idx, &btn_idx);
+				is_indiv = (GetKeyState(VK_CONTROL) < 0) || (GetKeyState(VK_RBUTTON) < 0);
+				
+				if (is_indiv && pane_idx >= 0 && pane_idx < cs->pane_count)
+				{
+					_viv_compare_zoom_pane(&cs->panes[pane_idx], zoom_in, pt.x, pt.y);
+				}
+				else
+				{
+					int k;
+					for (k = 0; k < cs->pane_count; k++)
+					{
+						if (k == pane_idx)
+						{
+							_viv_compare_zoom_pane(&cs->panes[k], zoom_in, pt.x, pt.y);
+						}
+						else
+						{
+							int cx = (cs->panes[k].viewport_rect.left + cs->panes[k].viewport_rect.right) / 2;
+							int cy = (cs->panes[k].viewport_rect.top + cs->panes[k].viewport_rect.bottom) / 2;
+							_viv_compare_zoom_pane(&cs->panes[k], zoom_in, cx, cy);
+						}
+					}
+				}
+				InvalidateRect(hwnd, NULL, FALSE);
+			}
+			return 0;
+			
+		case WM_KEYDOWN:
+			if (cs)
+			{
+				switch (wParam)
+				{
+					case VK_ESCAPE:
+						DestroyWindow(hwnd);
+						return 0;
+						
+					case VK_LEFT:
+					case VK_PRIOR:
+					{
+						int idx = (cs->hovered_pane >= 0 && cs->hovered_pane < cs->pane_count) ? cs->hovered_pane : 0;
+						_viv_compare_pane_t *p = &cs->panes[idx];
+						if (p->playlist_item && p->playlist_item->prev)
+						{
+							p->playlist_item = p->playlist_item->prev;
+							_viv_compare_load_image(p->playlist_item->fd.cFileName, p);
+							InvalidateRect(hwnd, NULL, FALSE);
+						}
+						return 0;
+					}
+					
+					case VK_RIGHT:
+					case VK_NEXT:
+					case VK_SPACE:
+					{
+						int idx = (cs->hovered_pane >= 0 && cs->hovered_pane < cs->pane_count) ? cs->hovered_pane : 0;
+						_viv_compare_pane_t *p = &cs->panes[idx];
+						if (p->playlist_item && p->playlist_item->next)
+						{
+							p->playlist_item = p->playlist_item->next;
+							_viv_compare_load_image(p->playlist_item->fd.cFileName, p);
+							InvalidateRect(hwnd, NULL, FALSE);
+						}
+						return 0;
+					}
+					
+					case VK_ADD:
+					case VK_OEM_PLUS:
+					{
+						int k;
+						for (k = 0; k < cs->pane_count; k++)
+						{
+							int cx = (cs->panes[k].viewport_rect.left + cs->panes[k].viewport_rect.right) / 2;
+							int cy = (cs->panes[k].viewport_rect.top + cs->panes[k].viewport_rect.bottom) / 2;
+							_viv_compare_zoom_pane(&cs->panes[k], 1, cx, cy);
+						}
+						InvalidateRect(hwnd, NULL, FALSE);
+						return 0;
+					}
+					
+					case VK_SUBTRACT:
+					case VK_OEM_MINUS:
+					{
+						int k;
+						for (k = 0; k < cs->pane_count; k++)
+						{
+							int cx = (cs->panes[k].viewport_rect.left + cs->panes[k].viewport_rect.right) / 2;
+							int cy = (cs->panes[k].viewport_rect.top + cs->panes[k].viewport_rect.bottom) / 2;
+							_viv_compare_zoom_pane(&cs->panes[k], 0, cx, cy);
+						}
+						InvalidateRect(hwnd, NULL, FALSE);
+						return 0;
+					}
+					
+					case '1':
+					{
+						int k;
+						for (k = 0; k < cs->pane_count; k++)
+						{
+							cs->panes[k].zoom_percent = 100.0;
+							cs->panes[k].is_1to1 = 1;
+							cs->panes[k].is_autofit = 0;
+							cs->panes[k].view_x = 0;
+							cs->panes[k].view_y = 0;
+						}
+						InvalidateRect(hwnd, NULL, FALSE);
+						return 0;
+					}
+					
+					case 'F':
+					{
+						int k;
+						for (k = 0; k < cs->pane_count; k++)
+						{
+							cs->panes[k].is_autofit = 1;
+							cs->panes[k].view_x = 0;
+							cs->panes[k].view_y = 0;
+						}
+						InvalidateRect(hwnd, NULL, FALSE);
+						return 0;
+					}
+				}
+			}
+			break;
+			
+		case WM_DESTROY:
+			if (cs)
+			{
+				int i;
+				for (i = 0; i < cs->pane_count; i++)
+				{
+					_viv_compare_free_pane_image(&cs->panes[i]);
+				}
+				if (cs->font_ui) DeleteObject(cs->font_ui);
+				if (cs->font_bold) DeleteObject(cs->font_bold);
+				if (cs->font_overlay) DeleteObject(cs->font_overlay);
+				
+				mem_free(cs);
+				_viv_compare_state = NULL;
+			}
+			EnableWindow(_viv_hwnd, TRUE);
+			SetForegroundWindow(_viv_hwnd);
+			return 0;
+	}
+	
+	return DefWindowProcW(hwnd, msg, wParam, lParam);
+}
+
+static void _viv_compare_show(void)
+{
+	_viv_compare_state_t *cs;
+	HWND hwnd;
+	RECT rc;
+	static int class_registered = 0;
+	
+	if (_viv_compare_state && _viv_compare_state->hwnd)
+	{
+		SetForegroundWindow(_viv_compare_state->hwnd);
+		return;
+	}
+	
+	if (!class_registered)
+	{
+		os_RegisterClassEx(
+			CS_DBLCLKS | CS_VREDRAW | CS_HREDRAW,
+			_viv_compare_proc,
+			(HICON)LoadImage(os_hinstance, MAKEINTRESOURCE(IDI_ICON1), IMAGE_ICON, GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), 0),
+			LoadCursor(NULL, IDC_ARROW),
+			(HBRUSH)(COLOR_BTNFACE + 1),
+			"_VIV_COMPARE",
+			(HICON)LoadImage(os_hinstance, MAKEINTRESOURCE(IDI_ICON1), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0));
+		class_registered = 1;
+	}
+	
+	cs = (_viv_compare_state_t *)mem_alloc(sizeof(_viv_compare_state_t));
+	ZeroMemory(cs, sizeof(_viv_compare_state_t));
+	_viv_compare_state = cs;
+	
+	cs->pane_count = _VIV_COMPARE_PANE_COUNT;
+	cs->opt_autofit = 1;
+	cs->opt_smooth = (config_shrink_blit_mode == CONFIG_SHRINK_BLIT_MODE_HALFTONE);
+	cs->opt_filename = 1;
+	
+	cs->font_ui = CreateFontW(-12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+	if (!cs->font_ui) cs->font_ui = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+	
+	cs->font_bold = CreateFontW(-12, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+	if (!cs->font_bold) cs->font_bold = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+	
+	cs->font_overlay = CreateFontW(-14, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+	if (!cs->font_overlay) cs->font_overlay = cs->font_bold;
+	
+	// Setup initial images
+	if (*_viv_current_fd->cFileName)
+	{
+		_viv_playlist_t *cur_item = _viv_playlist_from_fd(_viv_current_fd);
+		cs->panes[0].playlist_item = cur_item;
+		_viv_compare_load_image(_viv_current_fd->cFileName, &cs->panes[0]);
+		
+		if (cur_item && cur_item->next)
+		{
+			cs->panes[1].playlist_item = cur_item->next;
+			_viv_compare_load_image(cur_item->next->fd.cFileName, &cs->panes[1]);
+		}
+		else if (cur_item && cur_item->prev)
+		{
+			cs->panes[1].playlist_item = cur_item->prev;
+			_viv_compare_load_image(cur_item->prev->fd.cFileName, &cs->panes[1]);
+		}
+		else
+		{
+			cs->panes[1].playlist_item = cur_item;
+			_viv_compare_load_image(_viv_current_fd->cFileName, &cs->panes[1]);
+		}
+	}
+	
+	GetWindowRect(_viv_hwnd, &rc);
+	
+	hwnd = os_CreateWindowEx(
+		WS_EX_APPWINDOW,
+		"_VIV_COMPARE",
+		localization_get_string(LOCALIZATION_ID_COMPARE_IMAGES),
+		WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_CLIPCHILDREN,
+		rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top,
+		_viv_hwnd, 0, os_hinstance, NULL);
+		
+	cs->hwnd = hwnd;
+	
+	if (hwnd)
+	{
+		ShowWindow(hwnd, SW_MAXIMIZE);
+		EnableWindow(_viv_hwnd, FALSE);
 	}
 }
 
