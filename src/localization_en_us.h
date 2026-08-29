@@ -322,4 +322,5 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Rotate", // LOCALIZATION_ID_COMPARE_ROTATE,
 	"Select Image", // LOCALIZATION_ID_COMPARE_SELECT_IMAGE,
 	"Use Current Image", // LOCALIZATION_ID_COMPARE_USE_CURRENT,
+	"[No Image - Drop image here or click ... / Use Current]", // LOCALIZATION_ID_COMPARE_NO_IMAGE_DROP,
 };

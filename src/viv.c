@@ -14588,11 +14588,13 @@ static void _viv_compare_paint(HWND hwnd, _viv_compare_state_t *cs)
 			}
 			else
 			{
+				wchar_t no_img_str[STRING_SIZE];
 				HGDIOBJ old_font = SelectObject(mem_hdc, cs->font_ui);
 				RECT center_rc = pane->viewport_rect;
+				string_copy_utf8_string(no_img_str, localization_get_string(LOCALIZATION_ID_COMPARE_NO_IMAGE_DROP));
 				SetBkMode(mem_hdc, TRANSPARENT);
 				SetTextColor(mem_hdc, RGB(180, 180, 180));
-				DrawTextW(mem_hdc, L"[No Image - Click ... to select file]", -1, &center_rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+				DrawTextW(mem_hdc, no_img_str, -1, &center_rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 				SelectObject(mem_hdc, old_font);
 			}
 		}
@@ -14625,6 +14627,7 @@ static LRESULT CALLBACK _viv_compare_proc(HWND hwnd, UINT msg, WPARAM wParam, LP
 	switch (msg)
 	{
 		case WM_CREATE:
+			DragAcceptFiles(hwnd, TRUE);
 			return 0;
 			
 		case WM_ERASEBKGND:
@@ -14634,6 +14637,80 @@ static LRESULT CALLBACK _viv_compare_proc(HWND hwnd, UINT msg, WPARAM wParam, LP
 			if (cs)
 			{
 				_viv_compare_paint(hwnd, cs);
+			}
+			return 0;
+			
+		case WM_DROPFILES:
+			if (cs)
+			{
+				HDROP hDrop = (HDROP)wParam;
+				UINT count = DragQueryFileW(hDrop, 0xFFFFFFFF, NULL, 0);
+				POINT pt;
+				int target_pane = 0;
+				
+				if (DragQueryPoint(hDrop, &pt))
+				{
+					int i;
+					for (i = 0; i < cs->pane_count; i++)
+					{
+						if (PtInRect(&cs->panes[i].pane_rect, pt))
+						{
+							target_pane = i;
+							break;
+						}
+					}
+				}
+				
+				if (count >= 2)
+				{
+					wchar_t filename0[STRING_SIZE];
+					wchar_t filename1[STRING_SIZE];
+					
+					DragQueryFileW(hDrop, 0, filename0, STRING_SIZE);
+					DragQueryFileW(hDrop, 1, filename1, STRING_SIZE);
+					
+					cs->panes[0].use_current = 0;
+					cs->panes[0].playlist_item = NULL;
+					_viv_compare_load_image(filename0, &cs->panes[0]);
+					
+					cs->panes[1].use_current = 0;
+					cs->panes[1].playlist_item = NULL;
+					_viv_compare_load_image(filename1, &cs->panes[1]);
+					
+					InvalidateRect(hwnd, NULL, FALSE);
+				}
+				else if (count == 1)
+				{
+					wchar_t filename[STRING_SIZE];
+					DragQueryFileW(hDrop, 0, filename, STRING_SIZE);
+					
+					if (target_pane >= 0 && target_pane < cs->pane_count)
+					{
+						int other_pane = (target_pane == 0) ? 1 : 0;
+						
+						// Reset use_current on target pane
+						cs->panes[target_pane].use_current = 0;
+						cs->panes[target_pane].playlist_item = NULL;
+						
+						// If the other pane was using current image and this dropped file is that same file,
+						// reset use_current on the other pane so they don't conflict
+						if (other_pane >= 0 && other_pane < cs->pane_count)
+						{
+							if (cs->panes[other_pane].use_current && *_viv_current_fd->cFileName)
+							{
+								if (lstrcmpiW(filename, _viv_current_fd->cFileName) == 0)
+								{
+									cs->panes[other_pane].use_current = 0;
+								}
+							}
+						}
+						
+						_viv_compare_load_image(filename, &cs->panes[target_pane]);
+						InvalidateRect(hwnd, NULL, FALSE);
+					}
+				}
+				
+				DragFinish(hDrop);
 			}
 			return 0;
 			
@@ -15156,7 +15233,7 @@ static void _viv_compare_show(void)
 	GetWindowRect(_viv_hwnd, &rc);
 	
 	hwnd = os_CreateWindowEx(
-		WS_EX_APPWINDOW,
+		WS_EX_APPWINDOW | WS_EX_ACCEPTFILES,
 		"_VIV_COMPARE",
 		localization_get_string(LOCALIZATION_ID_COMPARE_IMAGES),
 		WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_CLIPCHILDREN,
@@ -15167,6 +15244,7 @@ static void _viv_compare_show(void)
 	
 	if (hwnd)
 	{
+		DragAcceptFiles(hwnd, TRUE);
 		ShowWindow(hwnd, SW_MAXIMIZE);
 		EnableWindow(_viv_hwnd, FALSE);
 	}

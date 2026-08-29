@@ -322,4 +322,5 @@ static const utf8_t *_localization_string_array_id_id[LOCALIZATION_ID_COUNT] =
 	"Putar", // LOCALIZATION_ID_COMPARE_ROTATE,
 	"Pilih Gambar", // LOCALIZATION_ID_COMPARE_SELECT_IMAGE,
 	"Gunakan Gambar Saat Ini", // LOCALIZATION_ID_COMPARE_USE_CURRENT,
+	"[Tidak Ada Gambar - Tarik & lepas gambar ke sini atau klik ... / Gunakan Saat Ini]", // LOCALIZATION_ID_COMPARE_NO_IMAGE_DROP,
 };
