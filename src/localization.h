@@ -33,9 +33,9 @@ enum
 	LOCALIZATION_LANGUAGE_COUNT,
 };
 
-typedef BYTE localization_id_t;
+typedef unsigned short localization_id_t;
 
-#define LOCALIZATION_ID_INVALID 255
+#define LOCALIZATION_ID_INVALID 65535
 
 // Get localized string for a command name
 // Returns UTF-8 encoded string

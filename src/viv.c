@@ -13908,21 +13908,21 @@ static void _viv_compare_format_filesize(wchar_t *buf, VIV_UINT64 size)
 	if (size >= 1024 * 1024 * 1024)
 	{
 		double gb = (double)size / (1024.0 * 1024.0 * 1024.0);
-		string_printf(buf, L"%.2f GB", gb);
+		string_printf(buf, "%f GB", gb);
 	}
 	else if (size >= 1024 * 1024)
 	{
 		double mb = (double)size / (1024.0 * 1024.0);
-		string_printf(buf, L"%.2f MB", mb);
+		string_printf(buf, "%f MB", mb);
 	}
 	else if (size >= 1024)
 	{
 		double kb = (double)size / 1024.0;
-		string_printf(buf, L"%.1f KB", kb);
+		string_printf(buf, "%f KB", kb);
 	}
 	else
 	{
-		string_printf(buf, L"%I64u Bytes", size);
+		string_printf(buf, "%u Bytes", (DWORD)size);
 	}
 }
 
@@ -14243,7 +14243,7 @@ static void _viv_compare_paint(HWND hwnd, _viv_compare_state_t *cs)
 			// Zoom text
 			{
 				wchar_t ztext[64];
-				string_printf(ztext, L"%.0f%%", pane->zoom_percent);
+				string_printf(ztext, "%d%%", (int)(pane->zoom_percent + 0.5));
 				_viv_compare_draw_button(mem_hdc, &pane->zoom_text_rect, ztext, (cs->hovered_pane == i && cs->hovered_btn == _VIV_COMPARE_BTN_ZOOM_TEXT), cs->font_ui);
 			}
 			
@@ -14320,14 +14320,14 @@ static void _viv_compare_paint(HWND hwnd, _viv_compare_state_t *cs)
 				// Green Text Overlay
 				if (cs->opt_filename && *pane->filename)
 				{
-					wchar_t filename_part[STRING_SIZE];
+					const wchar_t *filename_part;
 					wchar_t size_part[64];
 					wchar_t overlay_str[STRING_SIZE * 2];
 					RECT text_rc;
 					
-					string_get_filename_part(filename_part, pane->filename);
+					filename_part = string_get_filename_part(pane->filename);
 					_viv_compare_format_filesize(size_part, pane->filesize);
-					string_printf(overlay_str, L"%s , %d x %d , %s", filename_part, pane->image_wide, pane->image_high, size_part);
+					string_printf(overlay_str, "%S , %d x %d , %S", filename_part, pane->image_wide, pane->image_high, size_part);
 					
 					text_rc = (RECT){pane->viewport_rect.left + 10, pane->viewport_rect.top + 10, pane->viewport_rect.right - 10, pane->viewport_rect.top + 40};
 					
