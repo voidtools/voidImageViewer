@@ -14710,16 +14710,9 @@ static LRESULT CALLBACK _viv_compare_proc(HWND hwnd, UINT msg, WPARAM wParam, LP
 					int k;
 					for (k = 0; k < cs->pane_count; k++)
 					{
-						if (k == pane_idx)
-						{
-							_viv_compare_zoom_pane(&cs->panes[k], zoom_in, pt.x, pt.y);
-						}
-						else
-						{
-							int cx = (cs->panes[k].viewport_rect.left + cs->panes[k].viewport_rect.right) / 2;
-							int cy = (cs->panes[k].viewport_rect.top + cs->panes[k].viewport_rect.bottom) / 2;
-							_viv_compare_zoom_pane(&cs->panes[k], zoom_in, cx, cy);
-						}
+						int cx = (cs->panes[k].viewport_rect.left + cs->panes[k].viewport_rect.right) / 2;
+						int cy = (cs->panes[k].viewport_rect.top + cs->panes[k].viewport_rect.bottom) / 2;
+						_viv_compare_zoom_pane(&cs->panes[k], zoom_in, cx, cy);
 					}
 				}
 				InvalidateRect(hwnd, NULL, FALSE);
@@ -14890,29 +14883,7 @@ static void _viv_compare_show(void)
 	cs->font_overlay = CreateFontW(-14, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
 	if (!cs->font_overlay) cs->font_overlay = cs->font_bold;
 	
-	// Setup initial images
-	if (*_viv_current_fd->cFileName)
-	{
-		_viv_playlist_t *cur_item = _viv_playlist_from_fd(_viv_current_fd);
-		cs->panes[0].playlist_item = cur_item;
-		_viv_compare_load_image(_viv_current_fd->cFileName, &cs->panes[0]);
-		
-		if (cur_item && cur_item->next)
-		{
-			cs->panes[1].playlist_item = cur_item->next;
-			_viv_compare_load_image(cur_item->next->fd.cFileName, &cs->panes[1]);
-		}
-		else if (cur_item && cur_item->prev)
-		{
-			cs->panes[1].playlist_item = cur_item->prev;
-			_viv_compare_load_image(cur_item->prev->fd.cFileName, &cs->panes[1]);
-		}
-		else
-		{
-			cs->panes[1].playlist_item = cur_item;
-			_viv_compare_load_image(_viv_current_fd->cFileName, &cs->panes[1]);
-		}
-	}
+	// Start with empty panes - user will select images manually via browse button
 	
 	GetWindowRect(_viv_hwnd, &rc);
 	
