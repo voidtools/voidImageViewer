@@ -324,4 +324,5 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"选择图像", // LOCALIZATION_ID_COMPARE_SELECT_IMAGE,
 	"使用当前图像", // LOCALIZATION_ID_COMPARE_USE_CURRENT,
 	"[无图像 - 拖放图像至此处或点击 ... / 使用当前图像]", // LOCALIZATION_ID_COMPARE_NO_IMAGE_DROP,
+	"平滑(&S)", // LOCALIZATION_ID_SMOOTH,
 };

@@ -868,6 +868,7 @@ static _viv_command_t _viv_commands[] =
 	{LOCALIZATION_ID_ALLOW_SHRINKING,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_ALLOW_SHRINKING},
 	{LOCALIZATION_ID_KEEP_ASPECT_RATIO,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_KEEP_ASPECT_RATIO},
 	{LOCALIZATION_ID_FILL_WINDOW,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_FILL_WINDOW},
+	{LOCALIZATION_ID_SMOOTH,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_SMOOTH},
 	{LOCALIZATION_ID_ONE_TO_ONE,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_1TO1},
 	{LOCALIZATION_ID_BEST_FIT,MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW,VIV_ID_VIEW_BESTFIT},
 	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW,0},
@@ -1094,6 +1095,7 @@ WORD _viv_context_menu_items[] =
 	VIV_ID_VIEW_ALLOW_SHRINKING,
 	VIV_ID_VIEW_KEEP_ASPECT_RATIO,
 	VIV_ID_VIEW_FILL_WINDOW,
+	VIV_ID_VIEW_SMOOTH,
 	VIV_ID_VIEW_1TO1,
 //	VIV_ID_VIEW_SLIDESHOW,
 	0,
@@ -2063,6 +2065,12 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			}
 			
 			_viv_on_size();
+			InvalidateRect(_viv_hwnd,0,FALSE);
+			break;
+		
+		case VIV_ID_VIEW_SMOOTH:
+			config_shrink_blit_mode = (config_shrink_blit_mode == CONFIG_SHRINK_BLIT_MODE_HALFTONE) ? CONFIG_SHRINK_BLIT_MODE_COLORONCOLOR : CONFIG_SHRINK_BLIT_MODE_HALFTONE;
+			config_mag_filter = (config_shrink_blit_mode == CONFIG_SHRINK_BLIT_MODE_HALFTONE) ? CONFIG_MAG_FILTER_HALFTONE : CONFIG_MAG_FILTER_COLORONCOLOR;
 			InvalidateRect(_viv_hwnd,0,FALSE);
 			break;
 		
@@ -7152,6 +7160,7 @@ static void _viv_check_menus(HMENU hmenu)
 	CheckMenuItem(hmenu,VIV_ID_VIEW_ALLOW_SHRINKING,config_allow_shrinking ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_KEEP_ASPECT_RATIO,config_keep_aspect_ratio ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_FILL_WINDOW,fill_window ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_VIEW_SMOOTH,(config_shrink_blit_mode == CONFIG_SHRINK_BLIT_MODE_HALFTONE) ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_1TO1,((rw == _viv_image_wide) && (rh == _viv_image_high)) ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_FULLSCREEN,_viv_is_fullscreen ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_SLIDESHOW,is_slideshow ? MF_CHECKED : MF_UNCHECKED);
