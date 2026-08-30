@@ -47,7 +47,10 @@ void Image Viewer Controls Options:
 
 ## Changelog
 
-### Version 1.2.0.0 (Latest)
+### Version 1.2.1.0 (Latest)
+- **New Feature: Smooth Toggle in Main Viewer**
+  - Added **Smooth** (Halftone / Bilinear interpolation) toggle directly in the `View` menu and right-click context menu.
+  - Linked with configuration persistence (`shrink_blit_mode` / `mag_filter`), and seamlessly integrated with Compare Images initial smoothing state.
 - **New Feature: Compare Images (Side-by-Side Image Comparison)**
   - Added multi-pane **Compare Images** window accessible via `View` -> `Compare Images...` or shortcut (`Ctrl+Alt+C`).
   - **Drag & Drop Support:**
