@@ -55,10 +55,19 @@ typedef struct config_key_s
 #define CONFIG_MAG_FILTER_COLORONCOLOR			0
 #define CONFIG_MAG_FILTER_HALFTONE				1
 
+#define CONFIG_ZOOM_CALC_RELATIVE				0
+#define CONFIG_ZOOM_CALC_ABSOLUTE				1
+#define CONFIG_ZOOM_CALC_FIXED_TABLE			2
+
+#define CONFIG_ZOOM_DEFAULT_STEP				10
+#define CONFIG_ZOOM_DEFAULT_FIXED_TABLE			L"1;2;3;10;14;16;19;21;25;28;33;38;43;50;57;66;76;87;100;115;132;150;174;200;230;260;300;350;400;450;500;600;700;800;900;1000;1200;1400;1600;2000;3000;"
+#define CONFIG_ZOOM_DEFAULT_FIXED_TABLE_A		"1;2;3;10;14;16;19;21;25;28;33;38;43;50;57;66;76;87;100;115;132;150;174;200;230;260;300;350;400;450;500;600;700;800;900;1000;1200;1400;1600;2000;3000;"
+
 void config_load_settings(void);
 void config_save_settings(int appdata);
 
 extern BYTE config_appdata;
+extern BYTE config_language;
 extern BYTE config_keep_centered;
 extern int config_x;
 extern int config_y;
@@ -115,11 +124,13 @@ extern BYTE config_show_caption;
 extern BYTE config_show_thickframe;
 extern BYTE config_toolbar_move_window;
 extern BYTE config_windowed_hide_cursor;
-extern BYTE config_auto_zoom;
 extern BYTE config_pixel_info;
 extern BYTE config_orientation;
 extern BYTE config_title_bar_format;
 extern int config_add_command_line_timeout;
+extern BYTE config_zoom_calc_method;
+extern int config_zoom_step;
+extern wchar_t config_zoom_fixed_table[STRING_SIZE];
 
 #ifdef __cplusplus
 }

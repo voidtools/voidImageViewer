@@ -1,0 +1,43 @@
+name: Build
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Build x64
+      run: msbuild vs2026/voidImageViewer.sln /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143
+
+    - name: Build x86
+      run: msbuild vs2026/voidImageViewer.sln /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v143
+
+    - name: Setup NSIS
+      run: |
+        choco install nsis -y
+        "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+    - name: Build Installer x64
+      run: powershell -File nsis/build_installer.ps1 -Arch x64 -VsVersion vs2026 -BuildConfig Release -Lang English
+
+    - name: Build Installer x86
+      run: powershell -File nsis/build_installer.ps1 -Arch x86 -VsVersion vs2026 -BuildConfig Release -Lang English
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: voidImageViewer-build
+        path: |
+          voidImageViewer/x64/Release/voidImageViewer.exe
+          voidImageViewer/Release/voidImageViewer.exe
+          nsis/voidImageViewer-*-setup.exe

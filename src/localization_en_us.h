@@ -26,6 +26,8 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 {
 	// Application name
 	"English (US)", // LOCALIZATION_ID_LANGUAGE
+	"&Language:", // LOCALIZATION_ID_LANGUAGE_STATIC
+	"System Default", // LOCALIZATION_ID_LANGUAGE_AUTO
 	
 	// Application name
 	"void Image Viewer", // LOCALIZATION_ID_APP_NAME
@@ -210,6 +212,7 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"General", // LOCALIZATION_ID_OPTIONS_GENERAL_DIALOG,
 	"View", // LOCALIZATION_ID_OPTIONS_VIEW_DIALOG,
 	"Controls", // LOCALIZATION_ID_OPTIONS_CONTROLS_DIALOG,
+	"Zoom options", // LOCALIZATION_ID_OPTIONS_ZOOM_DIALOG,
 	"OK", // LOCALIZATION_ID_OK_BUTTON,
 	"Cancel", // LOCALIZATION_ID_CANCEL_BUTTON,
 	"&Store settings in %APPDATA%\\voidImageViewer", // LOCALIZATION_ID_STORE_SETTINGS_APPDATA,
@@ -232,6 +235,7 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Cache &last image", // LOCALIZATION_ID_CACHE_LAST_IMAGE_STATIC,
 	"&Windowed background color:", // LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_STATIC,
 	"&Fullscreen background color:", // LOCALIZATION_ID_FULLSCREEN_BACKGROUND_COLOR_STATIC,
+	"Reset Window Size & Position", // LOCALIZATION_ID_OPTIONS_VIEW_RESET_WINDOW_BUTTON,
 	"&Left click action:", // LOCALIZATION_ID_LEFT_CLICK_ACTION_STATIC,
 	"&Right click action:", // LOCALIZATION_ID_RIGHT_CLICK_ACTION_STATIC,
 	"&Mouse wheel action:", // LOCALIZATION_ID_MOUSE_WHEEL_ACTION_STATIC,
@@ -277,6 +281,13 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Full Path", // LOCALIZATION_ID_OPTIONS_TITLE_BAR_FORMAT_FULL_PATH_COMBOBOXITEM,
 	"Filename Only", // LOCALIZATION_ID_OPTIONS_TITLE_BAR_FORMAT_FILENAME_ONLY_COMBOBOXITEM,
 	"None", // LOCALIZATION_ID_OPTIONS_TITLE_BAR_FORMAT_NONE_COMBOBOXITEM,
+	"Zoom &step:", // LOCALIZATION_ID_OPTIONS_ZOOM_STEP_STATIC,
+	"(default: 10 %)", // LOCALIZATION_ID_OPTIONS_ZOOM_STEP_DEFAULT_STATIC,
+	"Zoom calculation method:", // LOCALIZATION_ID_OPTIONS_ZOOM_CALC_METHOD_STATIC,
+	"&Relative step", // LOCALIZATION_ID_OPTIONS_ZOOM_CALC_RELATIVE_RADIO,
+	"&Absolute step", // LOCALIZATION_ID_OPTIONS_ZOOM_CALC_ABSOLUTE_RADIO,
+	"Use &fixed table: (for experts: max. 50 ordered values from 3 to 4000)", // LOCALIZATION_ID_OPTIONS_ZOOM_CALC_FIXED_TABLE_RADIO,
+	"&Load default table", // LOCALIZATION_ID_OPTIONS_ZOOM_LOAD_DEFAULT_TABLE_BUTTON,
 	"Everything not available", // LOCALIZATION_ID_EVERYTHING_NOT_AVAILABLE_MESSAGE,
 	"Add Everything Search", // LOCALIZATION_ID_EVERYTHING_ADD_EVERYTHING_SEARCH_CAPTION,
 	"Load Everything Search", // LOCALIZATION_ID_EVERYTHING_LOAD_EVERYTHING_SEARCH_CAPTION,
@@ -294,4 +305,23 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"TIFF Image",
 	"TIFF Image",
 	"WebP Image",
+
+	// Compare Images
+	"Compare Images...", // LOCALIZATION_ID_COMPARE_IMAGES,
+	"Tips: Drag images with LEFT mouse button; Scroll mouse WHEEL to zoom in/out; Press Ctrl key or Right mouse button to work with individual images.", // LOCALIZATION_ID_COMPARE_TIPS,
+	"Auto-Fit", // LOCALIZATION_ID_COMPARE_AUTO_FIT,
+	"Smooth", // LOCALIZATION_ID_COMPARE_SMOOTH,
+	"Filename", // LOCALIZATION_ID_COMPARE_FILENAME,
+	"Close", // LOCALIZATION_ID_COMPARE_CLOSE,
+	"Previous", // LOCALIZATION_ID_COMPARE_PREV,
+	"Next", // LOCALIZATION_ID_COMPARE_NEXT,
+	"Zoom In", // LOCALIZATION_ID_COMPARE_ZOOM_IN,
+	"Zoom Out", // LOCALIZATION_ID_COMPARE_ZOOM_OUT,
+	"1:1", // LOCALIZATION_ID_COMPARE_ACTUAL_SIZE,
+	"Fit", // LOCALIZATION_ID_COMPARE_BEST_FIT,
+	"Rotate", // LOCALIZATION_ID_COMPARE_ROTATE,
+	"Select Image", // LOCALIZATION_ID_COMPARE_SELECT_IMAGE,
+	"Use Current Image", // LOCALIZATION_ID_COMPARE_USE_CURRENT,
+	"[No Image - Drop image here or click ... / Use Current]", // LOCALIZATION_ID_COMPARE_NO_IMAGE_DROP,
+	"&Smooth", // LOCALIZATION_ID_SMOOTH,
 };

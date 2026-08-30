@@ -29,7 +29,8 @@ static void _config_write_string(HANDLE h,const char *ascii_key,const wchar_t *s
 static void _config_write_utf8(HANDLE h,const utf8_t *s);
 static void _config_save_settings_by_location(const wchar_t *path,int is_root);
 
-BYTE config_appdata = 0; // store settings in %APPDATA%\voidimageviewer or in the same location as voidimageviewer.exe
+BYTE config_appdata = 1; // store settings in %APPDATA%\voidimageviewer or in the same location as voidimageviewer.exe
+BYTE config_language = 255; // 255 = auto
 BYTE config_keep_centered = 1; // when zooming out, don't recenter the image. (keep cursor under the same pixel)
 int config_x = 0;
 int config_y = 0;
@@ -40,8 +41,8 @@ int config_slideshow_rate = 5000;
 BYTE config_allow_shrinking = 1; // prevent resizing an image below 100%
 BYTE config_shrink_blit_mode = CONFIG_SHRINK_BLIT_MODE_HALFTONE; // shrink filter
 BYTE config_mag_filter = CONFIG_MAG_FILTER_COLORONCOLOR; // magnify filter
-BYTE config_nav_sort = CONFIG_NAV_SORT_DATE_MODIFIED; // current navigation sort.
-BYTE config_nav_sort_ascending = 0; // sort navigation ascending or descending.
+BYTE config_nav_sort = CONFIG_NAV_SORT_NAME; // current navigation sort.
+BYTE config_nav_sort_ascending = 1; // sort navigation ascending or descending.
 BYTE config_keep_aspect_ratio = 1; // stretch images with the original aspect ratio.
 BYTE config_fill_window = 0; // stretch the image to fill the window
 BYTE config_fullscreen_fill_window = 1; // same as fill_window, except this setting is used when we are fullscreen
@@ -90,6 +91,9 @@ BYTE config_pixel_info = 0;
 BYTE config_orientation = 1;
 BYTE config_title_bar_format = 1; // 0=full path, 1=filename, 2=none
 int config_add_command_line_timeout = 500; // in milliseconds
+BYTE config_zoom_calc_method = CONFIG_ZOOM_CALC_RELATIVE;
+int config_zoom_step = CONFIG_ZOOM_DEFAULT_STEP;
+wchar_t config_zoom_fixed_table[STRING_SIZE] = CONFIG_ZOOM_DEFAULT_FIXED_TABLE;
 
 static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 {
@@ -102,6 +106,7 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 	if (ini)
 	{
 		config_x = ini_get_int(ini,(const utf8_t *)"x",config_x);
+		config_language = ini_get_int(ini,(const utf8_t *)"language",config_language);
 		config_y = ini_get_int(ini,(const utf8_t *)"y",config_y);
 		config_wide = ini_get_int(ini,(const utf8_t *)"wide",config_wide);
 		config_high = ini_get_int(ini,(const utf8_t *)"high",config_high);
@@ -161,6 +166,15 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_toolbar_move_window = ini_get_int(ini,(const utf8_t *)"toolbar_move_window",config_toolbar_move_window);
 		config_title_bar_format = ini_get_int(ini,(const utf8_t *)"title_bar_format",config_title_bar_format);
 		config_add_command_line_timeout = ini_get_int(ini,(const utf8_t *)"add_command_line_timeout",config_add_command_line_timeout);
+		config_zoom_calc_method = ini_get_int(ini,(const utf8_t *)"zoom_calc_method",config_zoom_calc_method);
+		config_zoom_step = ini_get_int(ini,(const utf8_t *)"zoom_step",config_zoom_step);
+		{
+			const utf8_t *fixed_table = ini_get_string(ini,(const utf8_t *)"zoom_fixed_table");
+			if (fixed_table && *fixed_table)
+			{
+				string_copy_utf8_string(config_zoom_fixed_table,fixed_table);
+			}
+		}
 
 		if (is_root)
 		{
@@ -286,6 +300,7 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 		else
 		{
 			_config_write_int(h,"x",config_x);
+			_config_write_int(h,"language",config_language);
 			_config_write_int(h,"y",config_y);
 			_config_write_int(h,"wide",config_wide);
 			_config_write_int(h,"high",config_high);
@@ -345,6 +360,9 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"toolbar_move_window",config_toolbar_move_window);
 			_config_write_int(h,"title_bar_format",config_title_bar_format);
 			_config_write_int(h,"add_command_line_timeout",config_add_command_line_timeout);
+			_config_write_int(h,"zoom_calc_method",config_zoom_calc_method);
+			_config_write_int(h,"zoom_step",config_zoom_step);
+			_config_write_string(h,"zoom_fixed_table",config_zoom_fixed_table);
 					
 			// save keys
 			{

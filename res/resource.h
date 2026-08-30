@@ -25,6 +25,7 @@
 #define IDD_RENAME                      127
 #define IDD_JUMPTO                      128
 #define IDD_EVERYTHING                  129
+#define IDD_ZOOM                        130
 #define IDC_TAB1                        1003
 #define IDC_BMP                         1006
 #define IDC_GIF                         1007
@@ -90,15 +91,43 @@
 #define IDC_TITLE_BAR_FORMAT            1052
 #define IDC_SHRINK_BLIT_MODE_STATIC		1053
 #define IDC_MAGNIFY_BLIT_MODE_STATIC		1054
+#define IDC_RESET_WINDOW                    1055
+#define IDC_LANGUAGE_STATIC                 1056
+#define IDC_LANGUAGE_COMBOBOX               1057
+#define IDC_LOOP_ANIMATIONS_ONCE_STATIC     1058
+#define IDC_PRELOAD_NEXT_IMAGE_STATIC      1059
+#define IDC_CACHE_LAST_IMAGE_STATIC        1060
+#define IDC_WINDOWEDBACKGROUNDCOLOR_STATIC 1061
+#define IDC_FULLSCREENBACKGROUNDCOLOR_STATIC 1062
+#define IDC_LEFT_CLICK_ACTION_STATIC       1063
+#define IDC_RIGHT_CLICK_ACTION_STATIC      1064
+#define IDC_MOUSE_WHEEL_ACTION_STATIC      1065
+#define IDC_COMMANDS_STATIC                1066
+#define IDC_SETTINGS_FOR_SELECTED_COMMAND_STATIC 1067
+#define IDC_TITLE_BAR_FORMAT_STATIC        1068
+#define IDC_AUTO_SIZE_WINDOW_STATIC        1069
+#define IDC_EDIT_KEYBOARD_SHORTCUT_KEY_STATIC 1070
+#define IDC_EDIT_KEYBOARD_SHORTCUT_KEY_CURRENTLY_USED_BY_STATIC 1071
+#define IDC_CUSTOM_RATE_STATIC             1072
+#define IDC_TAB4                           1073
+#define IDC_ZOOM_STEP_STATIC               1074
+#define IDC_ZOOM_STEP_EDIT                 1075
+#define IDC_ZOOM_STEP_PERCENT_STATIC       1076
+#define IDC_ZOOM_STEP_DEFAULT_STATIC       1077
+#define IDC_ZOOM_CALC_METHOD_STATIC        1078
+#define IDC_ZOOM_CALC_RELATIVE_RADIO       1079
+#define IDC_ZOOM_CALC_ABSOLUTE_RADIO       1080
+#define IDC_ZOOM_CALC_FIXED_TABLE_RADIO    1081
+#define IDC_ZOOM_FIXED_TABLE_EDIT          1082
+#define IDC_ZOOM_LOAD_DEFAULT_TABLE_BUTTON 1083
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
-#define _APS_NEXT_RESOURCE_VALUE        130
+#define _APS_NEXT_RESOURCE_VALUE        131
 #define _APS_NEXT_COMMAND_VALUE         40048
-#define _APS_NEXT_CONTROL_VALUE         1055
-#define _APS_NEXT_SYMED_VALUE           109
+#define _APS_NEXT_CONTROL_VALUE         1084
 #endif
 #endif

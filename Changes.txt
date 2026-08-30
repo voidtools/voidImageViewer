@@ -1,3 +1,13 @@
+Saturday, 29 August 2026: Version 1.2.1.0
+	added Smooth (Halftone) toggle to main viewer View menu and context menu.
+	added Compare Images side-by-side comparison mode with synchronized/individual zoom and pan.
+	added drag and drop support directly onto left/right compare panes.
+	added "Use Current Image" toggle per pane with mutual exclusion.
+	added mini toolbars per pane for file browsing, zooming, 1:1, fit, and rotation.
+	added top control bar with tips, Auto-Fit, Smooth, Filename overlay, and Close.
+	added WebP fallback decoder and alpha blending over window background for transparent PNG/ICO/GIF images.
+	added full multilingual localization for English, Indonesian, and Simplified Chinese.
+
 Monday, 12 January 2026: Version 1.0.0.15
 	fixed an issue with scrolling large images.
 	improved position offset when using numpad keys.

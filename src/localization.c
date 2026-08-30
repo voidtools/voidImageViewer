@@ -24,11 +24,13 @@
 #include "viv.h"
 #include "localization_en_us.h"
 #include "localization_zh_cn.h"
+#include "localization_id_id.h"
 
 static const utf8_t **_localization_language_array[LOCALIZATION_LANGUAGE_COUNT] = 
 {
 	_localization_string_array_en_us, // LOCALIZATION_LANGUAGE_ENGLISH
 	_localization_string_array_zh_cn, // LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED
+	_localization_string_array_id_id, // LOCALIZATION_LANGUAGE_INDONESIAN
 };
 
 BYTE localization_language = LOCALIZATION_LANGUAGE_ENGLISH;
@@ -54,6 +56,16 @@ const utf8_t *localization_get_en_us_string(localization_id_t localization_id)
 
 void localization_init(void)
 {
+	// If config_language is not Auto, use it
+	if (config_language != 255)
+	{
+		if (config_language < LOCALIZATION_LANGUAGE_COUNT)
+		{
+			localization_language = config_language;
+			return;
+		}
+	}
+
 	// Detect system language
 	if (os_GetUserDefaultUILanguage)
 	{
@@ -69,5 +81,23 @@ void localization_init(void)
 		{
 			localization_language = LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED;
 		}
+		else if (langid == 0x0421) // Indonesian
+		{
+			localization_language = LOCALIZATION_LANGUAGE_INDONESIAN;
+		}
+		else
+		{
+			localization_language = LOCALIZATION_LANGUAGE_ENGLISH;
+		}
 	}
+}
+
+const utf8_t *localization_get_language_name(BYTE language)
+{
+	if (language < LOCALIZATION_LANGUAGE_COUNT)
+	{
+		return _localization_language_array[language][LOCALIZATION_ID_LANGUAGE];
+	}
+
+	return (const utf8_t *)"";
 }
