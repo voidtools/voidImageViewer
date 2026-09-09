@@ -14201,17 +14201,22 @@ static HBITMAP _viv_get_mipmap(HBITMAP hbitmap,int image_wide,int image_high,int
 	{
 		if (!*pmip)
 		{
+			_viv_mipmap_t *mipmap;
 			HDC screen_hdc;
 			HDC mem_hdc;
 			HDC mem2_hdc;
 			HGDIOBJ last_hbitmap;
 			HGDIOBJ last2_hbitmap;
 			int last_stretch_mode;
+			int success;
 			
 			debug_printf("GETMIPMAP %d: %d %d\n",depth,mip_wide,mip_high);
 			
 			// create mipmap..
-			*pmip = mem_alloc(sizeof(_viv_mipmap_t));
+			mipmap = mem_alloc(sizeof(*mipmap));
+			mipmap->hbitmap = NULL;
+			mipmap->mipmap = NULL;
+			success = 0;
 			
 			screen_hdc = GetDC(0);
 			if (screen_hdc)
@@ -14222,30 +14227,29 @@ static HBITMAP _viv_get_mipmap(HBITMAP hbitmap,int image_wide,int image_high,int
 					mem2_hdc = CreateCompatibleDC(screen_hdc);
 					if (mem2_hdc)
 					{
-						(*pmip)->mipmap = NULL;
-						(*pmip)->hbitmap = CreateCompatibleBitmap(screen_hdc,mip_wide,mip_high);
-						
-						last_hbitmap = SelectObject(mem_hdc,(*pmip)->hbitmap);
-						last2_hbitmap = SelectObject(mem2_hdc,best_hbitmap);
-						
-						last_stretch_mode = SetStretchBltMode(mem_hdc,HALFTONE);
-						
-						// for crazy large images -https://github.com/voidtools/voidImageViewer/issues/45
-						// use stitching, since we are using HALFTONE here, we will end up with sharp tile edges
-						// but's its better than showing a black image.
-						if (_viv_StretchBltStitch(mem_hdc,0,0,mip_wide,mip_high,mem2_hdc,0,0,best_wide,best_high,SRCCOPY,0,0,mip_wide,mip_high))
+						mipmap->hbitmap = CreateCompatibleBitmap(screen_hdc,mip_wide,mip_high);
+						if (mipmap->hbitmap)
 						{
-							// OK
+							last_hbitmap = SelectObject(mem_hdc,mipmap->hbitmap);
+							if (last_hbitmap && (last_hbitmap != HGDI_ERROR))
+							{
+								last2_hbitmap = SelectObject(mem2_hdc,best_hbitmap);
+								if (last2_hbitmap && (last2_hbitmap != HGDI_ERROR))
+								{
+									last_stretch_mode = SetStretchBltMode(mem_hdc,HALFTONE);
+									if (last_stretch_mode)
+									{
+										// Stitch large images to stay within GDI limits.
+										success = _viv_StretchBltStitch(mem_hdc,0,0,mip_wide,mip_high,mem2_hdc,0,0,best_wide,best_high,SRCCOPY,0,0,mip_wide,mip_high);
+										SetStretchBltMode(mem_hdc,last_stretch_mode);
+									}
+									
+									SelectObject(mem2_hdc,last2_hbitmap);
+								}
+								
+								SelectObject(mem_hdc,last_hbitmap);
+							}
 						}
-						else
-						{
-							debug_printf("get_mipmap %d %d failed %u\n",mip_wide,mip_high,GetLastError());
-						}
-
-						SetStretchBltMode(mem_hdc,last_stretch_mode);
-						
-						SelectObject(mem_hdc,last_hbitmap);
-						SelectObject(mem2_hdc,last2_hbitmap);
 
 						DeleteDC(mem2_hdc);
 					}
@@ -14255,6 +14259,24 @@ static HBITMAP _viv_get_mipmap(HBITMAP hbitmap,int image_wide,int image_high,int
 				
 				ReleaseDC(0,screen_hdc);
 			}
+			
+			if (!success)
+			{
+				debug_printf("get_mipmap %d %d failed\n",mip_wide,mip_high);
+				
+				if (mipmap->hbitmap)
+				{
+					DeleteObject(mipmap->hbitmap);
+				}
+				
+				mem_free(mipmap);
+				*pmip_wide = best_wide;
+				*pmip_high = best_high;
+				return best_hbitmap;
+			}
+			
+			// Publish only complete mipmaps.
+			*pmip = mipmap;
 		}
 
 		best_wide = mip_wide;
