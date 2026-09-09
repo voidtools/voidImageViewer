@@ -14209,6 +14209,7 @@ static HBITMAP _viv_get_mipmap(HBITMAP hbitmap,int image_wide,int image_high,int
 			HGDIOBJ last2_hbitmap;
 			int last_stretch_mode;
 			int success;
+			DWORD error;
 			
 			debug_printf("GETMIPMAP %d: %d %d\n",depth,mip_wide,mip_high);
 			
@@ -14217,6 +14218,7 @@ static HBITMAP _viv_get_mipmap(HBITMAP hbitmap,int image_wide,int image_high,int
 			mipmap->hbitmap = NULL;
 			mipmap->mipmap = NULL;
 			success = 0;
+			error = ERROR_SUCCESS;
 			
 			screen_hdc = GetDC(0);
 			if (screen_hdc)
@@ -14241,28 +14243,61 @@ static HBITMAP _viv_get_mipmap(HBITMAP hbitmap,int image_wide,int image_high,int
 									{
 										// Stitch large images to stay within GDI limits.
 										success = _viv_StretchBltStitch(mem_hdc,0,0,mip_wide,mip_high,mem2_hdc,0,0,best_wide,best_high,SRCCOPY,0,0,mip_wide,mip_high);
+										if (!success)
+										{
+											error = GetLastError();
+										}
+										
 										SetStretchBltMode(mem_hdc,last_stretch_mode);
+									}
+									else
+									{
+										error = GetLastError();
 									}
 									
 									SelectObject(mem2_hdc,last2_hbitmap);
 								}
+								else
+								{
+									error = GetLastError();
+								}
 								
 								SelectObject(mem_hdc,last_hbitmap);
 							}
+							else
+							{
+								error = GetLastError();
+							}
+						}
+						else
+						{
+							error = GetLastError();
 						}
 
 						DeleteDC(mem2_hdc);
 					}
+					else
+					{
+						error = GetLastError();
+					}
 					
 					DeleteDC(mem_hdc);
+				}
+				else
+				{
+					error = GetLastError();
 				}
 				
 				ReleaseDC(0,screen_hdc);
 			}
+			else
+			{
+				error = GetLastError();
+			}
 			
 			if (!success)
 			{
-				debug_printf("get_mipmap %d %d failed\n",mip_wide,mip_high);
+				debug_printf("get_mipmap %d %d failed %u\n",mip_wide,mip_high,error);
 				
 				if (mipmap->hbitmap)
 				{
