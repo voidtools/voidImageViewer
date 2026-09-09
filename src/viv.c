@@ -14143,6 +14143,127 @@ int viv_get_command_count(void)
 	return _VIV_COMMAND_COUNT;
 }
 
+static HBITMAP _viv_create_mipmap_bitmap(HBITMAP source_hbitmap,int source_wide,int source_high,int mip_wide,int mip_high,DWORD *out_error)
+{
+	HDC screen_hdc;
+	HDC mem_hdc;
+	HDC mem2_hdc;
+	HBITMAP hbitmap;
+	HGDIOBJ last_hbitmap;
+	HGDIOBJ last2_hbitmap;
+	int last_stretch_mode;
+	int success;
+	
+	screen_hdc = NULL;
+	mem_hdc = NULL;
+	mem2_hdc = NULL;
+	hbitmap = NULL;
+	last_hbitmap = NULL;
+	last2_hbitmap = NULL;
+	last_stretch_mode = 0;
+	success = 0;
+	*out_error = ERROR_SUCCESS;
+	
+	screen_hdc = GetDC(0);
+	if (!screen_hdc)
+	{
+		*out_error = GetLastError();
+		goto cleanup;
+	}
+	
+	mem_hdc = CreateCompatibleDC(screen_hdc);
+	if (!mem_hdc)
+	{
+		*out_error = GetLastError();
+		goto cleanup;
+	}
+	
+	mem2_hdc = CreateCompatibleDC(screen_hdc);
+	if (!mem2_hdc)
+	{
+		*out_error = GetLastError();
+		goto cleanup;
+	}
+	
+	hbitmap = CreateCompatibleBitmap(screen_hdc,mip_wide,mip_high);
+	if (!hbitmap)
+	{
+		*out_error = GetLastError();
+		goto cleanup;
+	}
+	
+	last_hbitmap = SelectObject(mem_hdc,hbitmap);
+	if ((!last_hbitmap) || (last_hbitmap == HGDI_ERROR))
+	{
+		*out_error = GetLastError();
+		goto cleanup;
+	}
+	
+	last2_hbitmap = SelectObject(mem2_hdc,source_hbitmap);
+	if ((!last2_hbitmap) || (last2_hbitmap == HGDI_ERROR))
+	{
+		*out_error = GetLastError();
+		goto cleanup;
+	}
+	
+	last_stretch_mode = SetStretchBltMode(mem_hdc,HALFTONE);
+	if (!last_stretch_mode)
+	{
+		*out_error = GetLastError();
+		goto cleanup;
+	}
+	
+	// Stitch large images to stay within GDI limits.
+	success = _viv_StretchBltStitch(mem_hdc,0,0,mip_wide,mip_high,mem2_hdc,0,0,source_wide,source_high,SRCCOPY,0,0,mip_wide,mip_high);
+	if (!success)
+	{
+		*out_error = GetLastError();
+	}
+	
+cleanup:
+	if (last_stretch_mode)
+	{
+		SetStretchBltMode(mem_hdc,last_stretch_mode);
+	}
+	
+	if (last2_hbitmap && (last2_hbitmap != HGDI_ERROR))
+	{
+		SelectObject(mem2_hdc,last2_hbitmap);
+	}
+	
+	if (last_hbitmap && (last_hbitmap != HGDI_ERROR))
+	{
+		SelectObject(mem_hdc,last_hbitmap);
+	}
+	
+	if (mem2_hdc)
+	{
+		DeleteDC(mem2_hdc);
+	}
+	
+	if (mem_hdc)
+	{
+		DeleteDC(mem_hdc);
+	}
+	
+	if (screen_hdc)
+	{
+		ReleaseDC(0,screen_hdc);
+	}
+	
+	if (!success)
+	{
+		if (hbitmap)
+		{
+			DeleteObject(hbitmap);
+		}
+		
+		return NULL;
+	}
+	
+	return hbitmap;
+}
+
 static HBITMAP _viv_get_mipmap(HBITMAP hbitmap,int image_wide,int image_high,int render_wide,int render_high,int *pmip_wide,int *pmip_high,_viv_mipmap_t **out_mip)
 {
 	int mip_wide;
@@ -14202,125 +14323,18 @@ static HBITMAP _viv_get_mipmap(HBITMAP hbitmap,int image_wide,int image_high,int
 		if (!*pmip)
 		{
 			_viv_mipmap_t *mipmap;
-			HDC screen_hdc;
-			HDC mem_hdc;
-			HDC mem2_hdc;
-			HGDIOBJ last_hbitmap;
-			HGDIOBJ last2_hbitmap;
-			int last_stretch_mode;
-			int success;
 			DWORD error;
 			
 			debug_printf("GETMIPMAP %d: %d %d\n",depth,mip_wide,mip_high);
 			
 			// create mipmap..
 			mipmap = mem_alloc(sizeof(*mipmap));
-			mipmap->hbitmap = NULL;
 			mipmap->mipmap = NULL;
-			screen_hdc = NULL;
-			mem_hdc = NULL;
-			mem2_hdc = NULL;
-			last_hbitmap = NULL;
-			last2_hbitmap = NULL;
-			last_stretch_mode = 0;
-			success = 0;
-			error = ERROR_SUCCESS;
+			mipmap->hbitmap = _viv_create_mipmap_bitmap(best_hbitmap,best_wide,best_high,mip_wide,mip_high,&error);
 			
-			screen_hdc = GetDC(0);
-			if (!screen_hdc)
-			{
-				error = GetLastError();
-				goto mipmap_cleanup;
-			}
-			
-			mem_hdc = CreateCompatibleDC(screen_hdc);
-			if (!mem_hdc)
-			{
-				error = GetLastError();
-				goto mipmap_cleanup;
-			}
-			
-			mem2_hdc = CreateCompatibleDC(screen_hdc);
-			if (!mem2_hdc)
-			{
-				error = GetLastError();
-				goto mipmap_cleanup;
-			}
-			
-			mipmap->hbitmap = CreateCompatibleBitmap(screen_hdc,mip_wide,mip_high);
 			if (!mipmap->hbitmap)
 			{
-				error = GetLastError();
-				goto mipmap_cleanup;
-			}
-			
-			last_hbitmap = SelectObject(mem_hdc,mipmap->hbitmap);
-			if ((!last_hbitmap) || (last_hbitmap == HGDI_ERROR))
-			{
-				error = GetLastError();
-				goto mipmap_cleanup;
-			}
-			
-			last2_hbitmap = SelectObject(mem2_hdc,best_hbitmap);
-			if ((!last2_hbitmap) || (last2_hbitmap == HGDI_ERROR))
-			{
-				error = GetLastError();
-				goto mipmap_cleanup;
-			}
-			
-			last_stretch_mode = SetStretchBltMode(mem_hdc,HALFTONE);
-			if (!last_stretch_mode)
-			{
-				error = GetLastError();
-				goto mipmap_cleanup;
-			}
-			
-			// Stitch large images to stay within GDI limits.
-			success = _viv_StretchBltStitch(mem_hdc,0,0,mip_wide,mip_high,mem2_hdc,0,0,best_wide,best_high,SRCCOPY,0,0,mip_wide,mip_high);
-			if (!success)
-			{
-				error = GetLastError();
-			}
-			
-		mipmap_cleanup:
-			if (last_stretch_mode)
-			{
-				SetStretchBltMode(mem_hdc,last_stretch_mode);
-			}
-			
-			if (last2_hbitmap && (last2_hbitmap != HGDI_ERROR))
-			{
-				SelectObject(mem2_hdc,last2_hbitmap);
-			}
-			
-			if (last_hbitmap && (last_hbitmap != HGDI_ERROR))
-			{
-				SelectObject(mem_hdc,last_hbitmap);
-			}
-			
-			if (mem2_hdc)
-			{
-				DeleteDC(mem2_hdc);
-			}
-			
-			if (mem_hdc)
-			{
-				DeleteDC(mem_hdc);
-			}
-			
-			if (screen_hdc)
-			{
-				ReleaseDC(0,screen_hdc);
-			}
-			
-			if (!success)
-			{
 				debug_printf("get_mipmap %d %d failed %u\n",mip_wide,mip_high,error);
-				
-				if (mipmap->hbitmap)
-				{
-					DeleteObject(mipmap->hbitmap);
-				}
 				
 				mem_free(mipmap);
 				*pmip_wide = best_wide;
