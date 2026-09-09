@@ -14217,82 +14217,100 @@ static HBITMAP _viv_get_mipmap(HBITMAP hbitmap,int image_wide,int image_high,int
 			mipmap = mem_alloc(sizeof(*mipmap));
 			mipmap->hbitmap = NULL;
 			mipmap->mipmap = NULL;
+			screen_hdc = NULL;
+			mem_hdc = NULL;
+			mem2_hdc = NULL;
+			last_hbitmap = NULL;
+			last2_hbitmap = NULL;
+			last_stretch_mode = 0;
 			success = 0;
 			error = ERROR_SUCCESS;
 			
 			screen_hdc = GetDC(0);
-			if (screen_hdc)
-			{
-				mem_hdc = CreateCompatibleDC(screen_hdc);
-				if (mem_hdc)
-				{
-					mem2_hdc = CreateCompatibleDC(screen_hdc);
-					if (mem2_hdc)
-					{
-						mipmap->hbitmap = CreateCompatibleBitmap(screen_hdc,mip_wide,mip_high);
-						if (mipmap->hbitmap)
-						{
-							last_hbitmap = SelectObject(mem_hdc,mipmap->hbitmap);
-							if (last_hbitmap && (last_hbitmap != HGDI_ERROR))
-							{
-								last2_hbitmap = SelectObject(mem2_hdc,best_hbitmap);
-								if (last2_hbitmap && (last2_hbitmap != HGDI_ERROR))
-								{
-									last_stretch_mode = SetStretchBltMode(mem_hdc,HALFTONE);
-									if (last_stretch_mode)
-									{
-										// Stitch large images to stay within GDI limits.
-										success = _viv_StretchBltStitch(mem_hdc,0,0,mip_wide,mip_high,mem2_hdc,0,0,best_wide,best_high,SRCCOPY,0,0,mip_wide,mip_high);
-										if (!success)
-										{
-											error = GetLastError();
-										}
-										
-										SetStretchBltMode(mem_hdc,last_stretch_mode);
-									}
-									else
-									{
-										error = GetLastError();
-									}
-									
-									SelectObject(mem2_hdc,last2_hbitmap);
-								}
-								else
-								{
-									error = GetLastError();
-								}
-								
-								SelectObject(mem_hdc,last_hbitmap);
-							}
-							else
-							{
-								error = GetLastError();
-							}
-						}
-						else
-						{
-							error = GetLastError();
-						}
-
-						DeleteDC(mem2_hdc);
-					}
-					else
-					{
-						error = GetLastError();
-					}
-					
-					DeleteDC(mem_hdc);
-				}
-				else
-				{
-					error = GetLastError();
-				}
-				
-				ReleaseDC(0,screen_hdc);
-			}
-			else
+			if (!screen_hdc)
 			{
 				error = GetLastError();
+				goto mipmap_cleanup;
+			}
+			
+			mem_hdc = CreateCompatibleDC(screen_hdc);
+			if (!mem_hdc)
+			{
+				error = GetLastError();
+				goto mipmap_cleanup;
+			}
+			
+			mem2_hdc = CreateCompatibleDC(screen_hdc);
+			if (!mem2_hdc)
+			{
+				error = GetLastError();
+				goto mipmap_cleanup;
+			}
+			
+			mipmap->hbitmap = CreateCompatibleBitmap(screen_hdc,mip_wide,mip_high);
+			if (!mipmap->hbitmap)
+			{
+				error = GetLastError();
+				goto mipmap_cleanup;
+			}
+			
+			last_hbitmap = SelectObject(mem_hdc,mipmap->hbitmap);
+			if ((!last_hbitmap) || (last_hbitmap == HGDI_ERROR))
+			{
+				error = GetLastError();
+				goto mipmap_cleanup;
+			}
+			
+			last2_hbitmap = SelectObject(mem2_hdc,best_hbitmap);
+			if ((!last2_hbitmap) || (last2_hbitmap == HGDI_ERROR))
+			{
+				error = GetLastError();
+				goto mipmap_cleanup;
+			}
+			
+			last_stretch_mode = SetStretchBltMode(mem_hdc,HALFTONE);
+			if (!last_stretch_mode)
+			{
+				error = GetLastError();
+				goto mipmap_cleanup;
+			}
+			
+			// Stitch large images to stay within GDI limits.
+			success = _viv_StretchBltStitch(mem_hdc,0,0,mip_wide,mip_high,mem2_hdc,0,0,best_wide,best_high,SRCCOPY,0,0,mip_wide,mip_high);
+			if (!success)
+			{
+				error = GetLastError();
+			}
+			
+		mipmap_cleanup:
+			if (last_stretch_mode)
+			{
+				SetStretchBltMode(mem_hdc,last_stretch_mode);
+			}
+			
+			if (last2_hbitmap && (last2_hbitmap != HGDI_ERROR))
+			{
+				SelectObject(mem2_hdc,last2_hbitmap);
+			}
+			
+			if (last_hbitmap && (last_hbitmap != HGDI_ERROR))
+			{
+				SelectObject(mem_hdc,last_hbitmap);
+			}
+			
+			if (mem2_hdc)
+			{
+				DeleteDC(mem2_hdc);
+			}
+			
+			if (mem_hdc)
+			{
+				DeleteDC(mem_hdc);
+			}
+			
+			if (screen_hdc)
+			{
+				ReleaseDC(0,screen_hdc);
 			}
 			
 			if (!success)
