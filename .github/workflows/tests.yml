@@ -1,0 +1,99 @@
+name: tests
+
+# Continuous verification of the zoom math, menu structure, dark mode wiring
+# and localization alignment invariants. Runs on every push (branches and
+# tags) and every pull request.
+#
+# The daily schedule (04:00 UTC = 12:00 Asia/Shanghai) intentionally runs
+# ONLY the Windows compile matrix: the Python suites are fully covered by
+# push/PR/tag events, while compiling every day on pinned runner images is
+# the drift detector for hosted-image toolchain changes (the images gain
+# and lose preinstalled software over time, e.g. the VS2026 images ship
+# without NSIS and without the v143 toolset).
+on:
+  push:
+    branches: ['**']
+    tags: ['v*', '[0-9]*']
+  pull_request:
+    branches: ['**']
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+jobs:
+  tests:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Zoom math regression tests
+        run: python3 tests/zoom_math_test.py
+
+      - name: Menu structure, dark mode wiring and version consistency tests
+        run: python3 tests/menu_structure_test.py
+
+      - name: Second-rework simulation tests (the 1.1.07 check)
+        run: python3 tests/simulation_test.py
+
+  # Compile both shipping configurations on every push (since rc.2), pull
+  # request, tag and daily schedule so a build break is caught before
+  # tagging a release.
+  #
+  # Runner matrix: windows-latest is in the middle of GitHub's gradual
+  # migration to the Windows Server 2025 + VS2026 (v145) image, and the
+  # 2025 image has no v143 toolset (MSB8020). Pin the shipping build to
+  # windows-2022 (VS2022, v143) and pair it with windows-2025 (VS2026,
+  # v145 via the vs2026 project) so the migration can not break this
+  # repository's CI by surprise: the v145 leg doubles as the forward
+  # compatibility / image drift detector.
+  compile:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-2022 v143
+            runner: windows-2022
+            project: vs2019
+            toolset: v143
+          - name: windows-2025 v145
+            runner: windows-2025
+            project: vs2026
+            toolset: v145
+    runs-on: ${{ matrix.runner }}
+    name: compile (${{ matrix.name }})
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+
+      - name: Build x64 (Release)
+        shell: cmd
+        run: msbuild ${{ matrix.project }}\voidImageViewer.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=${{ matrix.toolset }} "/p:OutDir=%GITHUB_WORKSPACE%\build\x64\\" "/p:IntDir=%GITHUB_WORKSPACE%\build\obj\x64\\" /m /nologo /v:m
+
+      - name: Build x86 (Release)
+        shell: cmd
+        run: msbuild ${{ matrix.project }}\voidImageViewer.vcxproj /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=${{ matrix.toolset }} "/p:OutDir=%GITHUB_WORKSPACE%\build\x86\\" "/p:IntDir=%GITHUB_WORKSPACE%\build\obj\x86\\" /m /nologo /v:m
+
+      - name: Verify build output
+        shell: pwsh
+        run: |
+          foreach ($p in @('build\x64\voidImageViewer.exe', 'build\x86\voidImageViewer.exe')) {
+            if (!(Test-Path $p)) { throw "missing build output: $p" }
+            Write-Host "== $p ==" (Get-Item $p).Length bytes
+          }
+
+      # the real machine smoke test from the 1.0.02 audit round never ran
+      # automatically: every push now opens the full anomaly sample set
+      # through the freshly compiled x64 exe on the windows-2022 runner
+      # (a hosted windows runner is a real windows machine - gui launch,
+      # exit codes and close all work). the samples generate inline when
+      # the directory is missing (pure stdlib python, no extra deps).
+      - name: Real machine smoke test (the anomaly sweep)
+        if: matrix.runner == 'windows-2022'
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File tests\smoke_test.ps1 -ExePath "build\x64\voidImageViewer.exe" -SamplesDir "tests\samples"

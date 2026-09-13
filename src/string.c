@@ -45,7 +45,7 @@ wchar_t *string_alloc(const wchar_t *s)
 	wchar_t *p;
 	
 	wlen = string_get_length(s);
-	p = (wchar_t *)mem_alloc((wlen + 1) * sizeof(wchar_t));
+	p = (wchar_t *)mem_alloc(safe_size_mul_sizeof_wchar(safe_size_add_one(wlen)));
 	
 	CopyMemory(p,s,(wlen + 1) * sizeof(wchar_t));
 		
@@ -59,7 +59,7 @@ wchar_t *string_alloc_utf8(const utf8_t *s)
 	
 	wlen = MultiByteToWideChar(CP_UTF8,0,s,-1,0,0);
 	
-	p = (wchar_t *)mem_alloc((wlen + 1) * sizeof(wchar_t));
+	p = (wchar_t *)mem_alloc(safe_size_mul_sizeof_wchar(safe_size_add_one(wlen)));
 	
 	MultiByteToWideChar(CP_UTF8,0,s,-1,p,wlen+1);
 		
@@ -90,6 +90,12 @@ void string_copy_with_bufsize(wchar_t *d,SIZE_T bufsize,const wchar_t *s)
 {
 	uintptr_t size;
 	
+	// bufsize 0 would wrap to SIZE_MAX below.
+	if (!bufsize)
+	{
+		return;
+	}
+	
 	size = bufsize - 1;
 	
 	while(*s)
@@ -108,7 +114,12 @@ void string_copy_with_bufsize(wchar_t *d,SIZE_T bufsize,const wchar_t *s)
 
 void string_copy_utf8_string(wchar_t *buf,const utf8_t *s)
 {
-	MultiByteToWideChar(CP_UTF8,0,s,-1,buf,STRING_SIZE);
+	// MultiByteToWideChar leaves the output unterminated when the
+	// conversion fails: make sure the buffer is always a string.
+	if (!MultiByteToWideChar(CP_UTF8,0,s,-1,buf,STRING_SIZE))
+	{
+		buf[0] = 0;
+	}
 }
 
 void string_cat(wchar_t *buf,const wchar_t *s)
@@ -801,7 +812,7 @@ wchar_t *string_skip_ws(const wchar_t *p)
 	return (wchar_t *)p;
 }
 
-wchar_t *string_get_word(wchar_t *p,wchar_t *buf)
+wchar_t *string_get_word(wchar_t *p,wchar_t *buf,int buf_size)
 {
 	wchar_t *d;
 	int is_quote;
@@ -814,7 +825,13 @@ wchar_t *string_get_word(wchar_t *p,wchar_t *buf)
 		if ((*p == '"') && (p[1] == '"'))
 		{
 			p += 2;
-			*d++ = '"';
+			
+			// the word is longer than the destination: stop at the
+			// capacity, the rest of the word is skipped below.
+			if (d - buf < buf_size - 1)
+			{
+				*d++ = '"';
+			}
 		}
 		else
 		if (*p == '"')
@@ -829,7 +846,12 @@ wchar_t *string_get_word(wchar_t *p,wchar_t *buf)
 		}
 		else
 		{
-			*d++ = *p;
+			// keep skipping the word, only copy what fits.
+			if (d - buf < buf_size - 1)
+			{
+				*d++ = *p;
+			}
+			
 			p++;
 		}
 	}

@@ -27,6 +27,7 @@
 // MUST be used when allocating memory.
 
 #include "viv.h"
+#include <stdint.h> // SIZE_MAX
 
 // safely add two values.
 // SIZE_MAX is used as an invalid value.
@@ -80,7 +81,7 @@ SIZE_T safe_size_mul_sizeof_pointer(SIZE_T a)
 }
 
 // safely multiply a by sizeof(wchar_t)
-// returns a + sizeof(wchar_t)
+// returns a * sizeof(wchar_t)
 // returns SIZE_MAX if an overflow occurs.
 SIZE_T safe_size_mul_sizeof_wchar(SIZE_T a)
 {

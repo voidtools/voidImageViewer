@@ -1,0 +1,185 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- shared file list for the vs2019 and vs2026 projects: every compiled or
+     referenced file lives here exactly once, so the two projects can not
+     drift apart again (the vs2005 project had drifted by 7 files before it
+     was deleted). item paths resolve relative to each importing project
+     directory (both vs2019/ and vs2026/ sit one level below the root). -->
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\libwebp\src\dec\alpha_dec.c" />
+    <ClCompile Include="..\libwebp\src\dec\buffer_dec.c" />
+    <ClCompile Include="..\libwebp\src\dec\frame_dec.c" />
+    <ClCompile Include="..\libwebp\src\dec\idec_dec.c" />
+    <ClCompile Include="..\libwebp\src\dec\io_dec.c" />
+    <ClCompile Include="..\libwebp\src\dec\quant_dec.c" />
+    <ClCompile Include="..\libwebp\src\dec\tree_dec.c" />
+    <ClCompile Include="..\libwebp\src\dec\vp8l_dec.c" />
+    <ClCompile Include="..\libwebp\src\dec\vp8_dec.c" />
+    <ClCompile Include="..\libwebp\src\dec\webp_dec.c" />
+    <ClCompile Include="..\libwebp\src\demux\anim_decode.c" />
+    <ClCompile Include="..\libwebp\src\demux\demux.c" />
+    <ClCompile Include="..\libwebp\src\dsp\alpha_processing.c" />
+    <ClCompile Include="..\libwebp\src\dsp\alpha_processing_mips_dsp_r2.c" />
+    <ClCompile Include="..\libwebp\src\dsp\alpha_processing_neon.c" />
+    <ClCompile Include="..\libwebp\src\dsp\alpha_processing_sse2.c" />
+    <ClCompile Include="..\libwebp\src\dsp\alpha_processing_sse41.c" />
+    <ClCompile Include="..\libwebp\src\dsp\cpu.c" />
+    <ClCompile Include="..\libwebp\src\dsp\dec.c" />
+    <ClCompile Include="..\libwebp\src\dsp\dec_clip_tables.c" />
+    <ClCompile Include="..\libwebp\src\dsp\dec_mips32.c" />
+    <ClCompile Include="..\libwebp\src\dsp\dec_mips_dsp_r2.c" />
+    <ClCompile Include="..\libwebp\src\dsp\dec_msa.c" />
+    <ClCompile Include="..\libwebp\src\dsp\dec_neon.c" />
+    <ClCompile Include="..\libwebp\src\dsp\dec_sse2.c" />
+    <ClCompile Include="..\libwebp\src\dsp\dec_sse41.c" />
+    <ClCompile Include="..\libwebp\src\dsp\filters.c" />
+    <ClCompile Include="..\libwebp\src\dsp\filters_mips_dsp_r2.c" />
+    <ClCompile Include="..\libwebp\src\dsp\filters_msa.c" />
+    <ClCompile Include="..\libwebp\src\dsp\filters_neon.c" />
+    <ClCompile Include="..\libwebp\src\dsp\filters_sse2.c" />
+    <ClCompile Include="..\libwebp\src\dsp\lossless.c" />
+    <ClCompile Include="..\libwebp\src\dsp\lossless_avx2.c" />
+    <ClCompile Include="..\libwebp\src\dsp\lossless_mips_dsp_r2.c" />
+    <ClCompile Include="..\libwebp\src\dsp\lossless_msa.c" />
+    <ClCompile Include="..\libwebp\src\dsp\lossless_neon.c" />
+    <ClCompile Include="..\libwebp\src\dsp\lossless_sse2.c" />
+    <ClCompile Include="..\libwebp\src\dsp\lossless_sse41.c" />
+    <ClCompile Include="..\libwebp\src\dsp\rescaler.c" />
+    <ClCompile Include="..\libwebp\src\dsp\rescaler_mips32.c" />
+    <ClCompile Include="..\libwebp\src\dsp\rescaler_mips_dsp_r2.c" />
+    <ClCompile Include="..\libwebp\src\dsp\rescaler_msa.c" />
+    <ClCompile Include="..\libwebp\src\dsp\rescaler_neon.c" />
+    <ClCompile Include="..\libwebp\src\dsp\rescaler_sse2.c" />
+    <ClCompile Include="..\libwebp\src\dsp\upsampling.c" />
+    <ClCompile Include="..\libwebp\src\dsp\upsampling_mips_dsp_r2.c" />
+    <ClCompile Include="..\libwebp\src\dsp\upsampling_msa.c" />
+    <ClCompile Include="..\libwebp\src\dsp\upsampling_neon.c" />
+    <ClCompile Include="..\libwebp\src\dsp\upsampling_sse2.c" />
+    <ClCompile Include="..\libwebp\src\dsp\upsampling_sse41.c" />
+    <ClCompile Include="..\libwebp\src\dsp\yuv.c" />
+    <ClCompile Include="..\libwebp\src\dsp\yuv_mips32.c" />
+    <ClCompile Include="..\libwebp\src\dsp\yuv_mips_dsp_r2.c" />
+    <ClCompile Include="..\libwebp\src\dsp\yuv_neon.c" />
+    <ClCompile Include="..\libwebp\src\dsp\yuv_sse2.c" />
+    <ClCompile Include="..\libwebp\src\dsp\yuv_sse41.c" />
+    <ClCompile Include="..\libwebp\src\utils\bit_reader_utils.c" />
+    <ClCompile Include="..\libwebp\src\utils\color_cache_utils.c" />
+    <ClCompile Include="..\libwebp\src\utils\filters_utils.c" />
+    <ClCompile Include="..\libwebp\src\utils\huffman_utils.c" />
+    <ClCompile Include="..\libwebp\src\utils\palette.c" />
+    <ClCompile Include="..\libwebp\src\utils\quant_levels_dec_utils.c" />
+    <ClCompile Include="..\libwebp\src\utils\random_utils.c" />
+    <ClCompile Include="..\libwebp\src\utils\rescaler_utils.c" />
+    <ClCompile Include="..\libwebp\src\utils\thread_utils.c" />
+    <ClCompile Include="..\libwebp\src\utils\utils.c" />
+    <ClCompile Include="..\src\config.c" />
+    <ClCompile Include="..\src\debug.c" />
+
+    <ClCompile Include="..\src\glyphs.c" />
+    <ClCompile Include="..\src\ini.c" />
+    <ClCompile Include="..\src\mem.c" />
+    <ClCompile Include="..\src\localization.c" />
+    <ClCompile Include="..\src\os.c" />
+    <ClCompile Include="..\src\safe_size.c" />
+    <ClCompile Include="..\src\small_pool.c" />
+    <ClCompile Include="..\src\string.c" />
+    <ClCompile Include="..\src\utf8.c" />
+    <ClCompile Include="..\src\viv.c" />
+    <ClCompile Include="..\src\viv_anim.c" />
+    <ClCompile Include="..\src\viv_chrome.c" />
+    <ClCompile Include="..\src\viv_dark.c" />
+    <ClCompile Include="..\src\viv_dialogs.c" />
+    <ClCompile Include="..\src\viv_install.c" />
+    <ClCompile Include="..\src\viv_load.c" />
+    <ClCompile Include="..\src\viv_menu.c" />
+    <ClCompile Include="..\src\viv_menubar.c" />
+    <ClCompile Include="..\src\viv_playlist.c" />
+    <ClCompile Include="..\src\viv_recent.c" />
+    <ClCompile Include="..\src\viv_render.c" />
+    <ClCompile Include="..\src\viv_settings.c" />
+    <ClCompile Include="..\src\viv_theme.c" />
+    <ClCompile Include="..\src\viv_msgbox.c" />
+    <ClCompile Include="..\src\viv_toolbar.c" />
+    <ClCompile Include="..\src\viv_view.c" />
+    <ClCompile Include="..\src\viv_wndproc.c" />
+    <ClCompile Include="..\src\wchar.c" />
+    <ClCompile Include="..\src\webp.c" />
+    <ClCompile Include="..\src\zoomui.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\libwebp\src\dec\alphai_dec.h" />
+    <ClInclude Include="..\libwebp\src\dec\common_dec.h" />
+    <ClInclude Include="..\libwebp\src\dec\vp8i_dec.h" />
+    <ClInclude Include="..\libwebp\src\dec\vp8li_dec.h" />
+    <ClInclude Include="..\libwebp\src\dec\vp8_dec.h" />
+    <ClInclude Include="..\libwebp\src\dec\webpi_dec.h" />
+    <ClInclude Include="..\libwebp\src\dsp\common_sse2.h" />
+    <ClInclude Include="..\libwebp\src\dsp\common_sse41.h" />
+    <ClInclude Include="..\libwebp\src\dsp\cpu.h" />
+    <ClInclude Include="..\libwebp\src\dsp\dsp.h" />
+    <ClInclude Include="..\libwebp\src\dsp\lossless.h" />
+    <ClInclude Include="..\libwebp\src\dsp\lossless_common.h" />
+    <ClInclude Include="..\libwebp\src\dsp\mips_macro.h" />
+    <ClInclude Include="..\libwebp\src\dsp\msa_macro.h" />
+    <ClInclude Include="..\libwebp\src\dsp\neon.h" />
+    <ClInclude Include="..\libwebp\src\dsp\quant.h" />
+    <ClInclude Include="..\libwebp\src\dsp\yuv.h" />
+    <ClInclude Include="..\libwebp\src\utils\bit_reader_inl_utils.h" />
+    <ClInclude Include="..\libwebp\src\utils\bit_reader_utils.h" />
+    <ClInclude Include="..\libwebp\src\utils\color_cache_utils.h" />
+    <ClInclude Include="..\libwebp\src\utils\endian_inl_utils.h" />
+    <ClInclude Include="..\libwebp\src\utils\filters_utils.h" />
+    <ClInclude Include="..\libwebp\src\utils\huffman_utils.h" />
+    <ClInclude Include="..\libwebp\src\utils\palette.h" />
+    <ClInclude Include="..\libwebp\src\utils\quant_levels_dec_utils.h" />
+    <ClInclude Include="..\libwebp\src\utils\random_utils.h" />
+    <ClInclude Include="..\libwebp\src\utils\rescaler_utils.h" />
+    <ClInclude Include="..\libwebp\src\utils\thread_utils.h" />
+    <ClInclude Include="..\libwebp\src\utils\utils.h" />
+    <ClInclude Include="..\res\resource.h" />
+    <ClInclude Include="..\src\config.h" />
+    <ClInclude Include="..\src\debug.h" />
+
+    <ClInclude Include="..\src\glyphs.h" />
+    <ClInclude Include="..\src\everything_ipc.h" />
+    <ClInclude Include="..\src\ini.h" />
+    <ClInclude Include="..\src\mem.h" />
+    <ClInclude Include="..\src\localization.h" />
+    <ClInclude Include="..\src\localization_en_us.h" />
+    <ClInclude Include="..\src\localization_zh_cn.h" />
+    <ClInclude Include="..\src\os.h" />
+    <ClInclude Include="..\src\safe_size.h" />
+    <ClInclude Include="..\src\small_pool.h" />
+    <ClInclude Include="..\src\string.h" />
+    <ClInclude Include="..\src\utf8.h" />
+    <ClInclude Include="..\src\version.h" />
+    <ClInclude Include="..\src\viv.h" />
+    <ClInclude Include="..\src\viv_anim.h" />
+    <ClInclude Include="..\src\viv_chrome.h" />
+    <ClInclude Include="..\src\viv_dark.h" />
+    <ClInclude Include="..\src\viv_dialogs.h" />
+    <ClInclude Include="..\src\viv_install.h" />
+    <ClInclude Include="..\src\viv_load.h" />
+    <ClInclude Include="..\src\viv_menu.h" />
+    <ClInclude Include="..\src\viv_menubar.h" />
+    <ClInclude Include="..\src\viv_playlist.h" />
+    <ClInclude Include="..\src\viv_recent.h" />
+    <ClInclude Include="..\src\viv_render.h" />
+    <ClInclude Include="..\src\viv_state.h" />
+    <ClInclude Include="..\src\viv_settings.h" />
+    <ClInclude Include="..\src\viv_theme.h" />
+    <ClInclude Include="..\src\viv_msgbox.h" />
+    <ClInclude Include="..\src\viv_toolbar.h" />
+    <ClInclude Include="..\src\viv_view.h" />
+    <ClInclude Include="..\src\viv_wndproc.h" />
+    <ClInclude Include="..\src\wchar.h" />
+    <ClInclude Include="..\src\webp.h" />
+    <ClInclude Include="..\src\zoomui.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\res\voidImageViewer.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\res\voidImageViewer.rc" />
+  </ItemGroup>
+</Project>

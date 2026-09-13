@@ -235,12 +235,14 @@ void mem_free_debug(const char *file,int line,void *p)
 		mem_debug_initialized = 1;
 	}
 	
-	mem_usage -= HeapSize(GetProcessHeap(),0,(((mem_debug_t *)p)-1));
-
+	// a null free used to dereference the header inside heapsize before
+	// this guard could ever run. debug_fatal is noreturn.
 	if (!p)
 	{
 		debug_fatal("INVALID FREE from %s(%d): %p",file,line,p);
 	}
+
+	mem_usage -= HeapSize(GetProcessHeap(),0,(((mem_debug_t *)p)-1));
 	
 	{
 		int magici;

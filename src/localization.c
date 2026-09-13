@@ -35,21 +35,52 @@ BYTE localization_language = LOCALIZATION_LANGUAGE_ENGLISH;
 
 const utf8_t *localization_get_string(localization_id_t localization_id)
 {
+	// a bad id used to be an out-of-bounds read in release builds: the
+	// range check was debug only. clamp to the english fallback so a
+	// missed translation index degrades instead of crashing.
+	if ((localization_id < 0) || (localization_id >= LOCALIZATION_ID_COUNT))
+	{
 #ifdef _DEBUG
-
-if ((localization_id < 0) || (localization_id >= LOCALIZATION_ID_COUNT))
-{
-	debug_fatal("bad localization id %d\n",localization_id);
-}
-
+		debug_fatal("bad localization id %d\n",localization_id);
 #endif
+		return _localization_string_array_en_us[0];
+	}
 	
 	return _localization_language_array[localization_language][localization_id];
 }
 
 const utf8_t *localization_get_en_us_string(localization_id_t localization_id)
 {
+	if ((localization_id < 0) || (localization_id >= LOCALIZATION_ID_COUNT))
+	{
+		return _localization_string_array_en_us[0];
+	}
+	
 	return _localization_string_array_en_us[localization_id];
+}
+
+const utf8_t *localization_get_language_name(BYTE language)
+{
+	// Return the name of a language in that language itself.
+	// Used by the options dialog so every language is listed in its own script.
+	
+	if (language < LOCALIZATION_LANGUAGE_COUNT)
+	{
+		return _localization_language_array[language][LOCALIZATION_ID_LANGUAGE];
+	}
+	
+	return _localization_string_array_en_us[LOCALIZATION_ID_LANGUAGE];
+}
+
+void localization_set_language(BYTE language)
+{
+	// Explicitly select the active language.
+	// Invalid values are ignored (the current language is kept).
+	
+	if (language < LOCALIZATION_LANGUAGE_COUNT)
+	{
+		localization_language = language;
+	}
 }
 
 void localization_init(void)
@@ -61,11 +92,15 @@ void localization_init(void)
 	
 		langid = os_GetUserDefaultUILanguage();
 
-		// Check if it's Chinese (Simplified or Traditional)
+		// Check if it's Chinese (Simplified or Traditional).
+		// the simplified table is the only chinese table we ship, so every
+		// chinese ui locale maps to it (best effort for traditional readers).
 		// 0x0804 = Chinese (Simplified, PRC)
+		// 0x1004 = Chinese (Simplified, Singapore)
 		// 0x0404 = Chinese (Traditional, Taiwan)
 		// 0x0C04 = Chinese (Traditional, Hong Kong)
-		if ((langid == 0x0804) || (langid == 0x0404) || (langid == 0x0C04))
+		// 0x1404 = Chinese (Traditional, Macau)
+		if ((langid == 0x0804) || (langid == 0x1004) || (langid == 0x0404) || (langid == 0x0C04) || (langid == 0x1404))
 		{
 			localization_language = LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED;
 		}

@@ -56,7 +56,7 @@ typedef struct _ini_s
 
 }_ini_t;
 
-static int _ini_keyvalue_compare(const _ini_keyvalue_t *a,const _ini_keyvalue_t *b);
+static int _ini_keyvalue_compare(const void *va,const void *vb);
 static _ini_keyvalue_t *_ini_keyvalue_find(ini_t *ini,const utf8_t *key);
 
 ini_t *ini_open(const wchar_t *filename,const utf8_t *ascii_section)
@@ -79,12 +79,16 @@ ini_t *ini_open(const wchar_t *filename,const utf8_t *ascii_section)
 
 		size = GetFileSize(h,0);
 		
-		if (size)
+		// GetFileSize returns INVALID_FILE_SIZE on failure and for
+		// files over 4GB: never trust that as an allocation size. a real
+		// ini is a few kilobytes: anything past 16 mb is a hostile or
+		// corrupted file, refuse it before the allocation.
+		if ((size != INVALID_FILE_SIZE) && (size) && (size <= 0x1000000))
 		{
 			char *buf;
 			DWORD numread;
 			
-			buf = mem_alloc(size + 1);
+			buf = mem_alloc(safe_size_add_one(size));
 			
 			if (ReadFile(h,buf,size,&numread,NULL))
 			{
@@ -296,7 +300,7 @@ next_line:
 		ini = mem_alloc(sizeof(_ini_t));
 		
 		// allocate indexes		
-		indexes = mem_alloc(sizeof(_ini_keyvalue_t *) * count);
+		indexes = mem_alloc(safe_size_mul_sizeof_pointer((SIZE_T)count));
 
 		// fill in indexes
 		// and conect next to index
@@ -435,13 +439,18 @@ static _ini_keyvalue_t *_ini_keyvalue_find(ini_t *ini,const utf8_t *key)
 }
 
 // compare two key values.
-static int _ini_keyvalue_compare(const _ini_keyvalue_t *a,const _ini_keyvalue_t *b)
+static int _ini_keyvalue_compare(const void *va,const void *vb)
 {
+	const _ini_keyvalue_t *a;
+	const _ini_keyvalue_t *b;
 	int i;
+
+	a = (_ini_keyvalue_t *)va;
+	b = (_ini_keyvalue_t *)vb;
 
 	i = utf8_compare(a->key,b->key);
 	if (i) return i;
-	
+
 	return a->index - b->index;
 }
 

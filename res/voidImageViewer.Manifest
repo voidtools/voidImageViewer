@@ -14,9 +14,38 @@
 </requestedPrivileges>
 </security>
 </trustInfo>
+<compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+<application>
+<!-- the supported os list. the windows 8.1 and windows 10 entries are
+     the gate for the immersive dark menus: without the windows 10 guid
+     the system treats the app as a win7 app and the uxtheme app mode
+     calls no-op, leaving the menu bar light while everything else is
+     dark. declaring 7 / 8 / 8.1 / 10 keeps getversionex honest too (the
+     os.c version checks are all >= / > style and stay correct either
+     way). -->
+<!--The ID below indicates application support for Windows 7 -->
+<supportedOS Id="{35138b9a-5d96-4fbd-8e2d-a2440225f93a}"/>
+<!--The ID below indicates application support for Windows 8 -->
+<supportedOS Id="{4a2f28e3-53b9-4441-ba9c-d69d4a4a6e38}"/>
+<!--The ID below indicates application support for Windows 8.1 -->
+<supportedOS Id="{1f676c76-80e1-4239-95bb-83d0f6d0da78}"/>
+<!--The ID below indicates application support for Windows 10 and 11 -->
+<supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>
+</application>
+</compatibility>
 <asmv3:application>
 <asmv3:windowsSettings xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">
+<!-- the legacy system-aware claim for the pre-1607 loaders: the 2016
+     namespace below is ignored there, and without this tag windows 7
+     and 8.0 ran the app dpi-unaware - bitmap-stretched and blurry at
+     high dpi. on 1607+ this tag is ignored whenever the 2016
+     dpiAwareness is present, so the per-monitor declaration stays in
+     charge and the two never fight. -->
 <dpiAware>true</dpiAware>
+</asmv3:windowsSettings>
+<asmv3:windowsSettings xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">
+<!-- per monitor v2 (with a per monitor fallback) for the 1607+ loaders. -->
+<dpiAwareness>PerMonitorV2, PerMonitor</dpiAwareness>
 </asmv3:windowsSettings>
 </asmv3:application>
 </assembly> 

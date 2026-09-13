@@ -1,0 +1,439 @@
+name: release
+
+# Release pipeline, hardened (rc.5):
+#   validate -> tests -> build (read-only) -> publish (contents: write)
+#
+# Gates, in order:
+#   1. validate: the effective tag (input or pushed ref) must match the
+#      whitelist regex (upstream style 1.1.01 or legacy v-prefixed), the tag
+#      must check out, and the tag must match src/version.h VERSION_STRING
+#      (the single source of truth for the version).
+#   2. tests: both Python regression suites must pass on the tag's commit.
+#      A release can never be published without the tests being green on
+#      the exact bits being shipped.
+#   3. build: compiles the shipping configurations on the pinned
+#      windows-2022 (v143) image, builds both installers, packages the
+#      zips and records SHA-256 for every asset as job outputs (not just
+#      as a file inside the artifact).
+#   4. publish: re-downloads the artifact, RE-VERIFIES every SHA-256
+#      against the build job's outputs (artifact transport integrity),
+#      refuses to overwrite an existing release (the old --clobber path
+#      is deliberately gone), generates the notes from Changes.txt at
+#      the tag and publishes the release with the checksums file.
+#
+# Every user-controllable value (inputs.tag, github.ref_name) reaches a
+# shell only through an environment variable and only after the
+# whitelist regex check; no ${{ }} interpolation happens inside any
+# run: block.
+on:
+  push:
+    tags:
+      - 'v*'
+      - '[0-9]*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. 1.1.01 or v1.1.0-rc.7). Required for manual runs; tag pushes use the pushed tag.'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+      phase: ${{ steps.resolve.outputs.phase }}
+      commit: ${{ steps.commit.outputs.commit }}
+    steps:
+      - name: Resolve and validate the tag
+        id: resolve
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          tag="${INPUT_TAG}"
+          if [ -z "$tag" ]; then
+            tag="${REF_NAME}"
+          fi
+          if [ -z "$tag" ]; then
+            echo "::error::no tag: push a version tag or provide the tag input for manual runs"
+            exit 1
+          fi
+          # upstream style tags carry no v prefix (1.1.01); our legacy tags do
+          # (v1.1.0-rc.7). both are accepted, the tag is used exactly as pushed.
+          # 3 or 4 numeric segments, optional -beta.N / -rc.N phase.
+          if ! printf '%s' "$tag" | grep -Eq '^v?[0-9]+\.[0-9]+(\.[0-9]+){1,2}(-(beta|rc)\.[0-9]+)?$'; then
+            echo "::error::tag '$tag' does not match the release tag whitelist"
+            exit 1
+          fi
+          version="${tag#v}"
+          if printf '%s' "$version" | grep -Eq -- '-rc\.'; then
+            phase=' (RC)'
+          elif printf '%s' "$version" | grep -Eq -- '-beta\.'; then
+            phase=' (BETA)'
+          else
+            phase=''
+          fi
+          {
+            echo "tag=$tag"
+            echo "version=$version"
+            echo "phase=$phase"
+          } >> "$GITHUB_OUTPUT"
+          echo "tag=$tag version=$version phase=$phase"
+
+      - name: Checkout tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.resolve.outputs.tag }}
+          fetch-depth: 1
+
+      - name: Verify the checked out commit is the tag
+        id: commit
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          # fail closed: if the tag ref cannot be resolved here the
+          # check must abort, not silently pass against itself
+          tagged="$(git rev-parse "refs/tags/${TAG}^{commit}")" || {
+            echo "::error::cannot resolve refs/tags/${TAG} after checkout"
+            exit 1
+          }
+          head="$(git rev-parse HEAD)"
+          if [ "$head" != "$tagged" ]; then
+            echo "::error::HEAD $head does not match tag commit $tagged"
+            exit 1
+          fi
+          echo "commit=$head" >> "$GITHUB_OUTPUT"
+          echo "commit=$head"
+
+      - name: Verify the tag matches src/version.h
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          python3 - "$TAG" <<'EOF'
+          import re, sys
+          tag = sys.argv[1]
+          src = open('src/version.h', encoding='utf-8-sig').read()
+          # the release identity is VERSION_STRING (what the tag, the
+          # installer names and the version resource display); the numeric
+          # quad is the internal build identity and is not part of the tag.
+          m = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', src)
+          if not m:
+              sys.exit('::error::src/version.h does not define VERSION_STRING')
+          expected = m.group(1)
+          if tag.lstrip('v') != expected:
+              sys.exit('::error::tag %s does not match src/version.h VERSION_STRING (expected %s). Bump src/version.h to match the tag.' % (tag, expected))
+          print('tag matches src/version.h VERSION_STRING: %s' % expected)
+          EOF
+
+  tests:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.validate.outputs.tag }}
+          fetch-depth: 1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Zoom math regression tests
+        run: python3 tests/zoom_math_test.py
+
+      - name: Menu structure, dark mode wiring and version consistency tests
+        run: python3 tests/menu_structure_test.py
+
+      - name: Second-rework simulation tests (the 1.1.07 check)
+        run: python3 tests/simulation_test.py
+
+  build:
+    needs: [validate, tests]
+    runs-on: windows-2022
+    permissions:
+      contents: read
+    outputs:
+      artifact: ${{ steps.meta.outputs.artifact }}
+      sha256_x64_setup: ${{ steps.checksums.outputs.sha256_x64_setup }}
+      sha256_x86_setup: ${{ steps.checksums.outputs.sha256_x86_setup }}
+      sha256_x64_zip: ${{ steps.checksums.outputs.sha256_x64_zip }}
+      sha256_x86_zip: ${{ steps.checksums.outputs.sha256_x86_zip }}
+    env:
+      VERSION: ${{ needs.validate.outputs.version }}
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.validate.outputs.tag }}
+          fetch-depth: 1
+
+      - name: Verify the checked out commit is the tag
+        env:
+          EXPECTED_COMMIT: ${{ needs.validate.outputs.commit }}
+        run: |
+          $head = git rev-parse HEAD
+          if ($head -ne $env:EXPECTED_COMMIT) {
+            throw "HEAD $head does not match the validated tag commit $env:EXPECTED_COMMIT"
+          }
+          Write-Host "building commit $head"
+
+      - uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+
+      - name: Build x64 (Release)
+        shell: cmd
+        run: msbuild vs2019\voidImageViewer.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 "/p:OutDir=%GITHUB_WORKSPACE%\build\x64\\" "/p:IntDir=%GITHUB_WORKSPACE%\build\obj\x64\\" /m /nologo /v:m
+
+      - name: Build x86 (Release)
+        shell: cmd
+        run: msbuild vs2019\voidImageViewer.vcxproj /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v143 "/p:OutDir=%GITHUB_WORKSPACE%\build\x86\\" "/p:IntDir=%GITHUB_WORKSPACE%\build\obj\x86\\" /m /nologo /v:m
+
+      - name: Verify build output
+        shell: pwsh
+        run: |
+          $errors = @()
+          foreach ($p in @('build\x64\voidImageViewer.exe', 'build\x86\voidImageViewer.exe')) {
+            if (!(Test-Path $p)) {
+              $errors += "missing build output: $p"
+              continue
+            }
+            Write-Host "== $p =="
+            (Get-Item $p).VersionInfo | Format-List FileVersion, ProductVersion, FileDescription | Out-Host
+            if ((Get-Item $p).VersionInfo.FileVersion -notmatch '\d+') {
+              $errors += "no version info in $p"
+            }
+            if ((Get-Item $p).VersionInfo.FileVersion -notlike "*$env:VERSION*") {
+              $errors += "binary FileVersion does not contain $env:VERSION (the tag and src/version.h must match the built binary)"
+            }
+          }
+          if ($errors.Count -gt 0) { throw ($errors -join '; ') }
+
+      # the release binary itself passes the real machine smoke test
+      # before anything is packaged or published: the anomaly sweep runs
+      # against the freshly compiled x64 exe (see tests.yml for the
+      # push-time twin of this step).
+      - name: Real machine smoke test (the anomaly sweep)
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File tests\smoke_test.ps1 -ExePath "build\x64\voidImageViewer.exe" -SamplesDir "tests\samples"
+
+      - name: Build installers (NSIS)
+        shell: pwsh
+        run: |
+          # locate makensis: the pinned windows-2022 image ships NSIS;
+          # the choco fallback is pinned to a known version for
+          # reproducibility (the 2025/2026 images do not ship NSIS at
+          # all and install it from the network every run).
+          $makensis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+          if (-not $makensis) {
+            if (Test-Path 'C:\Program Files (x86)\NSIS\makensis.exe') {
+              $makensis = 'C:\Program Files (x86)\NSIS\makensis.exe'
+            } else {
+              Write-Host 'installing nsis 3.12.0 via choco...'
+              choco install nsis -y --no-progress --version=3.12.0
+              $makensis = 'C:\Program Files (x86)\NSIS\makensis.exe'
+            }
+          }
+          Write-Host "makensis: $makensis"
+
+          # validate the encodings required by the bilingual installer files
+          & powershell -ExecutionPolicy Bypass -File nsis\ensure_encodings.ps1
+
+          # the unified bilingual installer: the language is selected inside the setup.
+          & $makensis "-DVIV_EXE_DIR=$env:GITHUB_WORKSPACE\build\x64" '-Dx64' nsis\installer.nsi
+          if ($LASTEXITCODE -ne 0) { throw 'x64 installer build failed' }
+
+          & $makensis "-DVIV_EXE_DIR=$env:GITHUB_WORKSPACE\build\x86" nsis\installer.nsi
+          if ($LASTEXITCODE -ne 0) { throw 'x86 installer build failed' }
+
+          # makensis writes the output relative to the script directory (nsis\)
+          $errors = @()
+          foreach ($f in @('nsis\voidImageViewer-*-x64-Setup.exe', 'nsis\voidImageViewer-*-x86-Setup.exe')) {
+            if (!(Get-ChildItem $f -ErrorAction SilentlyContinue)) { $errors += "missing installer: $f" }
+          }
+          if ($errors.Count -gt 0) { throw ($errors -join '; ') }
+          Get-ChildItem nsis\*Setup.exe | Out-Host
+
+      - name: Package
+        id: meta
+        shell: pwsh
+        run: |
+          $version = $env:VERSION
+          $x64zip = "voidImageViewer-$version-x64.zip"
+          $x86zip = "voidImageViewer-$version-x86.zip"
+          Compress-Archive -Path 'build\x64\voidImageViewer.exe', 'LICENSE' -DestinationPath $x64zip
+          Compress-Archive -Path 'build\x86\voidImageViewer.exe', 'LICENSE' -DestinationPath $x86zip
+          if (!(Test-Path $x64zip) -or !(Test-Path $x86zip)) { throw 'packaging failed' }
+          # rename the installers to include the release version (built into nsis\)
+          Move-Item "nsis\voidImageViewer-*-x64-Setup.exe" "voidImageViewer-$version-x64-Setup.exe" -Force
+          Move-Item "nsis\voidImageViewer-*-x86-Setup.exe" "voidImageViewer-$version-x86-Setup.exe" -Force
+          if (!(Test-Path "voidImageViewer-$version-x64-Setup.exe")) { throw 'x64 setup missing' }
+          if (!(Test-Path "voidImageViewer-$version-x86-Setup.exe")) { throw 'x86 setup missing' }
+          "artifact=voidImageViewer-$version" | Add-Content -Path $env:GITHUB_OUTPUT
+          Get-ChildItem *.zip, *Setup.exe | Out-Host
+
+      - name: Compute SHA-256 checksums
+        id: checksums
+        shell: pwsh
+        run: |
+          $version = $env:VERSION
+          $assets = @(
+            @{ out = 'sha256_x64_setup'; file = "voidImageViewer-$version-x64-Setup.exe" },
+            @{ out = 'sha256_x86_setup'; file = "voidImageViewer-$version-x86-Setup.exe" },
+            @{ out = 'sha256_x64_zip';   file = "voidImageViewer-$version-x64.zip" },
+            @{ out = 'sha256_x86_zip';   file = "voidImageViewer-$version-x86.zip" }
+          )
+          $lines = @()
+          foreach ($a in $assets) {
+            $h = (Get-FileHash -Algorithm SHA256 $a.file).Hash.ToLower()
+            $lines += "$h  $($a.file)"
+            "$($a.out)=$h" | Add-Content -Path $env:GITHUB_OUTPUT
+            Write-Host "$($a.file): $h"
+          }
+          $lines | Out-File -FilePath sha256.txt -Encoding ascii
+          Get-Content sha256.txt
+
+      - name: Upload build artifact (hand-off to publish)
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: voidImageViewer-${{ needs.validate.outputs.version }}
+          path: |
+            voidImageViewer-*-x64-Setup.exe
+            voidImageViewer-*-x86-Setup.exe
+            voidImageViewer-*-x64.zip
+            voidImageViewer-*-x86.zip
+            sha256.txt
+          if-no-files-found: error
+
+  publish:
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.validate.outputs.tag }}
+      VERSION: ${{ needs.validate.outputs.version }}
+      PHASE: ${{ needs.validate.outputs.phase }}
+      COMMIT: ${{ needs.validate.outputs.commit }}
+      ARTIFACT: ${{ needs.build.outputs.artifact }}
+      SHA256_X64_SETUP: ${{ needs.build.outputs.sha256_x64_setup }}
+      SHA256_X86_SETUP: ${{ needs.build.outputs.sha256_x86_setup }}
+      SHA256_X64_ZIP: ${{ needs.build.outputs.sha256_x64_zip }}
+      SHA256_X86_ZIP: ${{ needs.build.outputs.sha256_x86_zip }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout tag (for Changes.txt)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.validate.outputs.tag }}
+          fetch-depth: 1
+
+      - name: Download build artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: voidImageViewer-${{ needs.validate.outputs.version }}
+          path: dist
+
+      - name: Re-verify artifact SHA-256 against the build job outputs
+        run: |
+          cd dist
+          check() {
+            local expected="$1" file="$2"
+            if [ ! -f "$file" ]; then echo "::error::missing artifact file $file"; exit 1; fi
+            local actual
+            actual="$(sha256sum "$file" | cut -d' ' -f1)"
+            if [ "$actual" != "$expected" ]; then
+              echo "::error::SHA-256 mismatch for $file: build=$expected downloaded=$actual (artifact transport integrity failure)"
+              exit 1
+            fi
+            echo "ok $file $actual"
+          }
+          check "$SHA256_X64_SETUP" "voidImageViewer-$VERSION-x64-Setup.exe"
+          check "$SHA256_X86_SETUP" "voidImageViewer-$VERSION-x86-Setup.exe"
+          check "$SHA256_X64_ZIP" "voidImageViewer-$VERSION-x64.zip"
+          check "$SHA256_X86_ZIP" "voidImageViewer-$VERSION-x86.zip"
+          sha256sum -c sha256.txt
+
+      - name: Generate release notes from Changes.txt
+        run: |
+          python3 - <<'EOF'
+          import os, textwrap
+          tag = os.environ['VERSION']
+          phase = os.environ['PHASE']
+          with open('Changes.txt', encoding='utf-8-sig', errors='replace') as f:
+              lines = f.read().splitlines()
+          # headings look like "Release candidate: Version 1.1.0-rc.4 (title)"
+          marks = [i for i, l in enumerate(lines) if ': Version ' in l]
+          marks.append(len(lines))
+          body = None
+          for a, b in zip(marks, marks[1:]):
+              head = lines[a]
+              ver = head.split(': Version ', 1)[1].split(' ', 1)[0].split('(', 1)[0].strip()
+              if ver == tag:
+                  body = [head] + [l.lstrip('\t') for l in lines[a + 1:b]]
+                  body = '\n'.join(body).rstrip()
+                  break
+          if body is None:
+              raise SystemExit('::error::no Changes.txt section for version %s' % tag)
+          # the banner follows the phase: pre-releases say so, the stable
+          # line presents itself as what it is.
+          if phase:
+              banner = "> **Pre-release**: this is an experimental fork of voidtools/voidImageViewer adding touch optimizations, on-screen zoom controls and a bilingual installer with a UI language switcher. Feedback is welcome in the issue tracker."
+          else:
+              banner = "> A stable fork of voidtools/voidImageViewer: touch optimizations, on-screen zoom controls, a dark UI, and a bilingual installer with a UI language switcher. Feedback is welcome in the issue tracker."
+          notes = textwrap.dedent("""\
+              # voidImageViewer {v} - Touch, Zoom & Languages{p}
+
+              {banner}
+
+              ## What's new
+
+              {body}
+
+              ## Downloads
+
+              | File | Platform |
+              |---|---|
+              | voidImageViewer-{v}-x64-Setup.exe | 64-bit installer (English + 简体中文) |
+              | voidImageViewer-{v}-x86-Setup.exe | 32-bit installer (English + 简体中文) |
+              | voidImageViewer-{v}-x64.zip | 64-bit portable zip |
+              | voidImageViewer-{v}-x86.zip | 32-bit portable zip |
+
+              SHA-256 checksums for every download are published as the `sha256.txt` release asset.
+
+              Requires Windows 7 or later. Gestures require touch hardware.
+
+              See `Changes.txt` in the repository for the full history. Based on upstream voidtools/voidImageViewer 1.0.0.15 (MIT license).
+              """).format(v=tag, p=phase, banner=banner, body=body)
+          with open('release-notes.md', 'w', encoding='utf-8') as f:
+              f.write(notes)
+          print(notes)
+          EOF
+
+      - name: Refuse to overwrite an existing release
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "::error::release $TAG already exists. The overwrite (--clobber) path was removed deliberately: delete the release manually if you truly want to re-publish."
+            exit 1
+          fi
+          echo "no existing release for $TAG, proceeding"
+
+      - name: Create release
+        run: |
+          cd dist
+          title="voidImageViewer $VERSION - Touch, Zoom & Languages$PHASE"
+          args=(--target "$COMMIT" --title "$title" --notes-file "$GITHUB_WORKSPACE/release-notes.md")
+          case "$VERSION" in
+            *-rc.*|*-beta.*) args+=(--prerelease) ;;
+          esac
+          gh release create "$TAG" \
+            "voidImageViewer-$VERSION-x64-Setup.exe" \
+            "voidImageViewer-$VERSION-x86-Setup.exe" \
+            "voidImageViewer-$VERSION-x64.zip" \
+            "voidImageViewer-$VERSION-x86.zip" \
+            sha256.txt \
+            "${args[@]}"
+          gh release view "$TAG"

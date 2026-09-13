@@ -152,7 +152,7 @@ utf8_t *utf8_alloc_utf8_n(const char *s,uintptr_t size_in_bytes)
 {
 	utf8_t *p;
 	
-	p = mem_alloc(size_in_bytes + 1);
+	p = mem_alloc(safe_size_add_one(size_in_bytes));
 	
 	os_copy_memory(p,s,size_in_bytes);
 	p[size_in_bytes] = 0;

@@ -1,120 +1,1199 @@
-Monday, 12 January 2026: Version 1.0.0.15
-	fixed an issue with scrolling large images.
-	improved position offset when using numpad keys.
+Pre-release: Version 1.1.12-rc.14 (the zoom pane editor round)
+*the field report on the status bar zoom pane: one click, no box.
+*"the zoom percent in the corner needs two clicks to open, and the
+ click shows a select box": the pane is the click target, but the
+ click never reached it. the pane's own subclass ate every left
+ button down on it (the status bar drag anchor inherited from
+ upstream: hold and drag moves the window) and handed it to the
+ move loop, which swallowed the button up too - the open command
+ rides the up, so the box only opened by luck (a click on an
+ inactive window's orphan up). the anchor is retired: the pane is
+ pure input now, the drag lives on the toolbar, the menu gaps and
+ the title bar.
+*"the select box": the box itself was a 1998 dialog - a centered
+ modal frame with a sunken number field, native buttons and a
+ select-all blue block, never touched by the remade chrome. the
+ editor is in place now: the pane itself becomes a borderless
+ number field in the strip's own font and colors (the status bar
+ answers ctlcolor for it), enter commits, escape cancels, focus
+ lost commits, typing replaces the selected digits. the dialog
+ template, its two controls and its two localization strings are
+ gone; the entry function keeps its name so the click site is
+ untouched. the system selection color stays (the edit control
+ offers no custom one) - it lives on four digits for the seconds
+ the editor is open.
+*the empty or zero input keeps the old dialog's contract: ignored.
+*the audit round: a canvas click now takes the keyboard home - the
+ editor held the focus while it lived, so a click on the image left
+ the arrow and page keys routed into the number field (a dead
+ navigation zone until enter or escape); the click's focus move is
+ itself what commits an open editor.
+*the 1600% clamp and the view-center anchor carry over unchanged.
 
-Tuesday, 16 December 2025: Version 1.0.0.14
-	fixed an issue with webp using the wrong background color.
-	fixed an issue with tracking the center of the image when resizing.
-	fixed an issue with rendering images larger than 65536x65536.
-	fixed an issue with screen saver not being prevented in slide show mode or when there is an animation.
-	improved rendering performance.
-	improved zooming of small images when going fullscreen.
-	move window action will now scroll if zoomed.
-	re-enabled WEBP_MSC_SSE41 
-	added title_bar_format ini setting.
-	added System.Photo.Orientation support.
-	added - command line switch support. Escape with "" or include a . in your switch.
+Pre-release: Version 1.1.12-rc.13 (the non-win11 field round)
+*the field report on a windows 10 machine, three roots, fixed.
+*"the play button shows pause on an idle photo": the toolbar read the
+ animation preference bit as the playing state; that bit defaults to 1
+ and every image switch resets it to 1, so the pause face sat on every
+ static image. the face now gates the clock on the frame count (the
+ ontop rule's own gate), and the five clock-changing paths (the pause
+ toggle, the frame step and prev, the frame home and end jumps) notify
+ the toolbar and recompute the on-top window.
+*"zoom needs two clicks to work": two roots in the button stepping.
+ the snap to the nearest multiple of ten could move against the click
+ direction (a fresh 31% best fit zoomed in to 30 on the first click -
+ invisible, the visible step only came on the second), and a zoom out
+ from the best fit hit a dead pos==0 gate written before the below-fit
+ extension. the snap is direction strict now (out lands on the multiple
+ strictly below, in on the one strictly above), the floor gate reads the
+ true ladder floor, and a sparse-zone fallback steps one position when
+ a ten-point target sits between two ladder positions.
+*"it looks bad on non-win11": the remade surfaces leaned on win11-only
+ dwm attributes with no fallback. the settings window is a borderless
+ popup that got no shadow at all on windows 10/7 (a bare floating
+ panel); its dropdowns opened as native string menus with the system
+ blue highlight and the native checkmark next to the accent pill
+ sidebar; the light hover token sat ~3 points off the strip and was
+ invisible; the light settings sidebar equaled the content face
+ exactly; and the light toolbar carried a private gray between the menu
+ and button faces. the round: the settings class registers the drop
+ shadow style off win11, the settings dropdowns ride the owner drawn
+ menu rows (the same painter, radio dots, one pool per open, the shared
+ popup theming), the light tokens recalibrate (hover contrast, the nav
+ layer, the menu-tone strip), and the message box buttons take the
+ settings window's pill radius.
+*the dwm chrome calls double as the platform probe now (the attribute
+ 33 result latches the answer, os_is_win11 reads it) so every fallback
+ decision is one honest check instead of a silent no-op. the zoom pill
+ no longer re-centers its row under an active press.
 
-Sunday, 10 August 2025: Version 1.0.0.13
-	fixed an issue with losing the image center on resize
-	fixed back/forward mouse buttons not working from toolbars
-	fixed an issue with loading the wrong next image when it was preloaded and changed externally
-	improved rendering performance
-	added left click action: move window
-	added auto size window GUI option
+Pre-release: Version 1.1.12-rc.12 (the platform guardrails round)
+*the import audit's three platform-level roots, fixed and pinned: the
+ manifest's windows 8.1 supportedOS GUID was a hand-corrupted value
+ (the first block matched the official guid and the rest did not), so
+ a windows 8.1 host never matched the 8.1 entry and kept the 8.0 view;
+ the manifest now carries the official
+ {1f676c76-80e1-4239-95bb-83d0f6d0da78}, verified against the
+ microsoft application-manifests documentation.
+*unicows is dead weight for a win7+ target: the win32 link lines of
+ both project files carried UnicoWS.lib straight from the original
+ upstream import - a windows 9x compatibility stub the modern sdks are
+ phasing out, and the link dies with lnk1104 the moment an sdk drops
+ it. nothing in the tree imports an mslu symbol (the x64 configurations
+ never carried the lib and always linked), so the dependency is deleted
+ from the vs2019 and vs2026 win32 configurations. the ci legs still
+ link today (the hosted sdks still ship the stub), so this is the
+ forward-compatibility clean, not a regression repair.
+*wm_dpichanged dereferenced its lparam unconditionally: the system
+ supplies the suggested rect, but a synthetic message or a compatibility
+ layer may not, and a null lparam crashed inside the resize. the resize
+ is now optional - the dpi refresh and re-layout that ride the same
+ handler still run, only the suggested-rect SetWindowPos is guarded.
+*three regression guards pin the round (the official guid present with
+ the corrupted one absent, the null guard in the dpi handler, no
+ unicows in either project file), and the version moves to build 54.
 
-Friday, 25 July 2025: Version 1.0.0.12
-	fixed a gdi leak when freeing mipmaps
-	fixed a gdi leak when refreshing
-	fixed an issue with loading the wrong next image after changing the sort
-	added natural sort
+Pre-release: Version 1.1.12-rc.11 (the carpet repair round)
+*the user's gui remake (rc.8-rc.10) went through a seven-subagent
+ adversarial carpet review; this round repairs what the review found.
+ the two headline breaks: the menu bar roots measured empty (the rc.9
+ owner draw flip stored no label on the popup rows and the bar kept
+ reading miim_string - every root collapsed to a blank sliver and the
+ alt mnemonics died with them; the bar now re-derives the labels from
+ the live rows) and the status date pane rendered a lone "0" (a wide
+ format string through the narrow printf parser; the stamp now builds
+ with the localized getdateformat/gettimeformat pair).
+*the viewport geometry caught up with the top strips: the toolbar moved
+ under the menu bar in rc.8 but the image math still reserved its band
+ above the status bar - a 40dip dead strip at the bottom and the image
+ top hidden behind the strips. one view-top helper (menubar + toolbar)
+ now rides every size computation, paint blit, mouse anchor and scroll
+ clip, and the zoom pill lands at the viewport bottom instead of
+ floating one strip high.
+*the system theme flip never flushed the token brushes (the half-skinned
+ ui the field kept catching): the apply path refreshes the cache, heals
+ the #32768 class brush, and a classic palette change (wm_syscolorchange)
+ repaints too.
+*the toolbar: the play slot resolves from the live state (slideshow
+ pauses, an animated image toggles the animation clock, idle starts the
+ windowed slideshow - the fullscreen jump is gone), the faces ride the
+ theme tokens (the light hover is the quiet 3dlight, not the selection
+ blue; the private palette duplicate is deleted), the strip background
+ drag moves the window again (the rebar rule), and the leave tracking
+ re-arms after a captured press.
+*the themed message boxes: owned by the parent (no taskbar button, no
+ raising the disabled owner), the close button maps to cancel semantics
+ (an ok box closes as ok), four leaked brushes and a leaked font pair
+ per box are gone, wm_quit propagates, a second box brings the first to
+ the front instead of corrupting it, the light box gets a light caption,
+ the focus ring actually draws (the hpen-as-hbrush no-op), the secondary
+ button keeps a visible border, the height clamps to the work area, and
+ the dpi follows the box across monitors.
+*the settings window shortcut editor: an unchanged edit confirmed with
+ enter keeps the binding (it used to delete it), the "currently used by"
+ row is live during a capture, and modifier combos are capturable again
+ (ctrl+return - the app's own default - was un-rebindable).
+*win 7 closes the dpi ladder: the manifest declares the legacy
+ dpiaware tag next to the 2016 per-monitor-v2 section (the pre-1607
+ loaders ignore the 2016 namespace - without the legacy tag 7 and 8.0
+ ran the app dpi-unaware, bitmap-stretched), and the runtime chain ends
+ with the classic setprocessdpiaware tier. the rc.10 "win 7 keeps the
+ classic system aware behavior" claim was wrong - unaware, not aware.
+*the popup menus: the recent-files header is owner drawn like its
+ siblings (the type flag landed in fstate, which only takes mfs_
+ values, and the row painted in the system look), radio groups draw
+ the dot, grayed rows never fire from the keyboard, the idle pump
+ treats the getmessage error return as an error, the owner draw delete
+ notification is acknowledged, and a slideshow-timer mru rebuild
+ defers while a popup displays the old rows.
+*the pill percent reads the app-wide number (render over native, the
+ same value the status bar shows - the ladder scale read "100%" at
+ best fit on a photo the ui called 23%), the failed glyph build never
+ caches, the double-brace splice leftovers are unwound (the dispatch
+ is 49 handlers now: wm_deleteitem and wm_syscolorchange joined), and
+ the pixel probe tooltip correction: it has been dead code since
+ before rc.7 (the callers were already commented upstream) - the rc.9
+ "rides the tokens" line was written into that dead code and is hereby
+ corrected rather than revived.
+*the crash the ci anomaly sweep caught: the comctl status bar sends its
+ owner-drawn pane draws with ctltype == odt_menu (a historical quirk),
+ so the menu branch the remake put first cast the pane index - the
+ itemdata - into a menu row pointer and dereferenced address 0x1 on
+ every slow-decoded image (the preload pane draws while the load thread
+ still runs; a fast gif/bmp decode never shows the pane, which is why
+ the crash looked png-specific). the panes route by the control id
+ first again, the menu rows after - the baseline's proven
+ discriminator. stack-captured under cdb on a diagnostic branch (the
+ fault resolved to the fixed offset 0x486dc in the release map).
+*verified: the full tree compiles (zig cc, 98 units, bit-comparable to
+ the user's build), the three suites pass with 38 new carpet-repair
+ guards, the link scan stays clean at 111/111, and every fix is pinned.
 
-Sunday, 20 July 2025: Version 1.0.0.11
-	fixed an issue with using the wrong association registry key
-	fixed a crash when interrupting the loading of a multi-frame image
-	fixed an issue with displaying images after rotating
-	fixed an issue with remembering some view settings
-	fixed an issue with losing the view after toogling fullscreen
-	inverted increase/descrease slideshow rate
-	improved preloading next/previous image
-	added cache last image
+Pre-release: Version 1.1.12-rc.10 (the dpi correctness round)
+*fixed the high dpi font bug for real: the per monitor v2 declaration
+ never shipped in the binary the way it was read - the vs linker merged
+ the manifest (good), but the zig builds had no manifest at all and the
+ os_init runtime safety net sat before its own GetProcAddress block, so
+ the pointers were still null when it ran and it silently never fired.
+ an unaware process gets bitmap-stretched by the system at high dpi:
+ every font blurry and oversized. the claim now runs after the api
+ probes, gains a process wide tier (win10 1703+ SetProcessDpiAwareness
+Context) above the per thread tier (1607+) and the win 8.1 shcore
+ fallback (win 7 keeps the classic system aware behavior), and the zig
+ build drops a viv.exe.manifest next to the exe for loader level
+ coverage - three independent layers, all no-ops where unsupported.
+*the message box scale follows its parent window's monitor now, not
+ the stale global logical dpi (mixed-dpi monitor pairs).
+*the wndproc domain carried 17 splice-accident double-brace wrappers
+ with dead DefWindowProc tails; they are unwound (the case exits pin
+ drops 60 -> 43), the wndproc file is back under the line cap.
+*verified under wine: the pre-fix binary renders the settings window
+ bitmap-stretched to ~2x at 150% scaling; the fixed binary renders it
+ 1:1 physical and the window self-scales to exactly 1.5x (660x628 ->
+ 990x942) with the fonts riding the same per-window dip pipeline.
+Pre-release: Version 1.1.12-rc.9 (the gui remake round 2 - everything gets the theme)
+*the whole ui now draws from one palette: the new viv_theme domain holds
+17 semantic tokens x dark/light x five accents (azure, teal, violet,
+amber, rose). every surface - the chrome strips, the menus, the dialogs,
+the settings window, the zoom pill, the tooltips - resolves its colors
+through it, so a theme or accent flip re-skins the app with zero
+per surface edits. the accent picks up an ini key (accent_color) and a
+swatch row in the settings window, applied live.
+*the popup menus are owner drawn now. every visible row carries a tiny
+draw record and the painters re-derive the label at draw time from the
+command table, the localization table and the live key bindings - a
+language or shortcut change can never show a stale row. the rows paint
+the theme face, the accent check marks, right aligned shortcuts and
+hairline separators; the popup layer gets the #32768 class brush and the
+win11 rounded corners plus themed border through the dwm. the unicode
+mnemonic scan (wm_menuchar) keeps alt+letter working on the drawn rows.
+*the message boxes are the theme panel now: viv_msgbox draws the vector
+icon, the wrapped text and the accent primary button, with a real modal
+pump (tab/enter/esc). the five messageBox call sites moved over; the
+fatal paths in debug/mem keep the native box on purpose.
+*the classic dialogs join the theme for real: the dark dialog skin
+reads the same tokens (the old hardcoded 202020 palette is gone), and
+every dialog frame gets the win11 rounded corners plus the caption
+color from the dwm. the old tabbed options dialog route now opens the
+remade settings window.
+*the zoom pill and the pixel probe tooltip ride the tokens too; the
+menubar tokens replace its private brush cache.
+*build: zig cc builds the whole tree (build-zig/build.sh, 98 translation
+units), msvc-only seh is guarded, and the theme transcribes itself into
+the page simulator (scripts/extract-theme.mjs) so the mockup can never
+drift from the binary again.
+Pre-release: Version 1.1.12-rc.8 (the gui remake round)
+	*the main window chrome is remade around one palette and three self
+	drawn strips. the comctl toolbar, its image list, the rebar host and
+	the pinned button widths are gone: the new viv_toolbar domain paints
+	a full width command strip (icon plus label buttons - open, previous,
+	next, slideshow, 1:1, best fit, zoom out, zoom in, rotate and image
+	info - grouped with hairline separators) with capture based press
+	tracking, hover faces, disabled states and the overflow rule that
+	hides whole separator bound groups from the right. the menubar gains
+	the remake geometry (the strip floors at 28 dip), labels measure with
+	their hidden accelerators stripped, a pressed root wears its own face,
+	the popups take tpm_rightbutton so the press drag across items is the
+	classic one, and a popup follows the mouse across the roots again
+	(the move onto another root cancels the loop and the same call
+	reopens there; the idle pump rides wm_enteridle on the owner).
+	*the zoom pill is one bottom centered row in both modes now: previous,
+	play/pause, next, a hairline separator, zoom out, the zoom percent and
+	zoom in - the percent cell renders the ladder value in the menu font
+	and polls 150ms so wheel and pinch zoom stay fresh; the windowed two
+	button corner pill is gone. the status bar grew the remake row: the
+	message pane shows the playlist position and the filename when
+	nothing else is talking, the pixel rgb pane uses the localized rgb
+	format, and a date pane pins the local last-modified stamp at the
+	right edge (the parts cap moved to 8).
+	*the options dialog is retired from the command path: the new
+	viv_settings domain opens a frameless-feel settings window (dwm dark
+	caption, rounded corners) with a three page navigation rail - general,
+	view, controls - custom drawn dropdowns, toggles, the association
+	checkbox grid and ok/cancel. the window snapshots the affected config
+	on open, applies live (language, theme, associations, startup run
+	key), restores on cancel and saves on ok; every option the old three
+	pages carried is present.
+	*the dark palette moves to the remake tokens: chrome faces 0x202024 /
+	0x1b1b1e, strokes 0x3a3a40, text 0xe8e8ea over 0x9a9aa0, hover
+	0x2e2e33, press 0x38383e. the light ui keeps the system colors.
 
-Tuesday, 17 June 2025: Version 1.0.0.10
-	improved webp memory usage
-
-Thursday, 22 May 2025: Version 1.0.0.9
-	added webp support
-	added animated webp support
-	added mipmap support for faster resizing
-	added preload option
-	added maximized options
-	added option to copy image
-	added option to copy filename
-	added new code signing certificate: voidtools PTY LTD
-	improved animation timings
-
-Wednesday, 11 October 2017: Version 1.0.0.8b
-	added ctrl mousewheel action
-	fixed an issue when only one image was in the playlist
-	fixed a leak when loading an image
-	fixed a crash when there was only one shuffled image
-	improved randomize seeding
-	fixed a leak when loading an image while already loading an image
-	
-Wednesday, 20 September 2017: Version 1.0.0.7b
-	added randomized everything search option
-	added 1:1 scroll option
-	added rotate options
-	fixed a bug when navigating to the next image from the first image
-
-Thursday, 14 September 2017: Version 1.0.0.6b
-	added /x /y /width /height /minimal /compact /shuffle /everything command line options.
-	added jump to list
-	added everything search
-	added shuffle
-	fixed /dc command line option
-	fixed a bug when opening void image viewer and getting a random filename
-	
-Thursday, 31 August 2017: Version 1.0.0.5b
-	fixed a bug with move to/copy to
-	fixed a bug with save as filters
-
-Saturday, 19 August 2017: Version 1.0.0.4b
-	added background color selection
-	added close
-	added status bar
-	added keyboard and mouse customization
-	added print
-	added play gifs at least once option
-	added set as desktop background
-	added prevent sleep when playing or animating
-	added custom slideshow rate
-	added animation menu
-	added copy to / move to menu
-	added automatic window sizes
-	added multiple instances / single instance
-	improved portability
-	fixed an issue with holding a handle to the current directory
-
-Saturday, 18 Feburary 2017: Version 0.2.0.3b
-	added Multiple instances support
-	added multiple file drag drop support
-	added command line options /slideshow /fullscreen /window /rate <milliseconds> and /?
-	added Edit and Preview file menu items
-
-Saturday, 17 August 2016: Version 0.0.0.1b
-	added animation controls
-	added mouse back/forward
-	added min/mag filter modes
-	added file associations
-	added open folders support
-	added Open Location
-	added properties option
-	added middle mouse move
-	added IStream support
-	added navigation
-	added hide cursor on fullscreen
-	improved slideshow mode
-	improved 1:1 mode
-	fixed an issue with transparent gifs
-	fixed an issue when deleting an image and displaying the next image
+Pre-release: Version 1.1.12-rc.7 (the zoom pill rework round)
+	*the zoom pill is a single self drawn window now: the old control
+	nested six owner drawn BUTTON children inside a WS_EX_LAYERED tray
+	child, so the layered redraw, the button roundrect edges, the hover
+	and the fade fought each other and the capsules lost their stadium
+	shape next to the remade top bar. zoomui.c now paints the tray and
+	every capsule itself in one WM_PAINT pass - full semicircle ends at
+	every dpi, one hit test over the button rects, capture based press
+	tracking with a no-fire-on-drag-away guarantee, and a WM_NCHITTEST
+	that returns HTTRANSPARENT outside the capsules so a fading pill
+	never eats clicks on the image behind.
+	*the windowed pill stays two buttons (zoom out / zoom in) in the
+	bottom right, the fullscreen bar stays six buttons centered at the
+	bottom with the idle fade; both modes now share one painter and one
+	tooltip (rect based, re-targeted on dpi and mode changes), the
+	keyboard path is real (tab / arrows move the hot capsule, space and
+	enter fire it), and the disabled state dims the glyphs through
+	DrawState instead of disappearing.
+
+Pre-release: Version 1.1.12-rc.6 (the top bar remake round)
+	*the top bar is remade as a fully self drawn strip: the frame menu is
+	gone for good - the window is created without one, the bar is a client
+	side child window (the new viv_menubar domain) that paints every pixel
+	itself, and the popups are the same HMENU tree opened with
+	TrackPopupMenuEx. five rounds of field reports lived on the seam where
+	the system measured and painted the bar and the app patched around it
+	(the white right strip, the pad capture drifting 5.5x wide, the flip
+	races); with one painter there is nothing left to race.
+	*the menu item spacing is identical in both themes: the field
+	screenshots measured a 17px gap between the labels in the light ui
+	and a 94px gap in the dark ui - the owner draw measure padded every
+	label with a "captured system pad" that was really slot-minus-text
+	compounded through the two measurement systems. the remake uses one
+	fixed air (4px at 96dpi, rescaled) for both themes, which also
+	reproduces the light system layout within a pixel.
+	*the keyboard entry points survive the remake: alt + mnemonic opens
+	the matching root menu (wm_syschar), f10 opens the first one, the
+	alt-key underline policy (hidden until alt is held) is kept, and the
+	popup state refresh that lived in wm_initmenu runs from both
+	wm_initmenu and the new wm_initmenupopup route.
+	*the status bar no longer shows the light slab under the dark ui: the
+	strip erases with the dark face (the comctl status class paints its
+	own background from the light palette even under the dark theme
+	class), every pane is registered as owner drawn from the first update
+	so the pane fills always own the strip (the empty-bar case never drew
+	anything and showed the bare light face), and the dark pass repaints
+	the sunken top edge and the size grip with the chrome palette so the
+	bottom band reads as one dark chrome.
+	*the toolbar button spacing is pinned: the comctl auto size adapts
+	each button to its own icon width, so the visual gaps drifted between
+	the pairs (the zoom pair sat 12px tighter than the prev/next pair) and
+	the theme re-metrics drifted them again. one uniform button width and
+	one separator width (tb_setbuttoninfo per index, re-pinned after the
+	theme flip and the dpi change) keep the spacing identical in both
+	themes.
+	*the owner draw menu machinery is deleted with the seam it lived on:
+	the root item tagging, the draw and measure routes, the pad capture,
+	the non client tail fill, the theme toggle and the re-measure walk
+	(502 lines of viv_chrome.c); the menu font cache survives - the remake
+	measures its labels with it. the splice manifest is the 13 domain
+	list now (viv_menubar joined), the props register the pair once, and
+	the dispatch carries 43 handlers (wm_syschar, wm_syskeydown and
+	wm_initmenupopup joined; wm_measureitem and wm_ncpaint left with their
+	subjects).
+
+Pre-release: Version 1.1.12-rc.5 (the structure round)
+	*the three structure debts the rc series carried are paid.
+	*the touch gesture cluster is home in the view domain: viv_chrome.c
+	carried the gesture engine (_viv_on_gesture), the touch click probe
+	and the double click handler since the one-shot split - chrome is
+	window dressing, gestures are zoom and pan input; the five engine
+	statics moved with the functions, chrome no longer references the
+	cluster at all.
+	*the window procedure is a domain module: _viv_proc was a 2,208-line
+	switch; the case bodies are now 42 static per-message handlers in
+	viv_wndproc.c (the 44 case labels - 41 WM_ messages, two internal
+	_VIV_WM_ messages and the raw tablet query - collapse to 42 handlers
+	because two label pairs share a body). the dispatch itself is 95
+	lines. every case body moved byte-identical; only the 35 case-exit
+	break statements became explicit DefWindowProc returns (34 direct
+	exits plus the touch-double-tap one that sat inside an if-block -
+	break binds to the nearest loop or switch, and an if-block catches
+	nothing; the ci compile caught it as a lone c2043), and the two
+	symbols the handlers share with the core (the background brush, the
+	command line processor) are externed through viv_state.h (113 -> 114
+	externs). the core is 2,431 lines now.
+	*the splice guard grew the file manifest: the test suite reads viv.c
+	spliced with every src/viv_*.c (a glob), so a new domain module
+	changed the measured total silently - the growth window was pinned
+	against an invisible list. the manifest is pinned now (the core, the
+	twelve domain modules, the state layer), so adding or renaming a
+	module without registering it fails the suite.
+
+Pre-release: Version 1.1.12-rc.4 (the theme race self-heal round)
+	*the white band is back with two new triggers - opening the options
+	dialog and switching the theme - and it is a mixed chrome, not a stale
+	repaint: the system side repaints the frame and the comctl classes in
+	light asynchronously (the app mode policy flush, the theme broadcast
+	sweep) while the app level dark answer never flipped, so every re-apply
+	was gated on was_dark != is_dark and never ran. the delayed recheck
+	timer and the wm_themechanged handler now re-apply the chrome
+	unconditionally (the sweep is idempotent), the options combo schedules
+	the assert after its app mode flush, and the options dialog re-runs its
+	own full dark pass on a one shot timer so a creation moment that read
+	an unsettled state heals itself - the caption, the control classes and
+	all.
+	*the options navigation tree kept the light explorer class label gray
+	on the dark face (a themed tree ignores the text color message, and it
+	read as low contrast): the dark dialog children walk now pins the tree
+	face and label colors per pass - the same values the initdialog
+	applies - and hands them back to the system on the light flip.
+	*the main window erases with the dark chrome face in the dark ui: a
+	paint that bypasses the handlers must not flash the light class brush
+	the class still carries (the 1.1.03 lesson, closed for the erase path
+	too).
+	*the rc.3 entry core line count corrected: 4,718 as measured (the 4,715
+	there was the pre-729c7d7 read; the typedef asserts grew the core by
+	three lines after that measurement).
+
+Pre-release: Version 1.1.12-rc.3 (the architecture split round)
+	*the viv.c monolith is split: 21,129 lines become a 4,718-line core (the
+	window procedure, startup/shutdown, the command line, the shared state
+	definitions) plus eleven domain modules - viv_recent, viv_playlist,
+	viv_load, viv_anim, viv_render, viv_chrome, viv_dark, viv_dialogs,
+	viv_view, viv_install, viv_menu - and a viv_state.h shared-context
+	layer, every module under 3,000 lines. pure physical move: function
+	bodies are byte-identical, the only text edits are the static prefixes
+	dropped on the 163 cross-module exports and the 113 shared-state
+	externs (52 single-domain variables moved with their consumers and
+	keep static; 13 core-private variables are untouched).
+	*performance and size are unchanged by construction: the projects
+	already compile with /gl whole-program optimization, so cross-module
+	inlining survives the split, and exported symbols never enter the
+	release binary.
+	*the guard suites read viv.c spliced with every domain module (plus
+	viv_state.h for the macro guards), so the existing 140+ shape guards
+	cover the moved code with only optional-static recalibrations; new r70
+	guards pin the residual under 5,000 lines, every domain under 3,000,
+	the pure-move window (spliced total 21,130 -> 21,7xx lines, only
+	declarations) and the props registration of every new compile unit.
+	*the spec and the plan carry the r70 one-shot recalibration (the user
+	released the per-slice pacing; the merged domains, the minimal export
+	surface and the gate order are documented in the r70 addendum).
+	*the split's compile hardening (five ci catches between the landing
+	and this rc): three core states the domains reference left their
+	static prefixes in the core (the status pane text store, the cursor
+	visibility flag, the options page id table) and the command table
+	extern printed after the type that consumes it; the five table-count
+	macros were sizeof measurements on unsized externs - msvc c resolves
+	those to zero, so the key-list struct sized its arrays to zero and
+	the animation, slideshow, options-page and association loops would
+	all have silently stopped in the domain modules - the macros carry
+	literals now (154 commands, 21 animation rates, 17 slideshow presets,
+	3 options pages, 11 association extensions), each pinned to its real
+	table by a negative-subscript typedef assert; and a bare-cr line join
+	the generator fumbled swallowed the light window theme declaration
+	into a comment in os.h. every class is guarded in the suite.
+	*the installer association page grows the emf and wmf checkboxes (both
+	languages, second column): the metafile pair joined the association
+	table in 1.1.12 but the setup page never offered them, so a setup
+	install silently skipped the two. the exe-side install switches were
+	already generic over the extension table (/emf /noemf /wmf /nowmf).
+	*housekeeping: the vendored libwebp drops the non-windows build
+	systems, fuzzers and docs (62 files this repository never built),
+	and Changes.txt keeps its crlf discipline back (an r69 regression
+	caught by the simulation suite).
+
+Pre-release: Version 1.1.12-rc.2 (the white band fix round)
+
+	the architecture split decision (r69, documents only): viv.c has
+	grown to 21,129 lines / 536 functions / 159 file-scope statics with
+	the window procedure alone at 2,208 lines, and every field fix of
+	the rc line landed inside that one translation unit. the split now
+	has a written spec and a written plan (docs/architecture/): the
+	dialectic (split vs keep, by domain vs by layer, accessors vs a
+	shared state header, the upstream-shape cost), the decision (a
+	viv_state.h extern layer first, then eleven domain slices in
+	measured-closure order, pure physical moves only - no function
+	body may be rewritten, renamed or reordered), and the guard
+	strategy (the three suites will read viv.c plus every viv_*.c
+	spliced in dictionary order so the existing 140+ shape guards
+	keep covering the moved code without edits). the round itself
+	changes no C code and ships no binary: the menu-structure suite
+	gains the r69 guards pinning the documents, the discipline, the
+	monolith line baseline and the not-yet-existing state layer, so
+	the split can only shrink the file from here.
+
+	the field report on rc.1: a white band survives the theme flip on
+	the upper chrome, until a manual resize or refresh brings the dark
+	face back. the judgment round traced the strip to a chain of gaps,
+	all on the flip path (the user's 30 second probe - the band dies on
+	a resize - matched the menu bar candidate, the code evidence
+	confirmed it and a second strip below it):
+	- the menu bar strip (the band right of the last top level item):
+	  the flip ends with an immediate repaint sweep over the children
+	  that never carried rdw_frame, and the official semantics keep the
+	  non client area out of a frameless sweep: no wm_ncpaint, so the
+	  dark gap fill that lives in that message never runs, the system
+	  light strip stays until a manual frame change (the one-shot retry
+	  inside the fill only helps when the paint already reached the
+	  bar). the sweep now carries rdw_frame.
+	- the menu bar item widths: the dark ui measures the top level
+	  items itself (the label at the menu font plus a pad), the light
+	  ui hands them to the system - two measurement systems, so every
+	  flip relayouts the bar (chinese labels accumulate the per item
+	  drift). the pad was a literal 8 at 96 dpi; it is now probed from
+	  the system's own layout (the rect the system gave a top level
+	  item while it was still system drawn, minus its label extent),
+	  cached with the dpi it was captured at and rescaled to the
+	  window dpi, so both themes measure with the system air.
+	- the toolbar strip (the band right of the buttons): the theme flip
+	  re-metrics the comctl toolbar (the immersive flag, the rebuilt
+	  image list) but never relayouted the strip windows - the dpi
+	  change and the language switch both run the layout. the flip
+	  now runs the same sweep after the image list rebuild.
+	- the toolbar width: get_wide returned the content span (the union
+	  of the item rects), which loses the first item's left inset twice
+	  against the window the toolbar needs - the rightmost button
+	  could hide (hideclippedbuttons) and the strip behind it widened.
+	  tb_getmaxsize is the official query for the window the toolbar
+	  needs (the total size of all the visible buttons and separators,
+	  wm_user + 83); the content scan stays as the runtime fallback for
+	  the pre 5.80 comctl sets.
+	- the class brushes: the register wrapper ignored the brush and the
+	  cursor it was given and registered every class with the light
+	  window brush (white) - the rebar caller's own argument was never
+	  in effect, and the zoomui class asked for no brush and got white
+	  anyway. the wrapper honors its parameters now; the rebar passes
+	  no brush (the strip face is painted by theme in the erase and
+	  the paint handlers, a bypassing erase no longer flashes white),
+	  and the main, fullscreen and zoomui classes get what their
+	  callers always wrote (the main and fullscreen windows erase
+	  themselves, so nothing changes there).
+	the version moves to 1.1.12-rc.2 build 44: the candidate goes back
+	to the field - the rc.1 acceptance list carries over and the white
+	band becomes the first check (win11, 150 percent scaling, chinese
+	ui: flip dark and light five times without touching the window).
+
+Pre-release: Version 1.1.12-rc.1 (the about line release candidate)
+
+	the first release candidate of the 1.1.12 line: two rounds since
+	the 1.1.11 stable, both on the about dialog, both hard codes -
+	the one the 1.1.11 font round put on record, the one the field
+	made visible once the fonts went per-dpi.
+	- the about title: the larger face kept the literal 32-pixel
+	  height of the 96 dpi design point (150% drew two thirds of
+	  the intended proportion, 200% half of it). the title now
+	  derives from the live dialog font at the dialog's own dpi -
+	  family, weight and the 8/3 ratio of the message font - and
+	  is rebuilt at every open, so a dpi change between two opens
+	  no longer draws the stale face (b41, the about title hard
+	  code fix round).
+	- the about band: the dark-mode band chrome (the two separator
+	  lines and the button strip face) moved from the runtime
+	  wm_paint passes into the dialog resource template: the 1-du
+	  line controls and the 24-du strip ride the template grid at
+	  every dpi, the colors travel the control color replies with
+	  the 1.1.11 palettes, and the dialog face answers through the
+	  wm_ctlcolordlg pipeline (b42, the about band template round).
+	the version moves to 1.1.12-rc.1 build 43: the tag and the
+	pre-release stay user-gated, the candidate goes through one
+	full field acceptance (the dark band alignment at every dpi
+	scale, the light zero-regression, the theme flip refresh)
+	before the stable line.
+
+Stable: Version 1.1.12 (the about band template round)
+
+	the dark mode field report on the about dialog: the band chrome (the
+	two separator lines and the button strip face) was painted at runtime
+	by a wm_paint case - three fillrect passes whose band edges were
+	pixel literals (48 and 46 at the 96 dpi design point, scaled by the
+	system dpi fraction), while the dialog template positions the
+	buttons in dialog units: two coordinate systems that only met at 96
+	dpi. at any other scale (and after the b41 round made the dialog
+	font per-dpi) the lines drifted off the button strip and the band
+	boundaries crossed the controls - the rendering the report called
+	temporary drawing that never reached the resource template.
+	the fix moves the band chrome into the resource template:
+	- the geometry: two 1-du line controls (idc_aboutline1,
+	  idc_aboutline2) and one 24-du strip control (idc_aboutband)
+	  declared before the buttons in the idd_about template, so they
+	  sit under them in the z order. the template grid owns the band
+	  layout now: the lines ride the button strip at every dpi, in both
+	  themes, and the dialog font rounds apply to the band as to every
+	  other template control.
+	- the colors: the wm_paint case is gone. the control color replies
+	  carry the same palettes the passes used (the dark 0x45/0x70
+	  separator lines and the 0x25 strip face, the light 0xec lines and
+	  the white strip), the banner keeps its 1.1.11 face (the black band
+	  with the white title in the light ui, the shared dark canvas in
+	  the dark), and the dialog face itself answers through the
+	  WM_CTLCOLORDLG pipeline - the official dialog background path,
+	  so the light ui erases white and the dark erases the canvas
+	  color through one contract.
+	- the about color replies run before the shared dark dialog handler
+	  (its flat 0x20 static reply would flatten the line and strip
+	  faces); every other control keeps the shared pair untouched.
+	the version moves to 1.1.12 build 42: one dialog, one round, the
+	tag and the release stay user-gated.
+Stable: Version 1.1.12 (the about title hard code fix round)
+
+	the first round after the rollback is one hard code, the one the 1.1.11
+	font round itself put on record ("the about title derives its larger
+	face from it"): the derivation only ever covered the family. the
+	height stayed the literal 32:
+	- lf.lfheight = 32 was a 96 dpi design point. the message font scales
+	  with the dialog window dpi (-18 at 150%, -24 at 200%) while the
+	  title stayed 32 pixels on every screen: the 8/3 proportion the
+	  font round promised collapsed to 2/3 at 150% and to 1/2 at 200% -
+	  the title read relatively smaller on every high dpi display.
+	- the font site was the only one left on the unsuffixed forms:
+	  getobject, logfont and createfontindirect borrow the wide pipeline
+	  from the project-level unicode define, while every other font
+	  site spells the w forms - the wide face name path hung on a
+	  setting outside the code.
+	- the handle was created once and cached for the process lifetime:
+	  a dpi change between two about opens (a monitor reconfiguration,
+	  a system scale move) kept drawing the stale face.
+	the fix follows the font round's own derivation rule to the end:
+	- the title derives from the live dialog font: wm_getfont on the
+	  title control (the shared dialog proc applied the message font at
+	  this dialog window own dpi before this case runs) -> getobjectw
+	  into a logfontw -> the height scaled by 8/3 (the message font is
+	  -12 at 96 dpi and -12 * 8 / 3 = -32: the design point the
+	  literal encoded, now as a ratio that travels with the dpi) ->
+	  createfontindirectw. the family, the weight and the scale all
+	  arrive with the font the dialog actually draws: one type system,
+	  every dpi, both themes.
+	- the face is rebuilt at every open. the previous handle dies
+	  inside the same message after the control took the new face (a
+	  paint can never interleave the synchronous wm_setfont), and a
+	  creation failure keeps the previous face drawing instead of
+	  handing the control a null font.
+	the version moves to 1.1.12 build 41: the first round after the
+	1.1.12-rc series was deleted from the remote, the number restarts
+	clean, and the tag and the release stay user-gated.
+Stable: Version 1.1.11 (the font unification round)
+
+	the font round unifies the ui type system. the audit locked the
+	contradiction first: the 1.1.09 unification hard coded every dialog
+	template to segoe ui 9pt, but segoe ui carries no cjk glyphs - on a
+	chinese system every dialog label rendered through the gdi per
+	character font linking fallback with the latin line metrics, while
+	the menu bar (lfMenuFont) and the status bar (lfStatusFont) draw the
+	system locale face, microsoft yahei ui. two type systems in one
+	window: the line heights, the baselines and the glyph density of the
+	dialog text never matched the menu and status text:
+	- every dialog takes the system message font now. the shared dialog
+	  proc runs the apply from wm_initdialog, before each dialog's own
+	  case: the dialog window itself and every child control receive
+	  wm_setfont with the message font at the dialog window own dpi
+	  (getdpiforwindow when the os provides it, the tracked dpi
+	  otherwise). segoe ui on an english system, the locale native ui
+	  face on a chinese one - the same family the menu bar and the
+	  status bar draw. one type system, both themes.
+	- the template face keeps its job: the dlu grid. the dialog manager
+	  sizes the control rectangles from the template font at creation
+	  and the layout stays; only the rendering font follows the message
+	  font (the upstream shipped ms shell dlg 8pt, whose font mapping
+	  picked the locale face - the hard coded segoe ui lost that locale
+	  awareness; the message font restores it without the 8pt skeleton).
+	- the order matters and the tests pin it: the shared proc runs
+	  before each dialog's own initialization, so the dark flip captures
+	  the native combo field heights against the final font, the about
+	  title derives its larger face from it and the localized labels
+	  render with it.
+	- the font belongs to the dialog that draws it (the review fix:
+	  the shared cache deleted the handle under the open dialogs - the
+	  options container and its pages coexist and jumpto is a create
+	  dialog too, so a settings broadcast arriving while a dialog stood
+	  open killed the face its controls still held, and the next paint
+	  fell to the default system face): every dialog creates its own
+	  message font at its own dpi, a monitor crossing replaces the face
+	  inside the same message (wm_dpichanged - the old handle dies only
+	  after every child took the new face), the release lands at the
+	  dialog ncdestroy after its children are gone, and the next dialog
+	  reads the fresh metrics at its own open.
+	- the known limits, on record: a dialog that stands open through a
+	  system font change keeps its face until it reopens (the windows
+	  dialogs behave the same way), and the vertical budget keeps the
+	  segoe skeleton - a locale face a couple of pixels taller than the
+	  latin metrics paints inside the row spacing, the ltext rows sit
+	  two pixels tight (the simulation models the budget with the
+	  tolerance stated, not assumed away).
+	the version moves to 1.1.11 build 40.
+
+Stable: Version 1.1.10 (field fix round 6: the dialog return value)
+	the sixth field round repairs the 1.1.09 dark options fix itself. a
+	source audit of the custom draw path caught the headline bug: a dialog
+	procedure cannot return a notify result directly - the dialog manager
+	keeps the message result in the window data, so the plain
+	cdrf_skipdefault return handed every button a zero (= cdrf_dodefault)
+	instead. the skip never reached a single control on any machine:
+	- the custom draw result travels through dwlp_msgresult now, the way
+	  the nm_customdraw documentation prescribes for dialog procedures:
+	  setwindowlongptr on the dialog, then a true return. two places
+	  changed: the shared dark proc's notify case and the notify function
+	  it calls.
+	- the glyph travels with the fix: a working skip takes the whole
+	  native painting (the official wording: the control will not draw
+	  any portion of the item), so the checkbox and radio faces draw
+	  complete now - the dark dialog background, the theme part glyph in
+	  the control's own checked, mixed, disabled and hot state (bm_getcheck
+	  plus the custom draw item state through the cbs_*/rbs_* map), the
+	  light label and the focus frame drawn exactly once (two xor frames
+	  cancelled each other before - the keyboard walk lost its dot in the
+	  dark).
+	- the button theme opens once per dialog and closes on destroy and on
+	  the theme change broadcast (an open and a close pair per
+	  notification was pure uxtheme bookkeeping on every paint).
+	- the touch probe mask drops the pen digitizer bit: nid_integrated_pen
+	  is 0x04 and nid_external_touch is 0x02, so the old mask missed the
+	  external-only touch screens and passed the pen-only digitizers.
+	- the ci runs the real machine smoke test now: every push and every
+	  tag build opens the full anomaly sample set through the freshly
+	  compiled exe on the windows runner (the test existed since the
+	  1.0.02 audit round but never ran automatically).
+	- readme honesty pass: the dark options wording matches the shipped
+	  mechanism, the emf/wmf bullet notes the metafiles rasterize through
+	  gdi+ (display-level support, not a native loader), and the pan &&
+	  scan removal lands in the readme story (it was recorded in the
+	  1.1.0-beta.6 changes entry only - the removal was deliberate: the
+	  feature stretched x and y independently and fought the aspect ratio
+	  lock).
+	the version moves to 1.1.10 build 39.
+
+Stable: Version 1.1.09 (field fix round 5)
+	the fifth field round lands the dark options text reports. this
+	entry replaces the withdrawn first 1.1.09 build (build 37): that
+	build flipped the checkboxes and the radios to owner draw on every
+	machine, the owner draw bit occupies the button type field, so the
+	flip replaced BS_AUTOCHECKBOX itself - the automatic check state
+	machine went with it, clicks stopped toggling, BM_GETCHECK read
+	zero and every options checkbox froze in the dark ui:
+	- the checkbox and radio labels paint through the custom draw path
+	now: the themed button paints its own label color (the
+	WM_CTLCOLORSTATIC text never reaches it - the field report read
+	black labels at 0.78:1 on the dark face, the microsoft q&a
+	documents the behavior), so the shared dialog dark proc takes the
+	button NM_CUSTOMDRAW notifications and repaints the label only -
+	light text, the control font, the focus frame - returning skip
+	default, which on a button replaces the label drawing while the
+	system theme keeps painting the glyph with its checked, hot and
+	disabled states. no style bit changes: the check state machine, the
+	radio grouping and every saved-settings read keep working in both
+	themes. the dead owner draw flip is gone entirely (it also sat
+	latent on the pre 1903 fallback since the last round).
+	- the fonts read different between the light and the dark ui: the
+	owner drawn controls drew with whatever font the draw dc carried,
+	and the eleven dialog templates mixed two MS Shell Dlg charsets
+	plus the obsolete DS_FIXEDSYS flag (the pages and the containers
+	measured their dialog units with different fonts). every template
+	now declares the same statement - Segoe UI 9pt, one weight, one
+	charset - so the pages and the containers share one unit grid and
+	the drawn text selects the control font explicitly before it draws
+	(the pick and the restore ride every owner draw path).
+	- the about dialog carried the last light strip in the dark ui: the
+	bottom band painted the system button colors unconditionally. the
+	band follows the theme now (the dark chrome strip with its divider
+	lines) and the light ui takes the fixed win11 command bar palette
+	(the white face, the subtle line) instead of the system-dependent
+	button colors.
+	- the geometry checks move to the pixel grid: the dialog units
+	follow the dialog font, so a font change rescales every template
+	15-23 percent while the DLU numbers stay put - the new simulation
+	walks every control of every template on the Segoe UI 9pt base
+	units and proves the fit (containment, the eleven association
+	checkboxes, the label-plus-glyph widths).
+	- the option inventory stays pinned: the test baseline carries
+	every control id of the eleven dialogs (89 ids) and the rewrite
+	loses none of them.
+Stable: Version 1.1.08 (field fix round 4)
+	the fourth field round lands the reports from the 1.1.07 test:
+	- the light dialogs painted dark controls: the dark theme classes
+	were applied whatever the app theme, so the light options page
+	showed black comboboxes and black select-all buttons. the classes,
+	the immersive flag and the owner draw flips now follow the app
+	theme together, and the flip back to light restores the explorer
+	class and the light title bar (an open dialog no longer keeps the
+	dark chrome from an earlier flip either).
+	- the dark combos grew a chin: the owner draw flip rebuilt the
+	closed field height from the font metrics, which drifts a few
+	pixels at some dpis - the field then grows or shrinks against its
+	label row. the flip now captures the native field height first and
+	keeps it exactly, so the dark combo is pixel identical to the light
+	one (the measure fallback reads the captured height back).
+	- the dark push buttons owner draw on every build: the native dark
+	button carries a light bottom edge (the chin under the buttons) and
+	a hard rectangle that fights the rest of the dark chrome. the flat
+	face matches the combo fields exactly; the bitmap color swatches
+	keep their own painting in every state.
+	- changing the backdrop or the canvas color with no image open
+	showed a load failure at the bottom left: the refresh reloads the
+	current file, and with none the empty name only fails. the refresh
+	now keeps the blank state - no reload, no error, the stale flags
+	reset - so the bare program accepts any color change quietly.
+	- the mat confusion: the backdrop is what shows under the
+	transparent pixels of an image with alpha, not the canvas around
+	the image. the menu is renamed to the transparency backdrop and a
+	new view menu item (windowed background color...) puts the canvas
+	color one click away from it. the zoom range note: the below-fit
+	ladder from the 1.1.06 field round reaches about fit/16 - the 3
+	percent floor and the 1600 percent cap are the two ends of that
+	symmetric range.
+	- the theme change broadcast schedules the one shot dark re-check
+	as well (the visual style flip can race the registry the same way
+	the immersive color set broadcast does).
+	the version moves to 1.1.08 build 36.
+
+Stable: Version 1.1.07 (the second-rework simulation round)
+	the second rework check runs as a simulation: the new suite
+	(tests/simulation_test.py) extracts the constants, the formulas
+	and the control flow from the shipped source and re-executes the
+	behavior itself - a renamed symbol or a reordered source keeps a
+	string guard honest only by luck, so every field report is replayed
+	against the extracted logic:
+	- the mat color battery walks light, dark, cutoff-boundary and
+	saturated colors through the extracted 601 mapper: the light mats
+	land at or under the chrome face with the hue intact, the dark ones
+	pass through, and the white fast path is bit-exact with the scaled
+	formula. both user states from the report (the empty canvas and the
+	open-image backdrop) prove they route through the one shared mapper,
+	and the follow mat proves it picks the color of the mode the window
+	actually paints.
+	- the mru model replays a five-open burst (zero ini writes land
+	mid-burst on the ui thread, exactly one deferred write after the
+	settle, and the exit fold absorbs a still-pending write), fifteen
+	opens against the ten-entry cap (newest first, the oldest evicted),
+	the case-variant reopen (the move keeps the stored casing and a
+	top-row variant stays put), a twenty-row hand-edited ini (the load
+	walk stops at the cap and the clamp repairs the count), and the
+	surgical popup swap (no SetMenu, one row touched, the swapped-out
+	popup destroyed).
+	- the menu walk locates the command-table loop body span and proves
+	the mru insertion sits after the loop closes: the round-42 bug would
+	emit one recent row per command, and the simulation emits one.
+	- the zoom ladder walks the extracted 278-step shrink range: the
+	200% fill lock is gone, the floor lands about one sixteenth of the
+	fit and mirrors the 16x native cap, every negative position reads a
+	positive table entry (never out of bounds), a runaway position
+	clamps to the floor and the deepest render keeps its one pixel.
+	- the blank state replays a missing-file open, a close and a later
+	failure: the status reports are fresh, never stale and never sticky.
+	- the options geometry parses the resource script and proves all
+	eleven association checkboxes sit inside the 242-tall page, the page
+	fits the 264-tall tab and the buttons keep the five-unit margin.
+	- the theme flip replays the registry race: the broadcast that
+	outruns the personalize write applies nothing at t=0, the 400ms
+	re-check lands the flip, and every flip invalidates the whole
+	window unconditionally.
+	- the release identity: the version quad moves to 1.1.7.35 and the
+	tag, the installer, the about dialog and the readme all carry
+	1.1.07. the ci runs the simulation suite beside the two existing
+	suites on every push and on every tag.
+Stable: Version 1.1.06 (field fix round 3)
+	the field report read "the background mat color is dead, with an
+	image open and without one": a customized windowed background color
+	always won, so a light mat kept glaring out of the dark chrome in
+	both states while the default white had long mapped to the dark
+	canvas. the mat rule is shared now: in the dark ui any light color
+	(601 luminance at or above 48) keeps its hue but lands at or under
+	the dark chrome face, the default white stays bit-exact with the
+	palette canvas, and an already dark color passes through unchanged;
+	the light ui always shows the exact configured color. the custom
+	backdrop color follows the same rule (a light backdrop under
+	transparent pixels used to glare the same way), and the follow
+	backdrop now matches the mat the window actually paints - the
+	fullscreen canvas shows the fullscreen color under the image instead
+	of the windowed one (a two-tone split around fullscreen pictures).
+	changing the windowed color from the options dialog re-tints the
+	windows 11 caption, repaints the canvas and reloads the image, so a
+	follow-mode transparency picks the new mat up immediately (the ok
+	button used to invalidate the canvas only, which left the caption
+	tint and the under-image backdrop stale until the next theme flip).
+	dark dialogs: the options pages (and every dark dialog) owner draw
+	their comboboxes on every windows build now - the darkmode explorer
+	style carries no combobox parts, so the language, dark-mode,
+	blit-mode and action fields stayed light inside the dark pages on
+	1903+ machines. the comboboxes take the darkmode common-dialog
+	theme class for the dark frames and arrows where it exists, and the
+	field and list rows paint through the dialog dark handler on every
+	build.
+	docs: the readme told the 1.0.04 story while the shipped version was
+	1.1.06 - the what's new section carries the 1.1 line (emf and wmf,
+	recent files, the backdrop menu, the dark dialog completion, the
+	below-fit zoom ladder and the field fixes), the format list carries
+	emf and wmf, and new sections document the canvas/backdrop/dark
+	rules and the recent-files behavior. the test suite pins build 34
+	and gains the round-44 guards (the mat mapper math, the backdrop
+	rules, the fullscreen-aware follow, the options ok chain, the
+	combobox owner-draw ungating and the cfd theme wiring).
+
+Stable: Version 1.1.06 (field fix round 2)
+	open speed: every single-file open wrote the whole settings file and
+	rebuilt the entire menu bar on the ui thread before the image load was
+	dispatched - the visible stutter when opening files (worst with
+	real-time antivirus scanning the temp ini). the recent-files save is
+	debounced now: a two second timer coalesces a burst of opens into one
+	write, and the exit / logoff saves fold a still-pending write in. the
+	menu update swaps just the recent-files popup inside the live file menu
+	instead of destroying and recreating the whole bar (the full-rebuild
+	path is deleted outright), so the dark bar owner-draw state survives
+	without a re-apply and the non-client area is not repainted mid-open.
+	recent files count limit: the list is capped at ten entries on every
+	path - a compile-time check locks the command-id block to the array
+	bound, the ini load clamps the count, the push trims with a while loop,
+	and the popup builder clamps its own loop bound, so the list can never
+	emit command ids past the reserved block or overflow the menu.
+	options dialog: the emf and wmf association checkboxes pushed the
+	association list past the general page template bottom (the last rows
+	were clipped). the page grows to fit all eleven checkboxes and the
+	group box, and the options container, tree, tabs and buttons move down
+	with it so the layout relationships survive.
+
+Stable: Version 1.1.06 (field fix round)
+	the field report on the 1.1.06 build: the recent-files submenu was
+	inserted once per command-table entry instead of once per rebuild, so
+	the file menu grew dozens of duplicate rows (the block moved outside
+	the walk, and the test suite now simulates the brace depth so the
+	placement can never regress silently).
+	status honesty: closing the image kept the "failed to load" and "file
+	not found" messages on the status bar with no image open - the blank
+	state clears both flags now.
+	theme stability: every dark-mode flip repaints the whole window (a
+	partial invalidation left a light strip beside the toolbar and a
+	white canvas until a manual resize), and the immersive color set
+	broadcast gets a delayed re-check so a registry value that settles
+	after the message still lands.
+	chrome symmetry: the light toolbar strip follows the light menu face
+	with flat separator lines instead of the gray button face with the 3d
+	etch, so both themes read as one chrome band above the canvas.
+	options dialog: the page-title tab header and the sliver under every
+	page stayed light in the dark ui (the comctl tab paints its whole face
+	itself and the custom draw only reached the items) - the subclass
+	paints the entire control dark now.
+	zoom range: the ladder extends below the best fit (about one
+	sixteenth of it, mirroring the 16x native cap above) so a touch
+	pinch can zoom out to a thumbnail view; the fill-window upscale no
+	longer locks small images at a 200% minimum. the allow-shrinking
+	option keeps its meaning: with shrinking off the best fit stays the
+	floor.
+
+Stable: Version 1.1.06 (modern ux round)
+	third audit round: the fork now answers every low-cost item from
+	the upstream wish list it can carry. emf and wmf files open
+	everywhere (the gdi+ draw path rasterizes metafiles with no new
+	decoder, the association table, the open dialog filter, the
+	everything search default and the command line switches all grow
+	the two extensions), the status bar picks b / kb / mb / gb units
+	instead of rounding every file to kilobytes, the file menu gains
+	a persistent recent-files submenu, and the edit command gets a
+	default shortcut and menu hint again.
+	audit consistency: the webp frame-delay allocation multiplies
+	through the safe size helpers (the one bare multiply left in the
+	newest code), and 32-bit builds cap animated webp canvases at 25
+	megapixels (the decode canvas, the anim decoder frame and the
+	display bitmap are roughly 12 bytes per pixel inside a 2 gb
+	address space).
+	ux hardening: the wallpaper change asks before it touches the
+	desktop (the menu comment has wanted this dialog since the first
+	release and the ctrl+d default key returns with it), up and down
+	navigate when no slideshow is running, the single o key for
+	options becomes ctrl+comma so a stray letter no longer pops a
+	modal dialog, and everything-add moves to ctrl+alt+e so the
+	editor can take ctrl+shift+e.
+
+Stable: Version 1.1.05 (second review fix round)
+	second review: the thirteen findings from the first audit round were
+	re-verified line by line against the sources and msdn. two were
+	withdrawn (the mem debug tail magic sits fully inside the allocation
+	and the two-step getregiondata is the documented pattern), the
+	small-pool alignment note was downgraded to a comment fix, and the
+	confirmed set ships here.
+	drag and drop: every wm_dropfiles now ends in dragfinish - the shell
+	file list leaked on every drop. the clipboard file-list paste reuses
+	the same handler without finishing the clipboards own hdrop (which
+	would corrupt clipboard memory).
+	memory safety: a null free crashed inside heapsize before the invalid
+	free guard could run; the glyph cache eviction copied overlapping
+	arrays with memcpy; the clipboard dib paste now applies the same
+	pixel budget as the file loaders and no longer truncates the copy
+	size to int (os_copy_memory and os_move_memory take size_t lengths).
+	registry: the add/remove programs entry is written to the 64-bit view
+	and removed with regdeletekeyexw (regdeletekeyw cannot reach the
+	alternate view; the nsis probe already used setregview 64), with the
+	legacy wow6432node copy swept on uninstall.
+	webp animations: each frame now carries its own duration from a
+	container scan - the old loop handed every frame the gap to the
+	previous one and the last frames duration never existed.
+	touch: the digitizer probe asks for a touch screen (not just any ready
+	digitizer), gid_begin and gid_end reach defwindowproc as msdn requires,
+	and the press-and-hold and flick system gestures are disabled for the
+	window.
+	robustness: the ini reader refuses files over 16 mb, a failed utf-8
+	config conversion no longer reads an unterminated buffer, bad
+	localization ids clamp to a fallback instead of an out-of-bounds read
+	in release builds, and the safe_size wchar multiply comment no longer
+	says addition.
+
+Stable: Version 1.1.04 (tag hygiene round)
+	tag hygiene: the public tag list consolidates to the release ladder
+	1.1.02, 1.1.03, 1.1.04 - the dashboard round markers and the
+	1.0.03/1.0.04 pair leave the tag namespace after this release
+	ships (the round history stays reachable through the backup ref
+	and the archive snapshots, and the 1.0.x release pages keep
+	their assets), so the tags view reads as one clean version
+	staircase with this release on top instead of a dashboard
+	marker sitting above the releases.
+	shipping code: unchanged from 1.1.03 apart from the version
+	identity - the magnifier pill, the capsule zoom bar, the 32bpp
+	toolbar icons and the dark menu strip from the pill round ship
+	again as they are.
+	version order: the ladder stays strictly increasing, no
+	duplicates: it now reads 1.1.02, 1.1.03, 1.1.04.
+
+Stable: Version 1.1.03 (magnifier pill round)
+	pill icons: the zoom magnifier glyphs are redrawn. the zoom in/out
+	strokes declared three point polylines over two element arrays, so the
+	renderer walked one element past each array and drew a stray tail line
+	to whatever coordinate pair lived in the adjacent memory (the crooked
+	cross and handle in the field screenshots), the hand written 21 point
+	ring wobbled between radii 12.65 and 13.6 which read as a lumpy lens at
+	the pill sizes, and the cross strokes collapsed into capped smudges at
+	the small toolbar sizes. the ring is now a true gdi+ ellipse primitive
+	(drawn through gdipdrawellipse, not a sampled polyline), the counts
+	match the arrays, the handle starts exactly on the 45 degree ring
+	point, and the cross grew one grid unit longer and one wider.
+	pill shape: the zoom buttons and their tray are true stadium capsules
+	now (roundrect with half height end radii) with breathing room between
+	the buttons - the old zero gap layout packed both square borders back
+	to back in the middle (a double line) and the blocky pair sat next to
+	the flat toolbar like a patch from another toolkit. the glyph padding
+	follows the button height so all four sides stay even at every dpi.
+	toolbar icons: the toolbar image list keeps the 32bpp alpha channel
+	(ilc_color32) - the old 24 bit list with a mask binarized the
+	antialiased glyph edges and washed the toolbar icons into a pale gray
+	while the zoom pill drew the same glyphs from the raw icons at full
+	contrast (the two-tone toolbar the field screenshots caught).
+	dark strip: the rebar strip behind the centered toolbar now carries
+	the dark chrome face - the rebar window was registered with the light
+	window class brush, so the slabs on both sides of the toolbar stayed
+	white in dark mode (the big white rectangle the field screenshots
+	caught in the menu bar row).
+	version order: the release series returns to the 1.1 line as the
+	leading one, so the tag ladder reads 1.0.03, 1.0.04, 1.1.02, 1.1.03 -
+	strictly increasing, no duplicates, nothing deleted.
+
+Stable: Version 1.0.04 (pointer width budget)
+	load performance: the pixel budget ceiling is now pointer width
+	dependent. 32-bit builds keep the 100 mp guard (a 100 mp rgba
+	frame is already 400 mb against a 2 gb address space) while
+	64-bit builds (x64 and arm64) raise the ceiling to 400 mp, so
+	real panoramic stitches and large flatbed scans load normally
+	instead of failing like a corrupt file - the reported 1.0.03
+	regression where big-but-honest images stopped opening.
+	budget diagnostics: both loaders now print the refusal reason
+	(the claimed megapixels and the ceiling) through the debug
+	channel, so a user wondering why a file fails can turn the debug
+	banner on and read it - silent refusals are over.
+	test kit: the anomaly sample set grows to 38 samples - 35 now
+	doubles as the x64 acceptance boundary (110 mp loads on x64,
+	still refused on 32-bit) and 38 pins the x64 refusal point
+	(625 mp lying header). the guard suite pins both branches of
+	the ceiling split and the diagnostic on both loaders.
+Stable: Version 1.0.03 (version display unification)
+	version identity: every user visible version now shows the release
+	identity - the tag string. the about dialog showed 1.0.2.25, the
+	add/remove programs entry showed 1.0.2 and the installer version
+	keys showed 1.0.02.x64 while the tag said 1.0.02 - the about line,
+	the uninstall DisplayVersion, the debug banner and the two nsis
+	version keys now derive straight from VERSION_STRING, and the test
+	suite guards all five display points against regression.
+
+Stable: Version 1.0.02 (third audit round closed)
+	pixel budget: both decoders (gdi+ and webp, animation and
+	still) now refuse a canvas over 100 mp before any allocation
+	happens - a 428 kb hostile header asking for a 20000 x 20000
+	decode used to reach the allocator and die with a fatal
+	dialog; it now fails like any unloadable file.
+	uninstaller identity: closing the old instance no longer trusts
+	the window class name alone - the process image name is
+	verified as voidImageViewer.exe before any close or terminate
+	is sent, so a foreign program reusing the class name is left
+	alone.
+	third audit delivery: a generated anomaly sample set (37
+	samples across truncation, lying headers, zero delay, frame
+	floods, broken chunk order, trailing garbage and over budget
+	canvases) plus a windows smoke test script, so a passing
+	suite can be followed by a real machine run.
+
+Stable: Version 1.0.01 (the fork restarts its version line at a clean 1.0.01)
+	version line: the public version sequence restarts here. the retired
+	1.1.x line (three stables, seven release candidates, thirteen betas)
+	is gone from the tags and the releases; this file now keeps one entry
+	per development stage instead of one entry per round - the full
+	per-commit story lives in the git log. no code change ships with the
+	reset: the binaries are the twice-audited tree with the version
+	resource moved to the new line.
+
+	the fork, by stage:
+	- foundation betas: the touch and zoom core (pinch, pan, two finger
+	  and double tap, the floating zoom bar, one percent zoom steps), the
+	  bilingual installer, the ui language switcher, save as, dark mode
+	  detection, the single instance fix.
+	- engineering release candidates: the modern chrome and the release
+	  engineering - PerMonitorV2 dpi, win11 rounded corners, the vector
+	  toolbar glyphs, the fullscreen overlay fade, pinned ci runners, the
+	  four stage release pipeline, the single source version.h, the pinch
+	  floor and the 1600 percent zoom ceiling.
+	- dark completion: the complete dark ui - dialogs, status bar,
+	  toolbar, zoom bar, the owner drawn menu bar (for the builds that
+	  never darken a win32 menu bar), the options tabs, the pre 1903
+	  control fallbacks, live re-theming, crisp glyphs.
+	- audit hardening: two full codebase user audits - the gdi+ frame
+	  delay and frame dimension guards, safe size wiring at every
+	  allocation arithmetic, the dark brush and shuffle array releases,
+	  the save as extension reservation, both performance counter seed
+	  halves.
+
+Monday, 12 January 2026: Version 1.0.0.15
+	fixed an issue with scrolling large images.
+	improved position offset when using numpad keys.
+
+Tuesday, 16 December 2025: Version 1.0.0.14
+	fixed an issue with webp using the wrong background color.
+	fixed an issue with tracking the center of the image when resizing.
+	fixed an issue with rendering images larger than 65536x65536.
+	fixed an issue with screen saver not being prevented in slide show mode or when there is an animation.
+	improved rendering performance.
+	improved zooming of small images when going fullscreen.
+	move window action will now scroll if zoomed.
+	re-enabled WEBP_MSC_SSE41 
+	added title_bar_format ini setting.
+	added System.Photo.Orientation support.
+	added - command line switch support. Escape with "" or include a . in your switch.
+
+Sunday, 10 August 2025: Version 1.0.0.13
+	fixed an issue with losing the image center on resize
+	fixed back/forward mouse buttons not working from toolbars
+	fixed an issue with loading the wrong next image when it was preloaded and changed externally
+	improved rendering performance
+	added left click action: move window
+	added auto size window GUI option
+
+Friday, 25 July 2025: Version 1.0.0.12
+	fixed a gdi leak when freeing mipmaps
+	fixed a gdi leak when refreshing
+	fixed an issue with loading the wrong next image after changing the sort
+	added natural sort
+
+Sunday, 20 July 2025: Version 1.0.0.11
+	fixed an issue with using the wrong association registry key
+	fixed a crash when interrupting the loading of a multi-frame image
+	fixed an issue with displaying images after rotating
+	fixed an issue with remembering some view settings
+	fixed an issue with losing the view after toogling fullscreen
+	inverted increase/descrease slideshow rate
+	improved preloading next/previous image
+	added cache last image
+
+Tuesday, 17 June 2025: Version 1.0.0.10
+	improved webp memory usage
+
+Thursday, 22 May 2025: Version 1.0.0.9
+	added webp support
+	added animated webp support
+	added mipmap support for faster resizing
+	added preload option
+	added maximized options
+	added option to copy image
+	added option to copy filename
+	added new code signing certificate: voidtools PTY LTD
+	improved animation timings
+
+Wednesday, 11 October 2017: Version 1.0.0.8b
+	added ctrl mousewheel action
+	fixed an issue when only one image was in the playlist
+	fixed a leak when loading an image
+	fixed a crash when there was only one shuffled image
+	improved randomize seeding
+	fixed a leak when loading an image while already loading an image
+	
+Wednesday, 20 September 2017: Version 1.0.0.7b
+	added randomized everything search option
+	added 1:1 scroll option
+	added rotate options
+	fixed a bug when navigating to the next image from the first image
+
+Thursday, 14 September 2017: Version 1.0.0.6b
+	added /x /y /width /height /minimal /compact /shuffle /everything command line options.
+	added jump to list
+	added everything search
+	added shuffle
+	fixed /dc command line option
+	fixed a bug when opening void image viewer and getting a random filename
+	
+Thursday, 31 August 2017: Version 1.0.0.5b
+	fixed a bug with move to/copy to
+	fixed a bug with save as filters
+
+Saturday, 19 August 2017: Version 1.0.0.4b
+	added background color selection
+	added close
+	added status bar
+	added keyboard and mouse customization
+	added print
+	added play gifs at least once option
+	added set as desktop background
+	added prevent sleep when playing or animating
+	added custom slideshow rate
+	added animation menu
+	added copy to / move to menu
+	added automatic window sizes
+	added multiple instances / single instance
+	improved portability
+	fixed an issue with holding a handle to the current directory
+
+Saturday, 18 Feburary 2017: Version 0.2.0.3b
+	added Multiple instances support
+	added multiple file drag drop support
+	added command line options /slideshow /fullscreen /window /rate <milliseconds> and /?
+	added Edit and Preview file menu items
+
+Saturday, 17 August 2016: Version 0.0.0.1b
+	added animation controls
+	added mouse back/forward
+	added min/mag filter modes
+	added file associations
+	added open folders support
+	added Open Location
+	added properties option
+	added middle mouse move
+	added IStream support
+	added navigation
+	added hide cursor on fullscreen
+	improved slideshow mode
+	improved 1:1 mode
+	fixed an issue with transparent gifs
+	fixed an issue when deleting an image and displaying the next image

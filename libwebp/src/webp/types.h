@@ -14,10 +14,10 @@
 #ifndef WEBP_WEBP_TYPES_H_
 #define WEBP_WEBP_TYPES_H_
 
-#include <stddef.h>  // for size_t
+#include <stddef.h>  // IWYU pragma: export for size_t
 
 #ifndef _MSC_VER
-#include <inttypes.h>
+#include <inttypes.h>  // IWYU pragma: export
 #if defined(__cplusplus) || !defined(__STRICT_ANSI__) || \
     (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)
 #define WEBP_INLINE inline
@@ -36,22 +36,28 @@ typedef long long int int64_t;
 #define WEBP_INLINE __forceinline
 #endif  /* _MSC_VER */
 
-#if defined(WEBP_ENABLE_NODISCARD) ||                   \
-    (defined(__cplusplus) && __cplusplus >= 201700L) || \
+#ifndef WEBP_NODISCARD
+#if defined(WEBP_ENABLE_NODISCARD) && WEBP_ENABLE_NODISCARD
+#if (defined(__cplusplus) && __cplusplus >= 201703L) || \
     (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L)
 #define WEBP_NODISCARD [[nodiscard]]
 #else
-// gcc's __has_attribute does not work for enums.
+// gcc's __attribute__((warn_unused_result)) does not work for enums.
 #if defined(__clang__) && defined(__has_attribute)
 #if __has_attribute(warn_unused_result)
 #define WEBP_NODISCARD __attribute__((warn_unused_result))
 #else
 #define WEBP_NODISCARD
-#endif
+#endif  /* __has_attribute(warn_unused_result) */
 #else
 #define WEBP_NODISCARD
-#endif
-#endif
+#endif  /* defined(__clang__) && defined(__has_attribute) */
+#endif  /* (defined(__cplusplus) && __cplusplus >= 201700L) ||
+           (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L) */
+#else
+#define WEBP_NODISCARD
+#endif  /* defined(WEBP_ENABLE_NODISCARD) && WEBP_ENABLE_NODISCARD */
+#endif  /* WEBP_NODISCARD */
 
 #ifndef WEBP_EXTERN
 // This explicitly marks library functions and allows for changing the

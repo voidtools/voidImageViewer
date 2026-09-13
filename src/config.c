@@ -23,13 +23,22 @@
 
 #include "viv.h"
 
+static int _config_icompare_ascii(const utf8_t *s1,const char *lowercase_ascii_s2);
 static void _config_load_settings_by_location(const wchar_t *path,int is_root);
 static void _config_write_int(HANDLE h,const char *ascii_key,int value);
 static void _config_write_string(HANDLE h,const char *ascii_key,const wchar_t *s);
 static void _config_write_utf8(HANDLE h,const utf8_t *s);
+static void _config_recent_key_name(utf8_t *buf,int index);
 static void _config_save_settings_by_location(const wchar_t *path,int is_root);
 
 BYTE config_appdata = 0; // store settings in %APPDATA%\voidimageviewer or in the same location as voidimageviewer.exe
+BYTE config_language = 0; // ui language: 0 = auto (follow the system language), 1 = english, 2 = simplified chinese.
+BYTE config_dark_mode = 2; // ui theme: 0 = light, 1 = dark, 2 = auto (follow the windows theme).
+BYTE config_ui_accent = 0; // ui accent color index into the viv_theme accent table (0..4).
+BYTE config_backdrop_mode = CONFIG_BACKDROP_MODE_FOLLOW; // backdrop under transparent pixels: 0 = follow window background, 1 = black, 2 = white, 3 = custom, 4 = checkerboard
+BYTE config_backdrop_color_r = 128; // custom backdrop color
+BYTE config_backdrop_color_g = 128;
+BYTE config_backdrop_color_b = 128;
 BYTE config_keep_centered = 1; // when zooming out, don't recenter the image. (keep cursor under the same pixel)
 int config_x = 0;
 int config_y = 0;
@@ -40,8 +49,11 @@ int config_slideshow_rate = 5000;
 BYTE config_allow_shrinking = 1; // prevent resizing an image below 100%
 BYTE config_shrink_blit_mode = CONFIG_SHRINK_BLIT_MODE_HALFTONE; // shrink filter
 BYTE config_mag_filter = CONFIG_MAG_FILTER_COLORONCOLOR; // magnify filter
-BYTE config_nav_sort = CONFIG_NAV_SORT_DATE_MODIFIED; // current navigation sort.
-BYTE config_nav_sort_ascending = 0; // sort navigation ascending or descending.
+// default to sorting by filename in natural order, ascending.
+// this matches the windows explorer default, so next/previous navigation
+// walks the folder in the order the user sees it in explorer.
+BYTE config_nav_sort = CONFIG_NAV_SORT_NAME; // current navigation sort.
+BYTE config_nav_sort_ascending = 1; // sort navigation ascending or descending.
 BYTE config_keep_aspect_ratio = 1; // stretch images with the original aspect ratio.
 BYTE config_fill_window = 0; // stretch the image to fill the window
 BYTE config_fullscreen_fill_window = 1; // same as fill_window, except this setting is used when we are fullscreen
@@ -55,6 +67,11 @@ BYTE config_frame_minus = 0; // show frame counter or remaining frames in status
 BYTE config_multiple_instances = 0; // all multiple instances or use a single instance.
 BYTE config_show_status = 1;
 BYTE config_show_controls = 1;
+BYTE config_show_zoom_controls = 0; // show the floating zoom controls. (defaults to on for touch devices)
+BYTE config_zoom_auto_hide = 1; // auto-hide the fullscreen zoom overlay when idle.
+// recent files mru: newest first, at most CONFIG_RECENT_FILE_COUNT entries.
+wchar_t *config_recent_files[CONFIG_RECENT_FILE_COUNT] = {0};
+int config_recent_file_count = 0;
 BYTE config_prevent_sleep = 1;
 BYTE config_loop_animations_once = 1;
 BYTE config_mouse_wheel_action = 0; // 0 = zoom, 1 = next/prev, 2=prev/next
@@ -122,6 +139,111 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_show_status = ini_get_int(ini,(const utf8_t *)"show_status",config_show_status);
 		config_pixel_info = ini_get_int(ini,(const utf8_t *)"statusbar_pixel_info",config_pixel_info);
 		config_show_controls = ini_get_int(ini,(const utf8_t *)"show_controls",config_show_controls);
+		// the digitizer probe is a first-run default only: msdn warns
+		// sm_digitizer has no plug-and-play awareness, so the value gets
+		// pinned into the ini on the first save and is never re-probed.
+		config_show_zoom_controls = ini_get_int(ini,(const utf8_t *)"show_zoom_controls",os_is_touch_available());
+			config_zoom_auto_hide = ini_get_int(ini,(const utf8_t *)"zoom_auto_hide",config_zoom_auto_hide);
+		
+		// ui language. stored as a readable string: auto, english or chinese.
+		{
+			const utf8_t *language_value;
+			
+			language_value = ini_get_string(ini,(const utf8_t *)"language");
+			
+			if (language_value)
+			{
+				if (_config_icompare_ascii(language_value,"english") == 0)
+				{
+					config_language = 1;
+				}
+				else
+				if (_config_icompare_ascii(language_value,"chinese") == 0)
+				{
+					config_language = 2;
+				}
+				else
+				{
+					// "auto" (and anything we don't understand) follows the system language.
+					config_language = 0;
+				}
+			}
+		}
+		
+		// dark mode. stored as a readable string: auto, dark or light.
+		{
+			const utf8_t *dark_mode_value;
+			
+			dark_mode_value = ini_get_string(ini,(const utf8_t *)"dark_mode");
+			
+			if (dark_mode_value)
+			{
+				if (_config_icompare_ascii(dark_mode_value,"dark") == 0)
+				{
+					config_dark_mode = 1;
+				}
+				else
+				if (_config_icompare_ascii(dark_mode_value,"light") == 0)
+				{
+					config_dark_mode = 0;
+				}
+				else
+				{
+					// "auto" (and anything we don't understand) follows the windows theme.
+					config_dark_mode = 2;
+				}
+			}
+		}
+
+		// accent color. an index into the viv_theme accent table, clamped.
+		config_ui_accent = (BYTE)ini_get_int(ini,(const utf8_t *)"accent_color",0);
+		
+		if (config_ui_accent >= VIV_THEME_ACCENT_COUNT)
+		{
+			config_ui_accent = 0;
+		}
+		config_backdrop_mode = ini_get_int(ini,(const utf8_t *)"backdrop_mode",config_backdrop_mode);
+		config_backdrop_color_r = ini_get_int(ini,(const utf8_t *)"backdrop_color_r",config_backdrop_color_r);
+		config_backdrop_color_g = ini_get_int(ini,(const utf8_t *)"backdrop_color_g",config_backdrop_color_g);
+		config_backdrop_color_b = ini_get_int(ini,(const utf8_t *)"backdrop_color_b",config_backdrop_color_b);
+		
+		// recent files mru: recent_file_0 .. recent_file_9 hold the most
+		// recently opened paths, newest first. the walk stops at the first
+		// empty slot so a hand-edited hole cannot reorder the list.
+		{
+			int i;
+			
+			for(i=0;i<CONFIG_RECENT_FILE_COUNT;i++)
+			{
+				utf8_t key_buf[32];
+				const utf8_t *recent_value;
+				
+				_config_recent_key_name(key_buf,i);
+				recent_value = ini_get_string(ini,key_buf);
+				
+				if ((recent_value) && (*recent_value) && (config_recent_file_count < CONFIG_RECENT_FILE_COUNT))
+				{
+					wchar_t *recent_filename;
+					
+					recent_filename = string_alloc_utf8(recent_value);
+					
+					if (recent_filename)
+					{
+						config_recent_files[config_recent_file_count] = recent_filename;
+						config_recent_file_count++;
+					}
+				}
+			}
+		}
+		
+		// the walk above already stops at the cap; this clamp is the load-side
+		// guard of the same invariant (the menu id block, the save loop and the
+		// popup builder all assume count <= CONFIG_RECENT_FILE_COUNT), so any
+		// future writer that grows the count cannot walk past it.
+		if (config_recent_file_count > CONFIG_RECENT_FILE_COUNT)
+		{
+			config_recent_file_count = CONFIG_RECENT_FILE_COUNT;
+		}
 		config_auto_zoom = ini_get_int(ini,(const utf8_t *)"auto_zoom",config_auto_zoom);
 		config_auto_zoom_type = ini_get_int(ini,(const utf8_t *)"auto_zoom_type",config_auto_zoom_type);
 		config_auto_fit_wide_mul = ini_get_int(ini,(const utf8_t *)"auto_fit_wide_mul",config_auto_fit_wide_mul);
@@ -235,6 +357,39 @@ void config_load_settings(void)
 }
 
 
+static int _config_icompare_ascii(const utf8_t *s1,const char *lowercase_ascii_s2)
+{
+	// case-insensitive compare of an ascii/utf-8 string against a lowercase ascii keyword.
+	// returns 0 when equal.
+	
+	while (*s1 && *lowercase_ascii_s2)
+	{
+		char c;
+		
+		c = (char)*s1;
+		
+		if ((c >= 'A') && (c <= 'Z'))
+		{
+			c += 'a' - 'A';
+		}
+		
+		if (c != *lowercase_ascii_s2)
+		{
+			return 1;
+		}
+		
+		s1++;
+		lowercase_ascii_s2++;
+	}
+	
+	if (*s1 || *lowercase_ascii_s2)
+	{
+		return 1;
+	}
+	
+	return 0;
+}
+
 static void _config_write_int(HANDLE h,const char *ascii_key,int value)
 {
 	wchar_t wbuf[STRING_SIZE];
@@ -247,13 +402,41 @@ static void _config_write_int(HANDLE h,const char *ascii_key,int value)
 static void _config_write_string(HANDLE h,const char *ascii_key,const wchar_t *s)
 {
 	utf8_t buf[STRING_SIZE*3];
+	int ret;
 	
-	WideCharToMultiByte(CP_UTF8,0,s,-1,(char *)buf,STRING_SIZE*3,0,0);
+	// check the conversion: on failure the buffer is left unterminated and
+	// the writes below would read past its end (a full-width string can
+	// hit the boundary: STRING_SIZE wchars x 3 utf8 bytes + nul).
+	ret = WideCharToMultiByte(CP_UTF8,0,s,-1,(char *)buf,STRING_SIZE*3,0,0);
+	
+	if ((ret <= 0) || (ret >= (int)sizeof(buf)))
+	{
+		buf[0] = 0;
+	}
 	
 	_config_write_utf8(h,(const utf8_t *)ascii_key);
 	_config_write_utf8(h,(const utf8_t *)"=");
 	_config_write_utf8(h,buf);
 	_config_write_utf8(h,(const utf8_t *)"\r\n");
+}
+
+static void _config_recent_key_name(utf8_t *buf,int index)
+{
+	// "recent_file_0" .. "recent_file_9"
+	buf[0] = 'r';
+	buf[1] = 'e';
+	buf[2] = 'c';
+	buf[3] = 'e';
+	buf[4] = 'n';
+	buf[5] = 't';
+	buf[6] = '_';
+	buf[7] = 'f';
+	buf[8] = 'i';
+	buf[9] = 'l';
+	buf[10] = 'e';
+	buf[11] = '_';
+	buf[12] = (utf8_t)('0' + (index % 10));
+	buf[13] = 0;
 }
 
 static void _config_write_utf8(HANDLE h,const utf8_t *s)
@@ -306,6 +489,15 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"show_status",config_show_status);
 			_config_write_int(h,"statusbar_pixel_info",config_pixel_info);
 			_config_write_int(h,"show_controls",config_show_controls);
+			_config_write_int(h,"show_zoom_controls",config_show_zoom_controls);
+				_config_write_int(h,"zoom_auto_hide",config_zoom_auto_hide);
+			_config_write_string(h,"language",config_language == 1 ? L"english" : (config_language == 2 ? L"chinese" : L"auto"));
+		_config_write_string(h,"dark_mode",config_dark_mode == 1 ? L"dark" : (config_dark_mode == 0 ? L"light" : L"auto"));
+		_config_write_int(h,"accent_color",config_ui_accent);
+		_config_write_int(h,"backdrop_mode",config_backdrop_mode);
+		_config_write_int(h,"backdrop_color_r",config_backdrop_color_r);
+		_config_write_int(h,"backdrop_color_g",config_backdrop_color_g);
+		_config_write_int(h,"backdrop_color_b",config_backdrop_color_b);
 			_config_write_int(h,"auto_zoom",config_auto_zoom);
 			_config_write_int(h,"auto_zoom_type",config_auto_zoom_type);
 			_config_write_int(h,"auto_fit_wide_mul",config_auto_fit_wide_mul);
@@ -345,6 +537,21 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"toolbar_move_window",config_toolbar_move_window);
 			_config_write_int(h,"title_bar_format",config_title_bar_format);
 			_config_write_int(h,"add_command_line_timeout",config_add_command_line_timeout);
+				
+				// save the recent files mru: filled slots carry paths, the rest
+				// are written empty so removed entries do not survive a reload.
+				{
+					int i;
+					
+					for(i=0;i<CONFIG_RECENT_FILE_COUNT;i++)
+					{
+						utf8_t key_buf[32];
+						
+						_config_recent_key_name(key_buf,i);
+						
+						_config_write_string(h,key_buf,(i < config_recent_file_count) ? config_recent_files[i] : L"");
+					}
+				}
 					
 			// save keys
 			{

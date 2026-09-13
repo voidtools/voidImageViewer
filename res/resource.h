@@ -13,15 +13,8 @@
 #define IDD_CUSTOM_RATE                 109
 #define IDD_CONTROLS                    110
 #define IDB_BITMAP1                     112
-#define IDI_PREV                        116
-#define IDI_PLAY                        117
-#define IDI_NEXT                        118
-#define IDI_PAUSE                       119
 #define IDD_ABOUT                       121
 #define IDD_EDIT_KEY                    123
-#define IDI_ICON2                       124
-#define IDI_1TO1                        124
-#define IDI_BESTFIT                     126
 #define IDD_RENAME                      127
 #define IDD_JUMPTO                      128
 #define IDD_EVERYTHING                  129
@@ -83,6 +76,8 @@
 #define IDC_EDIT1                       1045
 #define IDC_EVERYTHING_EDIT             1046
 #define IDC_WEBP                        1047
+#define IDC_EMF                         1048
+#define IDC_WMF                         1049
 #define IDC_PRELOAD_NEXT_IMAGE          1048
 #define IDC_CACHE_LAST_IMAGE            1049
 #define IDC_AUTO_ZOOM                   1050
@@ -91,14 +86,59 @@
 #define IDC_SHRINK_BLIT_MODE_STATIC		1053
 #define IDC_MAGNIFY_BLIT_MODE_STATIC		1054
 
+// control id aliases.
+// (upstream master renamed these ids in code, but not in this file yet.)
+#define IDC_ADD_KEY_BUTTON                      IDC_ADD_KEY
+#define IDC_EDIT_KEY_BUTTON                     IDC_EDIT_KEY
+#define IDC_REMOVE_KEY_BUTTON                   IDC_REMOVE_KEY
+#define IDC_CACHE_LAST_IMAGE_STATIC             IDC_CACHE_LAST_IMAGE
+#define IDC_PRELOAD_NEXT_IMAGE_STATIC           IDC_PRELOAD_NEXT_IMAGE
+#define IDC_LOOP_ANIMATIONS_ONCE_STATIC         IDC_LOOP_ANIMATIONS_ONCE
+#define IDC_LEFTCLICKACTION_COMBOBOX            IDC_LEFTCLICKACTION
+#define IDC_RIGHTCLICKACTION_COMBOBOX           IDC_RIGHTCLICKACTION
+#define IDC_MOUSEWHEELACTION_COMBOBOX           IDC_MOUSEWHEELACTION
+#define IDC_AUTO_SIZE_WINDOW_COMBOBOX           IDC_COMBO4
+#define IDC_CUSTOM_RATE_TYPE_COMBOBOX           IDC_CUSTOM_RATE_TYPE_COMBO
+#define IDC_SHRINK_BLIT_MODE_COMBOBOX           IDC_COMBO1
+#define IDC_MAGNIFY_BLIT_MODE_COMBOBOX          IDC_COMBO2
+#define IDC_TITLE_BAR_FORMAT_COMBOBOX           IDC_TITLE_BAR_FORMAT
+#define IDC_WINDOWEDBACKGROUNDCOLOR_BUTTON      IDC_WINDOWEDBACKGROUNDCOLOR
+#define IDC_FULLSCREENBACKGROUNDCOLOR_BUTTON    IDC_FULLSCREENBACKGROUNDCOLOR
+#define IDC_SEARCH_EVERYTHING_RANDOM_CHECKBOX   IDC_SEARCH_EVERYTHING_RANDOM
+
+// new ids for controls that are localized at runtime.
+#define IDC_ASSOCIATIONS_GROUPBOX               1055
+#define IDC_SETTINGS_FOR_SELECTED_COMMAND_STATIC 1056
+#define IDC_LEFT_CLICK_ACTION_STATIC            1057
+#define IDC_RIGHT_CLICK_ACTION_STATIC           1058
+#define IDC_MOUSE_WHEEL_ACTION_STATIC           1059
+#define IDC_COMMANDS_STATIC                     1060
+#define IDC_CUSTOM_RATE_STATIC                  1061
+#define IDC_EDIT_KEYBOARD_SHORTCUT_KEY_STATIC   1062
+#define IDC_EDIT_KEYBOARD_SHORTCUT_KEY_CURRENTLY_USED_BY_STATIC 1063
+#define IDC_TITLE_BAR_FORMAT_STATIC             1064
+#define IDC_WINDOWEDBACKGROUNDCOLOR_STATIC      1065
+#define IDC_FULLSCREENBACKGROUNDCOLOR_STATIC    1066
+#define IDC_LANGUAGE_STATIC                     1067
+#define IDC_LANGUAGE                            1068
+#define IDC_DARKMODE_STATIC                     1069
+#define IDC_DARKMODE                            1070
+
+// new ids for the about band chrome (the template round): two separator
+// lines and the button strip face, declared before the buttons in the
+// idd_about template so they sit under them in the z order.
+#define IDC_ABOUTBAND                    1073
+#define IDC_ABOUTLINE1                   1074
+#define IDC_ABOUTLINE2                   1075
+
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
-#define _APS_NEXT_RESOURCE_VALUE        130
+#define _APS_NEXT_RESOURCE_VALUE        131
 #define _APS_NEXT_COMMAND_VALUE         40048
-#define _APS_NEXT_CONTROL_VALUE         1055
+#define _APS_NEXT_CONTROL_VALUE         1076
 #define _APS_NEXT_SYMED_VALUE           109
 #endif
 #endif

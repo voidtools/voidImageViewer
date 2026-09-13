@@ -27,38 +27,53 @@ extern "C" {
 
 enum
 {
-	CONFIG_NAV_SORT_NAME=0,
-	CONFIG_NAV_SORT_SIZE,
-	CONFIG_NAV_SORT_DATE_MODIFIED,
-	CONFIG_NAV_SORT_DATE_CREATED,
-	CONFIG_NAV_SORT_FULL_PATH_AND_FILENAME,
+        CONFIG_NAV_SORT_NAME=0,
+        CONFIG_NAV_SORT_SIZE,
+        CONFIG_NAV_SORT_DATE_MODIFIED,
+        CONFIG_NAV_SORT_DATE_CREATED,
+        CONFIG_NAV_SORT_FULL_PATH_AND_FILENAME,
 };
 
-#define CONFIG_KEYFLAG_CTRL					0x0100
-#define CONFIG_KEYFLAG_SHIFT				0x0200
-#define CONFIG_KEYFLAG_ALT					0x0400
-#define CONFIG_KEYFLAG_VK_MASK				0x00ff
-#define CONFIG_KEYFLAG_MOD_MASK				0xff00
+#define CONFIG_KEYFLAG_CTRL                                     0x0100
+#define CONFIG_KEYFLAG_SHIFT                            0x0200
+#define CONFIG_KEYFLAG_ALT                                      0x0400
+#define CONFIG_KEYFLAG_VK_MASK                          0x00ff
+#define CONFIG_KEYFLAG_MOD_MASK                         0xff00
 
 // a keyboard shortcut
 
 typedef struct config_key_s
 {
-	struct config_key_s *next;
-	WORD key;
-	
+        struct config_key_s *next;
+        WORD key;
+        
 }config_key_t;
 
-#define CONFIG_SHRINK_BLIT_MODE_COLORONCOLOR	0
-#define CONFIG_SHRINK_BLIT_MODE_HALFTONE		1
+#define CONFIG_SHRINK_BLIT_MODE_COLORONCOLOR    0
+#define CONFIG_SHRINK_BLIT_MODE_HALFTONE                1
 
-#define CONFIG_MAG_FILTER_COLORONCOLOR			0
-#define CONFIG_MAG_FILTER_HALFTONE				1
+#define CONFIG_MAG_FILTER_COLORONCOLOR                  0
+#define CONFIG_MAG_FILTER_HALFTONE                              1
 
 void config_load_settings(void);
 void config_save_settings(int appdata);
 
 extern BYTE config_appdata;
+extern BYTE config_language; // ui language: 0 = auto (follow the system language), 1 = english, 2 = simplified chinese.
+extern BYTE config_dark_mode; // ui theme: 0 = light, 1 = dark, 2 = auto (follow the windows theme).
+extern BYTE config_ui_accent; // ui accent color index: 0..4 (azure, teal, violet, amber, rose), see viv_theme.
+
+// what shows under the transparent pixels of an image with alpha (not
+// the canvas around the image: that color is the windowed background).
+#define CONFIG_BACKDROP_MODE_FOLLOW                     0
+#define CONFIG_BACKDROP_MODE_BLACK                      1
+#define CONFIG_BACKDROP_MODE_WHITE                      2
+#define CONFIG_BACKDROP_MODE_CUSTOM                     3
+#define CONFIG_BACKDROP_MODE_CHECKERBOARD       4
+extern BYTE config_backdrop_mode;
+extern BYTE config_backdrop_color_r;
+extern BYTE config_backdrop_color_g;
+extern BYTE config_backdrop_color_b;
 extern BYTE config_keep_centered;
 extern int config_x;
 extern int config_y;
@@ -120,6 +135,13 @@ extern BYTE config_pixel_info;
 extern BYTE config_orientation;
 extern BYTE config_title_bar_format;
 extern int config_add_command_line_timeout;
+extern BYTE config_show_zoom_controls;
+extern BYTE config_zoom_auto_hide;
+
+// recent files mru (most recently opened paths, newest first).
+#define CONFIG_RECENT_FILE_COUNT        10
+extern wchar_t *config_recent_files[CONFIG_RECENT_FILE_COUNT];
+extern int config_recent_file_count;
 
 #ifdef __cplusplus
 }

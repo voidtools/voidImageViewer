@@ -21,6 +21,13 @@
 //
 // VoidImageViewer
 
+// include guard: upstream relied on each translation unit including this
+// exactly once; the R70 split layers viv_state.h and the domain headers
+// on top of it, so a plain guard is now required (double inclusion
+// redefines the command-id enum).
+#ifndef VIV_H
+#define VIV_H
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -46,10 +53,44 @@ extern "C" {
 #define COBJMACROS // c object interface please
 #define CINTERFACE // c interface only
 
-#define VIV_UINT64_MAX	0xFFFFFFFFFFFFFFFFUI64
+#define VIV_UINT64_MAX	0xFFFFFFFFFFFFFFFFULL
 #define VIV_DWORD_MAX	0xffffffff
 
+// single image pixel budget: a corrupted or hostile header can
+// claim dimensions that decode to gigabytes of rgba (a 428 kb png
+// can ask for 20000 x 20000). the loaders refuse the file before
+// any allocation happens so a huge canvas fails like any other
+// unloadable file instead of dying inside the allocator.
+//
+// the ceiling is pointer-width dependent (1.0.04): 32-bit builds
+// keep the 100 mp ceiling (a 100 mp rgba frame is already 400 mb
+// against a 2 gb address space once gdi copies, mipmaps and
+// rotation buffers pile up); 64-bit builds (x64 / arm64) can
+// afford 400 mp so real panoramic stitches and large flatbed
+// scans (15000 x 9000 and up) load normally instead of failing
+// like a corrupt file. both ceilings still bound a hostile canvas
+// before the decoder runs.
+#if defined(_WIN64)
+#define VIV_MAX_IMAGE_PIXELS	400000000
+// animated webp keeps the static ceiling on 64-bit builds: the address
+// space absorbs the decode canvas, the anim decoder working frame and
+// the display bitmap.
+#define VIV_MAX_ANIMATION_PIXELS	400000000
+#else
+#define VIV_MAX_IMAGE_PIXELS	100000000
+// 32-bit: an animated canvas pays for the decode canvas, the anim
+// decoder working frame and the display bitmap (roughly 12 bytes per
+// pixel) inside a 2 gb address space, so the animation ceiling is a
+// quarter of the static one (25 mp ~= 300 mb of buffers).
+#define VIV_MAX_ANIMATION_PIXELS	25000000
+#endif
+
 typedef unsigned char utf8_t;
+
+// __int64 is msvc only: mingw and zig cc spell it long long.
+#ifndef _MSC_VER
+#define __int64 long long
+#endif
 
 typedef unsigned __int64 VIV_UINT64;
 
@@ -63,7 +104,7 @@ typedef unsigned __int64 VIV_UINT64;
 //#include <shlobj.h>
 //#include <istream>
 #include <commdlg.h> // OPENFILENAME
-#include <Shellapi.h> // ShellExecute
+#include <shellapi.h> // ShellExecute
 #include <uxtheme.h>
 //#include <process.h> // _beginthreadex
 #include <shlobj.h> // DROPFILES
@@ -106,23 +147,6 @@ enum
 	VIV_ID_VIEW_WINDOW_SIZE_100,
 	VIV_ID_VIEW_WINDOW_SIZE_200,
 	VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT,
-
-	VIV_ID_VIEW_PANSCAN_INCREASE_SIZE,
-	VIV_ID_VIEW_PANSCAN_DECREASE_SIZE,
-	VIV_ID_VIEW_PANSCAN_INCREASE_WIDTH,
-	VIV_ID_VIEW_PANSCAN_DECREASE_WIDTH,
-	VIV_ID_VIEW_PANSCAN_INCREASE_HEIGHT,
-	VIV_ID_VIEW_PANSCAN_DECREASE_HEIGHT,
-	VIV_ID_VIEW_PANSCAN_MOVE_UP,
-	VIV_ID_VIEW_PANSCAN_MOVE_DOWN,
-	VIV_ID_VIEW_PANSCAN_MOVE_LEFT,
-	VIV_ID_VIEW_PANSCAN_MOVE_RIGHT,
-	VIV_ID_VIEW_PANSCAN_MOVE_UP_LEFT,
-	VIV_ID_VIEW_PANSCAN_MOVE_UP_RIGHT,
-	VIV_ID_VIEW_PANSCAN_MOVE_DOWN_LEFT,
-	VIV_ID_VIEW_PANSCAN_MOVE_DOWN_RIGHT,
-	VIV_ID_VIEW_PANSCAN_MOVE_CENTER,
-	VIV_ID_VIEW_PANSCAN_RESET,
 
 	VIV_ID_VIEW_ZOOM_IN,
 	VIV_ID_VIEW_ZOOM_OUT,
@@ -187,15 +211,20 @@ enum
 	VIV_ID_HELP_ABOUT,
 	
 	VIV_ID_FILE_EXIT,
+	VIV_ID_FILE_SAVE_AS,
 	
 	VIV_ID_SLIDESHOW_TIMER,
 	VIV_ID_HIDE_CURSOR_TIMER,
 	VIV_ID_STATUS_TEMP_TEXT_TIMER,
 	VIV_ID_ANIMATION_TIMER,
+	VIV_ID_DARK_RECHECK_TIMER,
+	VIV_ID_DARK_DIALOG_ASSERT_TIMER,
+	VIV_ID_RECENT_SAVE_TIMER,
 
 	VIV_ID_STATUS,
 	VIV_ID_REBAR,
 	VIV_ID_TOOLBAR,
+	VIV_ID_MENUBAR,
 	
 	VIV_ID_OPTIONS_GENERAL,
 	VIV_ID_OPTIONS_VIEW,
@@ -221,6 +250,38 @@ enum
 	VIV_ID_VIEW_REFRESH,
 	VIV_ID_VIEW_CAPTION,
 	VIV_ID_VIEW_THICKFRAME,
+
+	// touch / zoom controls (appended so existing ids are not shifted)
+	VIV_ID_VIEW_ZOOM_CONTROLS,
+
+	// backdrop shown under transparent pixels (appended, ids not shifted)
+	VIV_ID_VIEW_BACKDROP_FOLLOW,
+	VIV_ID_VIEW_BACKDROP_BLACK,
+	VIV_ID_VIEW_BACKDROP_WHITE,
+	VIV_ID_VIEW_BACKDROP_CUSTOM,
+	VIV_ID_VIEW_BACKDROP_CHECKERBOARD,
+	VIV_ID_ZOOMUI,
+
+	// zoom overlay auto hide (appended so existing ids are not shifted)
+	VIV_ID_VIEW_ZOOM_AUTO_HIDE,
+
+	// recent files mru submenu items and the clear command
+	// (appended so existing ids are not shifted)
+	VIV_ID_FILE_RECENT_CLEAR,
+	VIV_ID_FILE_RECENT_0,
+	VIV_ID_FILE_RECENT_1,
+	VIV_ID_FILE_RECENT_2,
+	VIV_ID_FILE_RECENT_3,
+	VIV_ID_FILE_RECENT_4,
+	VIV_ID_FILE_RECENT_5,
+	VIV_ID_FILE_RECENT_6,
+	VIV_ID_FILE_RECENT_7,
+	VIV_ID_FILE_RECENT_8,
+	VIV_ID_FILE_RECENT_9,
+
+	// view menu windowed background color picker
+	// (appended so existing ids are not shifted)
+	VIV_ID_VIEW_WINDOWED_BACKGROUND_COLOR,
 };
 
 #include "version.h"
@@ -233,6 +294,12 @@ enum
 #include "utf8.h"
 #include "ini.h"
 #include "config.h"
+#include "viv_theme.h"
+#include "viv_msgbox.h"
+#include "zoomui.h"
+#include "viv_toolbar.h"
+#include "viv_settings.h"
+#include "glyphs.h"
 #include "webp.h"
 #include "small_pool.h"
 #include "safe_size.h"
@@ -247,3 +314,5 @@ config_key_t *viv_key_get_start(int command_index);
 #ifdef __cplusplus
 }
 #endif
+
+#endif // VIV_H

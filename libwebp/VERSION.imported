@@ -1,0 +1,54 @@
+libwebp vendored import - provenance record
+============================================
+
+upstream:        https://github.com/webmproject/libwebp
+version:         1.6.0 (stable, announced 2025-06-30)
+source tarball:  libwebp-1.6.0.tar.gz (GitHub tag v1.6.0 archive)
+tarball sha256:  93a852c2b3efafee3723efd4636de855b46f9fe1efddd607e1f42f60fc8f2136
+imported:        2026-09-04 (voidImageViewer_PLUS rc.5, user-approved D1)
+
+what is compiled (vs2019/vs2026 vcxproj, 66 ClCompile entries):
+  the upstream "decode only" file set (libwebpdecoder semantics) as
+  classified by libwebp 1.6.0's own build files:
+    src/dec (10) + src/demux (2) + src/dsp decode set (44) +
+    src/utils decode set (10)
+  upgrade audit against the previous 1.3.2 import: every previously
+  compiled decode file still exists unchanged in name; the only new
+  file is src/dsp/lossless_avx2.c (AVX2 lossless prediction, enabled
+  on MSVC via the WEBP_MSC_AVX2 path in src/dsp/cpu.h).
+
+IMPORTANT correction to the original pruning plan:
+  the plan assumed the old 89-file project list compiled no encoder
+  code (because no file lived under src/enc/). in fact the old list
+  compiled 24 encoder-side files living in src/dsp and src/utils
+  (cost*.c, enc*.c, lossless_enc*.c, ssim*.c, bit_writer_utils.c,
+  huffman_encode_utils.c, quant_levels_utils.c) - encoder code that
+  shipped inside voidImageViewer.exe and #included src/enc headers.
+  this import switches to the upstream decode-only set, so the
+  encoder is now genuinely absent from both the tree and the binary
+  (the attack-surface reduction the plan actually wanted).
+
+pruned at import (not present in this tree at all):
+  webp_js/  examples/  imageio/  swig/  man/  gradle/ (+ gradle
+  top-level files)  infra/  extras/  sharpyuv/  src/enc/  src/mux/
+  and the 24 encoder-side .c files inside src/dsp and src/utils
+  listed above. the decode set was verified self-contained by an
+  include-closure scan (no kept file references anything pruned).
+
+post-import sweep (rc.5 carpet review, 2026-09-05): the first
+  pruning pass missed files that only exist in 1.6.0 (they were not
+  in the old 1.3.2 project list the pass was diffed against):
+  src/dsp/lossless_enc_avx2.c (new-in-1.6.0 encoder file) and the
+  three encoder-side headers src/utils/{bit_writer_utils.h,
+  huffman_encode_utils.h, quant_levels_utils.h} were still on disk
+  (and the headers still listed as ClInclude). none of them were
+  compiled or referenced - the shipped binary was already
+  encoder-free - but the tree was not. they are now removed, so the
+  tree matches this record exactly: zero encoder files anywhere.
+
+kept:  tests/  doc/  cmake/  src/{dec,demux,dsp,utils,webp} with
+  all upstream headers  COPYING  PATENTS  AUTHORS  ChangeLog  NEWS
+  README.md  and the top-level build files (CMakeLists.txt,
+  Makefile.am, Makefile.vc, Android.mk, ...)
+
+license: BSD-3-Clause (COPYING); the WebP patent grant is in PATENTS.

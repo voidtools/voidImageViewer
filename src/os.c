@@ -110,6 +110,7 @@ static IShellItem *_os_get_shellitem(const ITEMIDLIST *pidl);
 HINSTANCE os_hinstance = 0;
 DWORD os_major_version = 0; // 4 = 9x/nt, 5 = xp,2k,server2k3, 6 = vista
 DWORD os_minor_version = 0;
+DWORD os_build_number = 0; // the real build number (valid with the supportedOS manifest guid list)
 char os_is_nt = 0;
 BOOL (WINAPI *os_CreateTimerQueueTimer)(PHANDLE phNewTimer,HANDLE TimerQueue,WAITORTIMERCALLBACK Callback,PVOID Parameter,DWORD DueTime,DWORD Period,ULONG Flags) = 0;
 BOOL (WINAPI *os_DeleteTimerQueueTimer)(HANDLE TimerQueue,HANDLE Timer,HANDLE CompletionEvent) = 0;
@@ -119,6 +120,9 @@ BOOL (WINAPI *os_GetFileAttributesExW)(LPCWSTR lpFileName,GET_FILEEX_INFO_LEVELS
 BOOL (WINAPI *_os_IsDebuggerPresent)(void) = 0;
 EXECUTION_STATE (WINAPI *os_SetThreadExecutionState)(  EXECUTION_STATE esFlags) = NULL;
 LANGID (WINAPI *os_GetUserDefaultUILanguage)(void) = NULL;
+BOOL (WINAPI *os_SetGestureConfig)(HWND hwnd,DWORD reserved,UINT cIDs,os_GestureConfig_t *configs,UINT cbSize) = NULL;
+BOOL (WINAPI *os_GetGestureInfo)(void *gesture_info_handle,os_GestureInfo_t *gesture_info) = NULL;
+BOOL (WINAPI *os_CloseGestureInfoHandle)(void *gesture_info_handle) = NULL;
 HRESULT (WINAPI *os_SHOpenFolderAndSelectItems)(LPCITEMIDLIST pidlFolder,UINT cidl,LPCITEMIDLIST *apidl,DWORD dwFlags) = 0;
 int (WINAPI *os_GdiplusStartup)(OUT ULONG_PTR *token,const os_GdiplusStartupInput_t *input,void *output) = 0;
 VOID (WINAPI *os_GdiplusShutdown)(ULONG_PTR token) = 0;
@@ -130,6 +134,7 @@ int (__stdcall *os_GdipImageGetFrameDimensionsCount)(void *image, UINT* count) =
 int (__stdcall *os_GdipImageGetFrameDimensionsList)(void *image, GUID* dimensionIDs,UINT count) = 0;
 int (__stdcall *os_GdipImageGetFrameCount)(void *image, const GUID* dimensionID,UINT* count) = 0;
 int (__stdcall *os_GdipGetPropertyItemSize)(void *image, PROPID propId, UINT* size) = 0;
+int (__stdcall *os_GdipGetImageThumbnail)(void *image,UINT thumb_wide,UINT thumb_high,void **thumb_image,void *callback,void *callback_data) = 0;
 int (__stdcall *os_GdipGetPropertyItem)(void *image, PROPID propId,UINT propSize,void *buffer) = 0;
 int (__stdcall *os_GdipImageSelectActiveFrame)(void *image, const GUID* dimensionID,UINT frameIndex) = 0;
 int (__stdcall *os_GdipGetImageFlags)(void *image, UINT *flags) = 0;
@@ -142,14 +147,80 @@ int (__stdcall *os_GdipSetPixelOffsetMode)(void* graphics,int pixelOffsetMode) =
 int (__stdcall *os_GdipSetSmoothingMode)(void *graphics, int smoothingMode) = 0;
 int (__stdcall *os_GdipDrawImageRectI)(void *graphics, void *image, INT x, INT y,INT width, INT height) = 0;
 int (__stdcall *os_GdipDeleteGraphics)(void *graphics) = 0;
+int (__stdcall *os_GdipCreateBitmapFromHBITMAP)(HBITMAP hbitmap,HPALETTE hpalette,void **bitmap) = 0;
+int (__stdcall *os_GdipSaveImageToFile)(void *image,const wchar_t *filename,const GUID *clsidEncoder,const void *encoderParams) = 0;
+int (__stdcall *os_GdipGetImageEncodersSize)(unsigned int *numCodecs,unsigned int *size) = 0;
+int (__stdcall *os_GdipGetImageEncoders)(unsigned int numCodecs,unsigned int size,void *encoders) = 0;
 BOOL (STDAPICALLTYPE *os_IsUserAnAdmin)(void) = 0;
 HRESULT (__stdcall *os_EnableThemeDialogTexture)(HWND hwnd, DWORD dwFlags) = 0;
 static unsigned int (__cdecl *_os_controlfp)(unsigned int _NewValue,unsigned int _Mask) = 0;
 BOOL (WINAPI *os_ChangeWindowMessageFilterEx)(HWND hWnd,UINT message,DWORD action,void *pChangeFilterStruct) = 0;
 DWORD (WINAPI *os_GetLayout)(HDC hdc) = 0;
+// windows 10 (1809+) dark mode exports, resolved by ordinal at runtime.
+typedef int (__stdcall *OS_SetPreferredAppMode_fn)(int mode);
+typedef void (__stdcall *OS_FlushMenuThemes_fn)(void);
+typedef void (__stdcall *OS_RefreshImmersiveColorPolicyState_fn)(void);
+typedef int (__stdcall *OS_ShouldAppsUseDarkMode_fn)(void);
+typedef int (__stdcall *OS_AllowDarkModeForWindow_fn)(HWND hwnd,int allow);
+typedef HRESULT (__stdcall *OS_DwmSetWindowAttribute_fn)(HWND hwnd,DWORD attribute,const void *value,DWORD size);
+static OS_SetPreferredAppMode_fn _os_SetPreferredAppMode = 0;
+static OS_FlushMenuThemes_fn _os_FlushMenuThemes = 0;
+static OS_RefreshImmersiveColorPolicyState_fn _os_RefreshImmersiveColorPolicyState = 0;
+static OS_ShouldAppsUseDarkMode_fn _os_ShouldAppsUseDarkMode = 0;
+static OS_AllowDarkModeForWindow_fn _os_AllowDarkModeForWindow = 0;
+static OS_DwmSetWindowAttribute_fn _os_DwmSetWindowAttribute = 0;
+
+typedef HRESULT (__stdcall *OS_SetWindowTheme_fn)(HWND hwnd,const wchar_t *sub_app_name,const wchar_t *sub_id_list);
+static OS_SetWindowTheme_fn _os_SetWindowTheme = 0;
+// the theme part metrics for the custom drawn glyph labels (the same
+// dynamic pattern as the theme class calls above).
+typedef HANDLE (__stdcall *OS_OpenThemeData_fn)(HWND hwnd,const wchar_t *class_list);
+typedef HRESULT (__stdcall *OS_CloseThemeData_fn)(HANDLE theme);
+typedef HRESULT (__stdcall *OS_GetThemePartSize_fn)(HANDLE theme,HDC hdc,int part,int state,const RECT *rect,int size_type,SIZE *size);
+static OS_OpenThemeData_fn _os_OpenThemeData = 0;
+static OS_CloseThemeData_fn _os_CloseThemeData = 0;
+static OS_GetThemePartSize_fn _os_GetThemePartSize = 0;
+typedef HRESULT (__stdcall *OS_DrawThemeBackground_fn)(HANDLE theme,HDC hdc,int part,int state,const RECT *rect);
+static OS_DrawThemeBackground_fn _os_DrawThemeBackground = 0;
+
+// registry reads for a stable dark mode detection: the undocumented uxtheme
+// probe returns wrong values on some windows 10 1903+ builds, the personalize
+// registry value is the documented source the shell itself follows.
+typedef LONG (__stdcall *OS_RegOpenKeyExW_fn)(HKEY key,const wchar_t *name,DWORD options,DWORD access,HKEY *result);
+typedef LONG (__stdcall *OS_RegQueryValueExW_fn)(HKEY key,const wchar_t *name,DWORD *reserved,DWORD *type,unsigned char *data,DWORD *size);
+typedef LONG (__stdcall *OS_RegCloseKey_fn)(HKEY key);
+static OS_RegOpenKeyExW_fn _os_RegOpenKeyExW = 0;
+static OS_RegQueryValueExW_fn _os_RegQueryValueExW = 0;
+static OS_RegCloseKey_fn _os_RegCloseKey = 0;
+typedef LONG (__stdcall *OS_RegDeleteKeyExW_fn)(HKEY key,const wchar_t *name,REGSAM access,DWORD reserved);
+static OS_RegDeleteKeyExW_fn _os_RegDeleteKeyExW = 0;
+static HMODULE _os_advapi32_hmodule = 0;
+
+// cached dark state: the ui queries the dark mode in paint paths, so the
+// system is probed once and the cache is dropped on setting changes.
+static int _os_dark_cache_valid = 0;
+static int _os_dark_cache_dark = 0;
+
 static HMONITOR (WINAPI *_os_MonitorFromWindow)(HWND hwnd,DWORD dwFlags) = 0;
 static HMONITOR (WINAPI *_os_MonitorFromRect)(LPCRECT lprc,DWORD dwFlags) = 0;
 static HMONITOR (WINAPI *_os_MonitorFromPoint)(POINT pt,DWORD dwFlags) = 0;
+
+// windows 10 1607+: per window dpi query, used by os_window_update_dpi().
+static UINT (WINAPI *_os_GetDpiForWindow)(HWND hwnd) = 0;
+// windows 10 1703+: process wide dpi awareness claim, used when the
+// embedded manifest is missing or was stripped.
+static BOOL (WINAPI *_os_SetProcessDpiAwarenessContext)(HANDLE context) = 0;
+// windows 10 1607+: per thread dpi awareness claim, same purpose.
+static HANDLE (WINAPI *_os_SetThreadDpiAwarenessContext)(HANDLE context) = 0;
+// windows 8.1: shcore fallback.
+static HRESULT (WINAPI *_os_SetProcessDpiAwareness)(int value) = 0;
+static HMODULE _os_shcore_hmodule = 0;
+// windows vista / 7: the classic system aware claim - the only dpi api
+// those systems carry.
+static BOOL (WINAPI *_os_SetProcessDPIAware)(void) = 0;
+
+// windows 10 1607+: dpi aware system parameters, used by os_menu_font().
+static BOOL (WINAPI *_os_SystemParametersInfoForDpi)(UINT action,UINT param,void *pvparam,UINT winini,UINT dpi) = 0;
 
 int os_logical_wide = 96;
 int os_logical_high = 96;
@@ -168,18 +239,21 @@ static HMODULE _os_UxTheme_hmodule = 0;
 static HMODULE _os_gdiplus_hmodule = 0;
 static HMODULE _os_ucrtbase_hmodule = 0;
 static HMODULE _os_gdi32_hmodule = 0;
+static HMODULE _os_dwmapi_hmodule = 0;
 
 void os_zero_memory(void *data,int size)
 {
 	ZeroMemory(data,size);
 }
 
-void os_copy_memory(void *d,const void *s,int size)
+// size_t lengths: the clipboard dib paste copies stride*height bytes,
+// which crosses int_max inside the 64-bit pixel budget.
+void os_copy_memory(void *d,const void *s,SIZE_T size)
 {
 	CopyMemory(d,s,size);
 }
 
-void os_move_memory(void *d,const void *s,int size)
+void os_move_memory(void *d,const void *s,SIZE_T size)
 {
 	MoveMemory(d,s,size);
 }
@@ -716,8 +790,14 @@ void os_RegisterClassEx(UINT style,WNDPROC lpfnWndProc,HICON hIcon,HCURSOR hCurs
 	wcex.lpfnWndProc = lpfnWndProc;
 	wcex.hInstance = os_hinstance;
 	wcex.hIcon = hIcon;
-	wcex.hCursor = LoadCursor(NULL,IDC_ARROW);
-	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);
+	// the wrapper honored neither the cursor nor the brush it was given:
+	// every class registered with the light window brush (white), so the
+	// rebar slabs, the zoomui tray and any bypassing erase flashed white
+	// in the dark ui no matter what the callers wrote. the parameters are
+	// the contract now - a caller that wants the classic faces passes
+	// them, a caller that paints its own face passes no brush at all.
+	wcex.hCursor = hCursor;
+	wcex.hbrBackground = hbrBackground;
 	wcex.lpszClassName = name_wbuf;
 	wcex.hIconSm = hIconSm;
 	
@@ -803,6 +883,7 @@ void os_init(void)
 
 		os_major_version = (char)osvi.dwMajorVersion;
 		os_minor_version = (char)osvi.dwMinorVersion;
+		os_build_number = osvi.dwBuildNumber;
 		os_is_nt = (osvi.dwPlatformId == VER_PLATFORM_WIN32_NT);
 
 		debug_printf("os %d\n",os_major_version);
@@ -860,15 +941,113 @@ void os_init(void)
 	if (_os_user32_hmodule)
 	{
 		os_ChangeWindowMessageFilterEx = (void *)GetProcAddress(_os_user32_hmodule,"ChangeWindowMessageFilterEx");
+		os_SetGestureConfig = (void *)GetProcAddress(_os_user32_hmodule,"SetGestureConfig");
+		os_GetGestureInfo = (void *)GetProcAddress(_os_user32_hmodule,"GetGestureInfo");
+		os_CloseGestureInfoHandle = (void *)GetProcAddress(_os_user32_hmodule,"CloseGestureInfoHandle");
 		_os_MonitorFromWindow = (void *)GetProcAddress(_os_user32_hmodule,"MonitorFromWindow");
 		_os_MonitorFromRect = (void *)GetProcAddress(_os_user32_hmodule,"MonitorFromRect");
 		_os_MonitorFromPoint = (void *)GetProcAddress(_os_user32_hmodule,"MonitorFromPoint");
+		_os_GetDpiForWindow = (void *)GetProcAddress(_os_user32_hmodule,"GetDpiForWindow");
+		_os_SystemParametersInfoForDpi = (void *)GetProcAddress(_os_user32_hmodule,"SystemParametersInfoForDpi");
+		_os_SetThreadDpiAwarenessContext = (void *)GetProcAddress(_os_user32_hmodule,"SetThreadDpiAwarenessContext");
+		_os_SetProcessDpiAwarenessContext = (void *)GetProcAddress(_os_user32_hmodule,"SetProcessDpiAwarenessContext");
+		_os_SetProcessDPIAware = (void *)GetProcAddress(_os_user32_hmodule,"SetProcessDPIAware");
+	}
+
+	// dpi awareness: the embedded manifest normally declares per monitor
+	// v2 (res/voidImageViewer.Manifest, merged by the vs linker through
+	// AdditionalManifestFiles; a viv.exe.manifest next to the exe covers
+	// manifest-less builds). the runtime claim below is the safety net
+	// for a manifest-less binary (repackaged or stripped exes): without
+	// it the process stays dpi unaware, the system bitmap-stretches every
+	// window at high dpi and the ui turns blurry and oversized.
+	// the claim must happen before the first window exists: os_init is
+	// exactly that point, and the GetProcAddress block above must come
+	// first -- this used to sit before the pointers were resolved and
+	// silently never fired.
+	// each tier is a guarded no-op on systems without the api:
+	// win10 1703+ process wide, win10 1607+ per thread (covers the ui
+	// thread this process creates every window on), win 8.1 shcore
+	// process claim, and win 7 / vista close the chain with the classic
+	// setprocessdpiaware claim - without that last tier a manifest-less
+	// binary on 7 stayed fully unaware and the system bitmap-stretched
+	// everything (the manifest carries the same ladder through its dual
+	// dpiAware / dpiAwareness declaration).
+	if (_os_SetProcessDpiAwarenessContext)
+	{
+		// DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = ((DPI_CONTEXT_HANDLE)-4)
+		_os_SetProcessDpiAwarenessContext((HANDLE)-4);
+	}
+	else if (_os_SetThreadDpiAwarenessContext)
+	{
+		_os_SetThreadDpiAwarenessContext((HANDLE)-4);
+	}
+	else
+	{
+		int claimed;
+
+		claimed = 0;
+
+		_os_shcore_hmodule = LoadLibraryA("shcore.dll");
+
+		if (_os_shcore_hmodule)
+		{
+			_os_SetProcessDpiAwareness = (void *)GetProcAddress(_os_shcore_hmodule,"SetProcessDpiAwareness");
+
+			// PROCESS_PER_MONITOR_DPI_AWARE = 2.
+			if (_os_SetProcessDpiAwareness)
+			{
+				_os_SetProcessDpiAwareness(2);
+
+				claimed = 1;
+			}
+		}
+
+		// win 7 / vista: the classic claim. a manifest-declared process
+		// is already aware - the call fails harmlessly there.
+		if ((!claimed) && (_os_SetProcessDPIAware))
+		{
+			_os_SetProcessDPIAware();
+		}
 	}
 
 	_os_UxTheme_hmodule = LoadLibraryA("UxTheme.dll");
 	if (_os_UxTheme_hmodule)
 	{
 		os_EnableThemeDialogTexture = (void *)GetProcAddress(_os_UxTheme_hmodule,"EnableThemeDialogTexture");
+		
+		// the dark explorer visual style for dialog controls (named export).
+		_os_SetWindowTheme = (void *)GetProcAddress(_os_UxTheme_hmodule,"SetWindowTheme");
+		
+		// windows 10 dark mode: uxtheme exports these by ordinal only. on
+		// windows 7/8 and pre-1809 builds they do not resolve and every dark
+		// function below quietly does nothing.
+		_os_SetPreferredAppMode = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(135));
+		_os_FlushMenuThemes = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(136));
+		_os_RefreshImmersiveColorPolicyState = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(104));
+		_os_ShouldAppsUseDarkMode = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(132));
+		_os_AllowDarkModeForWindow = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(133));		
+		// the button part metrics (the glyph label offset).
+		_os_OpenThemeData = (void *)GetProcAddress(_os_UxTheme_hmodule,"OpenThemeData");
+		_os_CloseThemeData = (void *)GetProcAddress(_os_UxTheme_hmodule,"CloseThemeData");
+		_os_GetThemePartSize = (void *)GetProcAddress(_os_UxTheme_hmodule,"GetThemePartSize");
+		_os_DrawThemeBackground = (void *)GetProcAddress(_os_UxTheme_hmodule,"DrawThemeBackground");
+
+	}
+	
+	_os_dwmapi_hmodule = LoadLibraryA("dwmapi.dll");
+	if (_os_dwmapi_hmodule)
+	{
+		_os_DwmSetWindowAttribute = (void *)GetProcAddress(_os_dwmapi_hmodule,"DwmSetWindowAttribute");
+	}
+	
+	// advapi32: registry reads for the dark mode detection.
+	_os_advapi32_hmodule = LoadLibraryA("advapi32.dll");
+	if (_os_advapi32_hmodule)
+	{
+		_os_RegOpenKeyExW = (void *)GetProcAddress(_os_advapi32_hmodule,"RegOpenKeyExW");
+		_os_RegQueryValueExW = (void *)GetProcAddress(_os_advapi32_hmodule,"RegQueryValueExW");
+		_os_RegCloseKey = (void *)GetProcAddress(_os_advapi32_hmodule,"RegCloseKey");
 	}
 	
 	// set "floating point to int mode" to truncate
@@ -887,7 +1066,7 @@ void os_init(void)
 	_os_gdi32_hmodule = LoadLibraryA("gdi32.dll");
 	if (_os_gdi32_hmodule)
 	{
-		os_GetLayout = (void *)GetProcAddress(_os_user32_hmodule,"GetLayout");
+		os_GetLayout = (void *)GetProcAddress(_os_gdi32_hmodule,"GetLayout");
 	}
 
 	_os_gdiplus_hmodule = LoadLibraryA("gdiplus.dll");
@@ -903,6 +1082,11 @@ void os_init(void)
 		os_GdipImageGetFrameDimensionsList = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipImageGetFrameDimensionsList");
 		os_GdipImageGetFrameCount = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipImageGetFrameCount");
 		os_GdipGetPropertyItemSize = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipGetPropertyItemSize");
+		// optional: gdi+ serves the embedded exif thumbnail without decoding
+		// the full image, but not every gdiplus.dll exports GdipGetImageThumbnail.
+		// a missing export must never be fatal at startup (it would kill the
+		// /install self-install step), the progressive preview quietly turns off.
+		os_GdipGetImageThumbnail = (void *)GetProcAddress(_os_gdiplus_hmodule,"GdipGetImageThumbnail");
 		os_GdipGetPropertyItem = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipGetPropertyItem");
 		os_GdipImageSelectActiveFrame = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipImageSelectActiveFrame");
 		os_GdipGetImageFlags = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipGetImageFlags");
@@ -915,6 +1099,730 @@ void os_init(void)
 		os_GdipSetSmoothingMode = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipSetSmoothingMode");
 		os_GdipDrawImageRectI = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipDrawImageRectI");
 		os_GdipDeleteGraphics = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipDeleteGraphics");
+		os_GdipCreateBitmapFromHBITMAP = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipCreateBitmapFromHBITMAP");
+		os_GdipSaveImageToFile = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipSaveImageToFile");
+		os_GdipGetImageEncodersSize = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipGetImageEncodersSize");
+		os_GdipGetImageEncoders = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipGetImageEncoders");
+	}
+}
+
+// is a touch digitizer available?
+// (integrated or external touch screen)
+int os_is_touch_available(void)
+{
+	int sm;
+
+	// SM_DIGITIZER = 94
+	sm = GetSystemMetrics(94);
+
+	if (!sm)
+	{
+		return 0;
+	}
+
+	// NID_READY = 0x80, NID_INTEGRATED_TOUCH = 0x01, NID_EXTERNAL_TOUCH =
+	// 0x02 (and NID_INTEGRATED_PEN = 0x04 - the pen does not belong in the
+	// mask: a pen-only digitizer passed the old probe and an external-only
+	// touch screen failed it). nid_ready alone is set by any ready
+	// digitizer (pens included): ask for an actual touch screen - the
+	// integrated or the external one - and only while the digitizer is
+	// ready. msdn
+	// also warns sm_digitizer has no plug-and-play awareness, so callers
+	// treat this as a first-run default, never a permanent configuration.
+	return ((sm & 0x80) && (sm & (0x01 | 0x02))) ? 1 : 0;
+}
+
+int os_reg_delete_key_ex(HKEY hkey,const wchar_t *name,REGSAM access)
+{
+	// regdeletekeyw cannot delete from the alternate registry view (msdn:
+	// "cannot be used to access an alternate registry view") and
+	// regdeletekeyexw is vista+, so it resolves lazily here: the uninstall
+	// path runs before os_init populates the runtime table. a missing api
+	// (32-bit xp) reports failure and the caller falls back to
+	// regdeletekeyw.
+	if (!_os_RegDeleteKeyExW)
+	{
+		HMODULE module;
+
+		module = GetModuleHandleA("advapi32.dll");
+
+		if (module)
+		{
+			_os_RegDeleteKeyExW = (void *)GetProcAddress(module,"RegDeleteKeyExW");
+		}
+	}
+
+	if (_os_RegDeleteKeyExW)
+	{
+		return (_os_RegDeleteKeyExW(hkey,name,access,0) == ERROR_SUCCESS) ? 1 : 0;
+	}
+
+	return 0;
+}
+
+// GDI+ encoder parameter structures. (locally defined, mirrors the gdiplus ABI)
+typedef struct
+{
+	GUID Guid; // encoder parameter GUID.
+	unsigned long NumberOfValues; // number of values pointed to by Value.
+	unsigned long Type; // value type. (4 = long)
+	void *Value; // pointer to the value.
+} os_EncoderParameter_t;
+
+typedef struct
+{
+	unsigned int Count; // number of parameters.
+	os_EncoderParameter_t Parameter[1];
+} os_EncoderParameters_t;
+
+// GDI+ image codec info. (locally defined, mirrors the gdiplus ABI)
+typedef struct
+{
+	GUID Clsid;
+	GUID FormatID;
+	const wchar_t *CodecName;
+	const wchar_t *DllName;
+	const wchar_t *FormatDescription;
+	const wchar_t *FilenameExtension;
+	const wchar_t *MimeType;
+	unsigned long Flags;
+	unsigned long Version;
+	unsigned long SigCount;
+	unsigned long SigSize;
+	const void *SigPattern;
+	const void *SigMask;
+} os_ImageCodecInfo_t;
+
+// ascii, case-insensitive wide string compare. returns 0 if equal.
+static int _os_icompare_w(const wchar_t *a,const wchar_t *b)
+{
+	while ((*a) && (*b))
+	{
+		wchar_t ca;
+		wchar_t cb;
+		
+		ca = *a;
+		cb = *b;
+		
+		if ((ca >= 'A') && (ca <= 'Z'))
+		{
+			ca = ca + 'a' - 'A';
+		}
+		
+		if ((cb >= 'A') && (cb <= 'Z'))
+		{
+			cb = cb + 'a' - 'A';
+		}
+		
+		if (ca != cb)
+		{
+			return 1;
+		}
+		
+		a++;
+		b++;
+	}
+	
+	if (*a != *b)
+	{
+		return 1;
+	}
+	
+	return 0;
+}
+
+// save a HBITMAP to a file with the GDI+ built-in encoders.
+// format: 0 = png, 1 = jpeg, 2 = bmp.
+// returns 1 on success.
+int os_save_hbitmap(HBITMAP hbitmap,const wchar_t *filename,int format)
+{
+	int ret;
+	void *image;
+	
+	ret = 0;
+	image = 0;
+	
+	if (os_GdipCreateBitmapFromHBITMAP)
+	{
+		if (os_GdipCreateBitmapFromHBITMAP(hbitmap,0,&image) == 0)
+		{
+			if (image)
+			{
+				const wchar_t *mime;
+				
+				// mime type of the built-in encoder for the target format.
+				mime = (format == 1) ? L"image/jpeg" : ((format == 2) ? L"image/bmp" : L"image/png");
+				
+				// find the encoder CLSID for this mime type.
+				if ((os_GdipGetImageEncodersSize) && (os_GdipGetImageEncoders) && (os_GdipSaveImageToFile))
+				{
+					unsigned int num;
+					unsigned int size;
+					
+					num = 0;
+					size = 0;
+					
+					if (os_GdipGetImageEncodersSize(&num,&size) == 0)
+					{
+						if ((num) && (size))
+						{
+							os_ImageCodecInfo_t *codecs;
+							
+							codecs = (os_ImageCodecInfo_t *)mem_alloc(size);
+							
+							if (codecs)
+							{
+								os_zero_memory(codecs,size);
+								
+								if (os_GdipGetImageEncoders(num,size,codecs) == 0)
+								{
+									unsigned int i;
+									
+									for(i=0;i<num;i++)
+									{
+										if (_os_icompare_w(codecs[i].MimeType,mime) == 0)
+										{
+											int save_ret;
+											
+											save_ret = 1;
+											
+											if (format == 1)
+											{
+												static const GUID encoder_quality = {0x1d5be4b5,0xfa4a,0x452d,{0x9c,0xdd,0x5d,0xb3,0x51,0x05,0xe7,0xeb}};
+												os_EncoderParameters_t params;
+												unsigned long quality;
+												
+												// jpeg: request quality 90.
+												quality = 90;
+												
+												os_zero_memory(&params,sizeof(params));
+												
+												params.Count = 1;
+												params.Parameter[0].Guid = encoder_quality;
+												params.Parameter[0].Type = 4;
+												params.Parameter[0].NumberOfValues = 1;
+												params.Parameter[0].Value = &quality;
+												
+												save_ret = os_GdipSaveImageToFile(image,filename,&codecs[i].Clsid,&params);
+												
+												// if the quality parameter was rejected, retry with the encoder defaults.
+												if (save_ret != 0)
+												{
+													save_ret = os_GdipSaveImageToFile(image,filename,&codecs[i].Clsid,0);
+												}
+											}
+											else
+											{
+												save_ret = os_GdipSaveImageToFile(image,filename,&codecs[i].Clsid,0);
+											}
+											
+											ret = (save_ret == 0);
+											
+											break;
+										}
+									}
+								}
+								
+								mem_free(codecs);
+							}
+						}
+					}
+				}
+				
+				os_GdipDisposeImage(image);
+			}
+		}
+	}
+	
+	return ret;
+}
+
+// is the system windows theme dark? never in high contrast mode: dark
+// overrides would break accessibility color themes. the result is cached:
+// the ui queries the dark state in paint paths, so the system is probed
+// once and the cache is dropped on WM_SETTINGCHANGE / WM_THEMECHANGED.
+int os_dark_system_dark(void)
+{
+	HIGHCONTRASTW high_contrast;
+	
+	if (_os_dark_cache_valid)
+	{
+		return _os_dark_cache_dark;
+	}
+	
+	_os_dark_cache_dark = 0;
+	
+	high_contrast.cbSize = sizeof(high_contrast);
+	
+	if (SystemParametersInfoW(SPI_GETHIGHCONTRAST,sizeof(high_contrast),&high_contrast,0))
+	{
+		if (high_contrast.dwFlags & HCF_HIGHCONTRASTON)
+		{
+			_os_dark_cache_valid = 1;
+			
+			return _os_dark_cache_dark;
+		}
+	}
+	
+	// primary source: the personalize registry value. 0 means the apps
+	// theme is dark. this documented value behaves identically on every
+	// windows 10/11 build, unlike the uxtheme ordinal probe.
+	if (_os_RegOpenKeyExW && _os_RegQueryValueExW && _os_RegCloseKey)
+	{
+		HKEY key;
+		
+		if (_os_RegOpenKeyExW(HKEY_CURRENT_USER,L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",0,KEY_QUERY_VALUE,&key) == 0)
+		{
+			DWORD type;
+			DWORD apps_use_light;
+			DWORD size;
+			
+			size = sizeof(apps_use_light);
+			
+			if (_os_RegQueryValueExW(key,L"AppsUseLightTheme",0,&type,(unsigned char *)&apps_use_light,&size) == 0)
+			{
+				if (type == REG_DWORD)
+				{
+					_os_dark_cache_dark = (apps_use_light == 0) ? 1 : 0;
+					_os_dark_cache_valid = 1;
+					
+					_os_RegCloseKey(key);
+					
+					return _os_dark_cache_dark;
+				}
+			}
+			
+			_os_RegCloseKey(key);
+		}
+	}
+	
+	// fallback when the registry value is missing or unreadable: the
+	// undocumented uxtheme probe.
+	if (_os_ShouldAppsUseDarkMode)
+	{
+		_os_dark_cache_dark = _os_ShouldAppsUseDarkMode() ? 1 : 0;
+	}
+	
+	_os_dark_cache_valid = 1;
+	
+	return _os_dark_cache_dark;
+}
+
+// drop the cached dark state. call when the system settings may have
+// changed (WM_SETTINGCHANGE, WM_THEMECHANGED) so the next query re-reads.
+void os_dark_invalidate(void)
+{
+	_os_dark_cache_valid = 0;
+}
+
+// the button theme for the custom drawn glyph faces: one open per
+// dialog lifetime (the notify path draws every glyph with the same
+// handle - an open and a close pair per notification was pure uxtheme
+// bookkeeping on the paint hot path).
+HANDLE os_theme_open_button(HWND hwnd)
+{
+	if (_os_OpenThemeData)
+	{
+		return _os_OpenThemeData(hwnd,L"Button");
+	}
+	
+	return 0;
+}
+
+// close a theme handle this layer opened (a null handle is a no-op, so
+// the callers need no gate of their own).
+void os_theme_close(HANDLE theme)
+{
+	if ((theme) && (_os_CloseThemeData))
+	{
+		_os_CloseThemeData(theme);
+	}
+}
+
+// the size of a button part in pixels: 1 when the theme and the part
+// are available. the visual styles off leave the handle null and the
+// caller keeps its native-painting fallback.
+int os_theme_part_size(HANDLE theme,HDC hdc,int part,int state,int *wide,int *high)
+{
+	SIZE size;
+	
+	if ((!theme) || (!_os_GetThemePartSize))
+	{
+		return 0;
+	}
+	
+	size.cx = 0;
+	
+	size.cy = 0;
+	
+	if (_os_GetThemePartSize(theme,hdc,part,state,0,2 /* TS_DRAW */,&size) != 0)
+	{
+		return 0;
+	}
+	
+	if (wide)
+	{
+		*wide = (int)size.cx;
+	}
+	
+	if (high)
+	{
+		*high = (int)size.cy;
+	}
+	
+	return 1;
+}
+
+// draw a button part state into a rect: 1 when the theme drew it.
+int os_theme_draw_part(HANDLE theme,HDC hdc,int part,int state,const RECT *rect)
+{
+	if ((!theme) || (!_os_DrawThemeBackground))
+	{
+		return 0;
+	}
+	
+	return (_os_DrawThemeBackground(theme,hdc,part,state,rect) == 0) ? 1 : 0;
+}
+
+// set the dark explorer visual style on a window (dialog controls and tab
+// controls draw dark with it). returns 1 when the style was applied.
+int os_dark_window_theme(HWND hwnd)
+{
+	if (_os_SetWindowTheme)
+	{
+		if (_os_SetWindowTheme(hwnd,L"DarkMode_Explorer",0) == 0)
+		{
+			return 1;
+		}
+	}
+	
+	return 0;
+}
+
+// comboboxes have no parts in the darkmode explorer style (the dark
+// dialogs kept light frames and arrows on 1903+ builds): the common
+// dialog class carries them. the owner drawn items carry the field
+// and the list rows on every build.
+int os_dark_combobox_theme(HWND hwnd)
+{
+	if (_os_SetWindowTheme)
+	{
+		if (_os_SetWindowTheme(hwnd,L"DarkMode_CFD",0) == 0)
+		{
+			return 1;
+		}
+	}
+	
+	return 0;
+}
+
+// the light counterpart of the two dark theme classes above: hands a
+// control back to the standard explorer visual style. used when the ui
+// flips back to light after a control carried a dark class. returns 1
+// when the style was applied.
+int os_light_window_theme(HWND hwnd)
+{
+        if (_os_SetWindowTheme)
+        {
+                if (_os_SetWindowTheme(hwnd,L"Explorer",0) == 0)
+                {
+                        return 1;
+                }
+        }
+        
+        return 0;
+}
+// opt a single window (usually a dialog child control) into the dark
+// comctl styles. must be called before os_dark_window_theme for the
+// control. returns 1 when the dark mode api is available.
+int os_allow_dark_mode_for_window(HWND hwnd,int allow)
+{
+	if (_os_AllowDarkModeForWindow)
+	{
+		_os_AllowDarkModeForWindow(hwnd,allow);
+		
+		return 1;
+	}
+	
+	return 0;
+}
+// set the app menu theme. mode 0 = light, 1 = dark, 2 = follow the system.
+void os_dark_set_app_mode(int mode)
+{
+	if (_os_SetPreferredAppMode)
+	{
+		// PreferredAppMode: Default = 0, AllowDark = 1, ForceDark = 2, ForceLight = 3.
+		switch(mode)
+		{
+			case 0:
+				_os_SetPreferredAppMode(3);
+				break;
+				
+			case 1:
+				_os_SetPreferredAppMode(2);
+				break;
+				
+			default:
+				_os_SetPreferredAppMode(1);
+				break;
+		}
+	}
+	
+	os_dark_refresh();
+}
+
+// draw a window frame (title bar) in dark or light colors.
+void os_dark_titlebar(HWND hwnd,int dark)
+{
+	BOOL value;
+	HRESULT result;
+	
+	if (!hwnd)
+	{
+		return;
+	}
+	
+	value = dark ? TRUE : FALSE;
+	
+	if (_os_AllowDarkModeForWindow)
+	{
+		_os_AllowDarkModeForWindow(hwnd,dark);
+	}
+	
+	if (!_os_DwmSetWindowAttribute)
+	{
+		return;
+	}
+	
+	// DWMWA_USE_IMMERSIVE_DARK_MODE is 20 on windows 10 2004 and newer;
+	// windows 10 1809-1909 used 19 and fails with E_INVALIDARG for 20.
+	result = _os_DwmSetWindowAttribute(hwnd,20,&value,sizeof(value));
+	
+	if (result == (HRESULT)0x80070057)
+	{
+		// E_INVALIDARG: retry with the older attribute.
+		_os_DwmSetWindowAttribute(hwnd,19,&value,sizeof(value));
+	}
+}
+
+// refresh os_logical_wide / os_logical_high from the window's current
+// monitor dpi (per monitor v2). returns 1 when the values changed.
+// when the api is missing (pre windows 10 1607) or reports nothing the
+// init time constants stay and the caller keeps the old scaling.
+int os_window_update_dpi(HWND hwnd)
+{
+	UINT dpi;
+	
+	if ((!hwnd) || (!_os_GetDpiForWindow))
+	{
+		return 0;
+	}
+	
+	dpi = _os_GetDpiForWindow(hwnd);
+	
+	if (!dpi)
+	{
+		return 0;
+	}
+	
+	// never scale below 96 dpi: sub 96 values would shrink every metric.
+	if (dpi < 96)
+	{
+		dpi = 96;
+	}
+	
+	if (((int)dpi == os_logical_wide) && ((int)dpi == os_logical_high))
+	{
+		return 0;
+	}
+	
+	os_logical_wide = (int)dpi;
+	os_logical_high = (int)dpi;
+	
+	return 1;
+}
+
+// fill lf with the menu font the system metrics use for the current
+// window dpi (per monitor v2 aware so the menu bar text matches the
+// bar the system sized for this dpi). returns 1 on success.
+int os_menu_font(LOGFONTW *lf)
+{
+	NONCLIENTMETRICSW ncm;
+	
+	if (!lf)
+	{
+		return 0;
+	}
+	
+	os_zero_memory(&ncm,sizeof(ncm));
+	
+	ncm.cbSize = sizeof(ncm);
+	
+	if (_os_SystemParametersInfoForDpi)
+	{
+		// uiParam must match cbSize for the metric queries.
+		if (_os_SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS,sizeof(ncm),&ncm,0,(UINT)os_logical_wide))
+		{
+			*lf = ncm.lfMenuFont;
+			
+			return 1;
+		}
+	}
+	
+	// pre 1607 systems (and any ForDpi refusal): the plain query.
+	if (SystemParametersInfoW(SPI_GETNONCLIENTMETRICS,sizeof(ncm),&ncm,0))
+	{
+		*lf = ncm.lfMenuFont;
+		
+		return 1;
+	}
+	
+	return 0;
+}
+
+// the dpi of a window: getdpiforwindow when the os provides it, the
+// tracked window dpi otherwise.
+int os_window_dpi(HWND hwnd)
+{
+	if ((!hwnd) || (!_os_GetDpiForWindow))
+	{
+		return os_logical_wide;
+	}
+	
+	return (int)_os_GetDpiForWindow(hwnd);
+}
+
+// fill lf with the message font (the dialog base font) at the window
+// own dpi. the dialog templates carry a hard coded segoe ui face that
+// never held the cjk glyphs: the chinese labels rendered through the
+// per character font linking fallback with the latin line metrics,
+// while the menu bar and the status bar draw the system locale font
+// (microsoft yahei ui) - two type systems in one window. the message
+// font is the locale native ui face at the right dpi, the same family
+// the menu and the status bar use, so one type system covers the whole
+// ui. returns 1 on success.
+int os_dialog_font(LOGFONTW *lf,HWND hwnd)
+{
+	NONCLIENTMETRICSW ncm;
+	
+	if (!lf)
+	{
+		return 0;
+	}
+	
+	os_zero_memory(&ncm,sizeof(ncm));
+	
+	ncm.cbSize = sizeof(ncm);
+	
+	if (_os_SystemParametersInfoForDpi)
+	{
+		// uiParam must match cbSize for the metric queries.
+		if (_os_SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS,sizeof(ncm),&ncm,0,(UINT)os_window_dpi(hwnd)))
+		{
+			*lf = ncm.lfMessageFont;
+			
+			return 1;
+		}
+	}
+	
+	// pre 1607 systems (and any ForDpi refusal): the plain query.
+	if (SystemParametersInfoW(SPI_GETNONCLIENTMETRICS,sizeof(ncm),&ncm,0))
+	{
+		*lf = ncm.lfMessageFont;
+		
+		return 1;
+	}
+	
+	return 0;
+}
+
+// rc.13: the win11-only chrome attributes double as the platform probe.
+// a round request (attribute 33) fails with E_INVALIDARG on windows 10
+// and older; the first call latches the answer and the return tells the
+// caller whether the modern chrome landed - the non-win11 callers pick
+// their self drawn fallbacks from it (the drop shadow, the flat border).
+static int _os_win11_chrome = 0;	// 0 = not probed, 1 = win11, 2 = older
+
+int os_is_win11(void)
+{
+	return _os_win11_chrome == 1;
+}
+
+// windows 11 chrome: rounded window corners (attribute 33, round)
+// and a caption color that matches the canvas (attribute 35). returns 0
+// on windows 10 and older (the classic title bar stays and the caller
+// falls back to its own frame).
+int os_window_modern_chrome(HWND hwnd,COLORREF caption_color)
+{
+	DWORD corner;
+	COLORREF color;
+	
+	if ((!hwnd) || (!_os_DwmSetWindowAttribute))
+	{
+		return 0;
+	}
+	
+	// DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2. the call
+	// result is the platform probe.
+	corner = 2;
+	if (_os_DwmSetWindowAttribute(hwnd,33,&corner,sizeof(corner)) != 0)
+	{
+		_os_win11_chrome = 2;
+		
+		return 0;
+	}
+	
+	_os_win11_chrome = 1;
+	
+	// DWMWA_CAPTION_COLOR = 35: the windowed canvas color gives a
+	// seamless title bar in both themes (the dark mode attribute above
+	// keeps the caption text readable).
+	color = caption_color;
+	_os_DwmSetWindowAttribute(hwnd,35,&color,sizeof(color));
+	
+	return 1;
+}
+
+// the popup menu layer gets the modern treatment too: rounded corners and
+// a themed border. returns 0 on earlier windows (the native menu border
+// stays).
+int os_menu_modern_chrome(HWND hwnd,COLORREF border_color)
+{
+	int round;
+
+	if ((!_os_DwmSetWindowAttribute) || (!hwnd))
+	{
+		return 0;
+	}
+
+	// DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2.
+	round = 2;
+	if (_os_DwmSetWindowAttribute(hwnd,33,&round,sizeof(round)) != 0)
+	{
+		_os_win11_chrome = 2;
+
+		return 0;
+	}
+
+	_os_win11_chrome = 1;
+
+	// DWMWA_BORDER_COLOR = 34: a COLORREF in the native 0x00BBGGRR layout.
+	_os_DwmSetWindowAttribute(hwnd,34,&border_color,sizeof(border_color));
+
+	return 1;
+}
+
+// re-read the system theme after a WM_SETTINGCHANGE.
+void os_dark_refresh(void)
+{
+	if (_os_RefreshImmersiveColorPolicyState)
+	{
+		_os_RefreshImmersiveColorPolicyState();
+	}
+	
+	if (_os_FlushMenuThemes)
+	{
+		_os_FlushMenuThemes();
 	}
 }
 
@@ -943,6 +1851,16 @@ void os_kill(void)
 	if (_os_UxTheme_hmodule)
 	{
 		FreeLibrary(_os_UxTheme_hmodule);
+	}
+	
+	if (_os_dwmapi_hmodule)
+	{
+		FreeLibrary(_os_dwmapi_hmodule);
+	}
+	
+	if (_os_advapi32_hmodule)
+	{
+		FreeLibrary(_os_advapi32_hmodule);
 	}
 	
 	if (_os_gdiplus_hmodule)
@@ -1338,40 +2256,6 @@ WNDPROC os_set_window_proc(HWND hwnd,WNDPROC proc)
 	return (WNDPROC)(uintptr_t)SetWindowLongPtr(hwnd,GWLP_WNDPROC,(LONG_PTR)proc);
 }
 
-int os_statusbar_index_from_x(HWND statusbar_hwnd,int x)
-{
-	RECT rect;
-	
-	GetClientRect(statusbar_hwnd,&rect);
-	
-	if ((x >= 0) && (x < rect.right - rect.left))
-	{
-		int i;
-		int count;
-		
-		count = (int)SendMessage(statusbar_hwnd,SB_GETPARTS,0,(LPARAM)NULL);
-		
-		if (count > 0)
-		{
-			for(i=0;i<count;i++)
-			{
-				if (SendMessage(statusbar_hwnd,SB_GETRECT,i,(LPARAM)&rect))
-				{
-					if ((x >= rect.left) && (x < rect.right))
-					{
-						return i;
-					}
-				}
-			}
-		}
-		
-		// simple?
-		return 0;
-	}
-	
-	return -1;
-}
-
 int os_is_windows_7_or_later(void)
 {
 	if (os_major_version > 6)
@@ -1407,6 +2291,30 @@ int os_is_windows_8_or_later(void)
 	
 	return 0;
 }
+// true when the comctl dark explorer control classes actually render dark:
+// windows 10 1903 (build 18362) and later. older builds accept the calls
+// but keep the light control rendering, so the dialog fallbacks (owner
+// drawn buttons and combos) carry the dark ui alone on those builds.
+int os_dark_controls_supported(void)
+{
+	if (!os_is_nt)
+	{
+		return 0;
+	}
+	
+	if (os_major_version > 10)
+	{
+		return 1;
+	}
+	
+	if (os_major_version == 10)
+	{
+		return (os_build_number >= 18362) ? 1 : 0;
+	}
+	
+	return 0;
+}
+
 
 // windows creates funky regions if left > right
 HRGN os_CreateRectRgn(int left,int top,int right,int bottom)
@@ -1544,8 +2452,10 @@ int os_get_orientation(const wchar_t *filename)
 	
 	ret = 0;
 	
+#ifdef _MSC_VER
 	__try
 	{
+#endif
 		if (_os_SHGetPropertyStoreFromIDList)
 		{
 			ITEMIDLIST *pidl;
@@ -1612,11 +2522,13 @@ int os_get_orientation(const wchar_t *filename)
 		{
 			debug_printf((const utf8_t *)"no SHGetPropertyStoreFromIDList\n")	;
 		}
+#ifdef _MSC_VER
 	}
 	__except(EXCEPTION_EXECUTE_HANDLER)
 	{
 		debug_printf((const utf8_t *)"IPropertyStore::GetValue exception %08x\n",GetExceptionCode());
 	}
+#endif
 	
 	return ret;
 }

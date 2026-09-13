@@ -39,7 +39,9 @@ typedef struct small_pool_chunk_s
 	{
 		struct small_pool_chunk_s *next;
 		
-		// enforce 8-byte alignment.
+		// enforce 8-byte alignment of the chunk header (and so of the chunk
+		// data). this says nothing about the bump allocations themselves:
+		// small_pool_alloc does not round sizes up.
 		VIV_UINT64 padding1;
 	};
 	
