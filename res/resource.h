@@ -2,6 +2,12 @@
 // Microsoft Visual C++ generated include file.
 // Used by voidImageViewer.rc
 //
+// NOTE (zh-CN localization patch):
+// Control IDs were renamed to the *_STATIC / *_BUTTON / *_COMBOBOX /
+// *_CHECKBOX convention that src/viv.c already expects.
+// Several previously shared IDC_STATIC labels now have unique IDs so the
+// localized text can be assigned per control at runtime.
+//
 #define IDD_FORMVIEW                    101
 #define IDD_FORMVIEW1                   101
 #define IDD_GENERAL                     101
@@ -35,27 +41,31 @@
 #define IDC_TIF                         1012
 #define IDC_TIFF                        1013
 #define IDC_CHECKALL                    1014
+#define IDC_CHECK_ALL                   1014
 #define IDC_PAGEPLACEHOLDER             1015
 #define IDC_COMBO1                      1016
+#define IDC_SHRINK_BLIT_MODE_COMBOBOX   1016
 #define IDC_COMBO3                      1018
 #define IDC_MULTIPLE_INSTANCES          1019
 #define IDC_TREE1                       1020
 #define IDC_STARTMENU                   1020
 #define IDC_CHECK1                      1021
 #define IDC_APPDATA                     1021
-#define IDC_SEARCH_EVERYTHING_RANDOM    1021
+#define IDC_SEARCH_EVERYTHING_RANDOM_CHECKBOX 1021
 #define IDC_COMBO2                      1022
+#define IDC_MAGNIFY_BLIT_MODE_COMBOBOX  1022
 #define IDC_BUTTON1                     1023
-#define IDC_ADD_KEY                     1023
+#define IDC_ADD_KEY_BUTTON              1023
 #define IDC_BUTTON2                     1024
 #define IDC_CHECKNONE                   1024
-#define IDC_EDIT_KEY                    1024
+#define IDC_CHECK_NONE                  1024
+#define IDC_EDIT_KEY_BUTTON             1024
 #define IDC_TAB2                        1025
 #define IDC_CUSTOM_RATE_EDIT            1026
-#define IDC_CUSTOM_RATE_TYPE_COMBO      1027
-#define IDC_LOOP_ANIMATIONS_ONCE        1028
-#define IDC_LEFTCLICKACTION             1029
-#define IDC_RIGHTCLICKACTION            1030
+#define IDC_CUSTOM_RATE_TYPE_COMBOBOX   1027
+#define IDC_LOOP_ANIMATIONS_ONCE_STATIC 1028
+#define IDC_LEFTCLICKACTION_COMBOBOX    1029
+#define IDC_RIGHTCLICKACTION_COMBOBOX   1030
 #define IDC_LIST1                       1031
 #define IDC_COMMANDS_LIST               1031
 #define IDC_EDIT_KEY_CURRENTLY_USED_BY_LIST 1031
@@ -63,16 +73,16 @@
 #define IDC_LIST2                       1032
 #define IDC_KEYS_LIST                   1032
 #define IDC_BUTTON3                     1033
-#define IDC_REMOVE_KEY                  1033
+#define IDC_REMOVE_KEY_BUTTON           1033
 #define IDC_TAB3                        1034
-#define IDC_MOUSEWHEELACTION            1034
+#define IDC_MOUSEWHEELACTION_COMBOBOX   1034
 #define IDC_ABOUTBACK                   1035
 #define IDC_ABOUTVOIDIMAGEVIEWER        1037
 #define IDC_ABOUTTITLE                  1038
 #define IDC_ABOUTVERSION                1039
-#define IDC_WINDOWEDBACKGROUNDCOLOR     1039
+#define IDC_WINDOWEDBACKGROUNDCOLOR_BUTTON 1039
 #define IDC_ABOUTCOPYRIGHT              1040
-#define IDC_FULLSCREENBACKGROUNDCOLOR   1040
+#define IDC_FULLSCREENBACKGROUNDCOLOR_BUTTON 1040
 #define IDC_ABOUTEMAIL                  1041
 #define IDC_EDIT_KEY_EDIT               1041
 #define IDC_ABOUTWEBSITE                1042
@@ -83,22 +93,34 @@
 #define IDC_EDIT1                       1045
 #define IDC_EVERYTHING_EDIT             1046
 #define IDC_WEBP                        1047
-#define IDC_PRELOAD_NEXT_IMAGE          1048
-#define IDC_CACHE_LAST_IMAGE            1049
+#define IDC_PRELOAD_NEXT_IMAGE_STATIC   1048
+#define IDC_CACHE_LAST_IMAGE_STATIC     1049
 #define IDC_AUTO_ZOOM                   1050
-#define IDC_COMBO4                      1051
-#define IDC_TITLE_BAR_FORMAT            1052
-#define IDC_SHRINK_BLIT_MODE_STATIC		1053
-#define IDC_MAGNIFY_BLIT_MODE_STATIC		1054
+#define IDC_AUTO_SIZE_WINDOW_COMBOBOX   1051
+#define IDC_TITLE_BAR_FORMAT_COMBOBOX   1052
+#define IDC_SHRINK_BLIT_MODE_STATIC     1053
+#define IDC_MAGNIFY_BLIT_MODE_STATIC    1054
+#define IDC_ASSOCIATIONS_GROUPBOX       1055
+#define IDC_TITLE_BAR_FORMAT_STATIC     1056
+#define IDC_WINDOWEDBACKGROUNDCOLOR_STATIC 1057
+#define IDC_FULLSCREENBACKGROUNDCOLOR_STATIC 1058
+#define IDC_LEFT_CLICK_ACTION_STATIC    1059
+#define IDC_RIGHT_CLICK_ACTION_STATIC   1060
+#define IDC_MOUSE_WHEEL_ACTION_STATIC   1061
+#define IDC_COMMANDS_STATIC             1062
+#define IDC_SETTINGS_FOR_SELECTED_COMMAND_STATIC 1063
+#define IDC_CUSTOM_RATE_STATIC          1064
+#define IDC_EDIT_KEYBOARD_SHORTCUT_KEY_STATIC 1065
+#define IDC_EDIT_KEYBOARD_SHORTCUT_KEY_CURRENTLY_USED_BY_STATIC 1066
 
 // Next default values for new objects
-// 
+//
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        130
 #define _APS_NEXT_COMMAND_VALUE         40048
-#define _APS_NEXT_CONTROL_VALUE         1055
+#define _APS_NEXT_CONTROL_VALUE         1067
 #define _APS_NEXT_SYMED_VALUE           109
 #endif
 #endif
