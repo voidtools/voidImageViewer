@@ -258,6 +258,9 @@
 #define _VIV_ASSOCIATION_WEBP				0x00000100
 
 #define _VIV_ZOOM_MAX 16
+#define _VIV_SHRINK_MAX 30 // most zoom out steps past best fit.
+#define _VIV_SHRINK_STEP 0.8f // each zoom out step past best fit scales the image by this amount.
+#define _VIV_SHRINK_MIN_SIZE 32 // stop zooming out past best fit once the image would be smaller than this in both directions.
 
 #define BCM_SETSHIELD	0x0000160C
 
@@ -645,6 +648,8 @@ static BOOL _viv_StretchBltStitch(HDC hdcDest,int xDest,int yDest,int wDest,int 
 static BOOL _viv_get_src_pixel_pos(int client_x,int client_y,POINT *out_src_pt);
 static void _viv_get_src_pixel_rgb(int src_x,int src_y,COLORREF *out_colorref);
 static int _viv_clamp_zoom_pos(int zoom_pos);
+static float _viv_get_shrink_scale(int shrink_pos);
+static int _viv_can_shrink_more(void);
 static void _viv_open_preload(void);
 //static void _viv_get_tooltip(void);
 //static void _viv_tooltip_hide(void);
@@ -674,6 +679,7 @@ static BYTE _viv_animation_play = 1; // play or pause animations
 static BYTE _viv_1to1 = 0; // temporarily show the image with 100% scaling
 static BYTE _viv_have_old_zoom = 0; // restore this zoom level after leaving 1:1 mode.
 static int _viv_old_zoom_pos = 0; // restore this zoom level after leaving 1:1 mode.
+static int _viv_old_shrink_pos = 0; // restore this zoom out level after leaving 1:1 mode.
 WIN32_FIND_DATA *_viv_current_fd = 0; // the current image find data including the full path and filename.
 WIN32_FIND_DATA *_viv_preload_fd = 0;
 static int _viv_view_x = 0; // the current image offset in pixels
@@ -681,6 +687,7 @@ static int _viv_view_y = 0; // the current image offset in pixels
 static double _viv_view_ix = 0.0; // the current image offset in percent, used when resizing the window
 static double _viv_view_iy = 0.0; // the current image offset in percent, used when resizing the window
 static int _viv_zoom_pos = 0; // the current zoom level
+static int _viv_shrink_pos = 0; // zoom out steps past best fit, only used when _viv_zoom_pos is 0.
 //static float _viv_zoom_presets[_VIV_ZOOM_MAX] = {0.004815f,0.019215f,0.043060f,0.076120f,0.118079f,0.168530f,0.226989f,0.292893f,0.365607f,0.444430f,0.528603f,0.617316f,0.709715f,0.804909f,0.901983f,1.000000f}; // (1 - cos(((float)(x+1) * 1.570796f) / _VIV_ZOOM_MAX)) // this is missing cos((1 * 1.570796f) / _VIV_ZOOM_MAX), which is too small
 static float _viv_zoom_presets[_VIV_ZOOM_MAX] = {0.0000,0.0100,0.0225,0.0379,0.0569,0.0806,0.1098,0.1461,0.1909,0.2465,0.3154,0.4007,0.5063,0.6372,0.7993,1.0000}; // 0.01 - 0.2 curve
 
@@ -1280,6 +1287,7 @@ static void _viv_clear(void)
 	_viv_frame_count = 0;
 	_viv_frame_loaded_count = 0;
 	_viv_zoom_pos = 0;
+	_viv_shrink_pos = 0;
 	_viv_view_x = 0;
 	_viv_view_y = 0;
 	_viv_view_ix = 0.0;
@@ -1676,6 +1684,7 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 		case VIV_ID_VIEW_ZOOM_RESET:
 			_viv_1to1 = 0;
 			_viv_zoom_pos = 0;
+			_viv_shrink_pos = 0;
 			_viv_view_set(_viv_view_x,_viv_view_y,1);
 			InvalidateRect(_viv_hwnd,0,FALSE);
 			break;
@@ -2062,6 +2071,7 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			
 		case VIV_ID_VIEW_BESTFIT:
 			_viv_zoom_pos = 0;
+			_viv_shrink_pos = 0;
 			_viv_1to1 = 0;
 			_viv_view_set(0,0,1);
 			InvalidateRect(_viv_hwnd,0,FALSE);
@@ -7014,6 +7024,27 @@ static void _viv_get_render_size(int *prw,int *prh)
 		rw = rw + (int)((max_zoom_wide - rw) * _viv_zoom_presets[_viv_zoom_pos]);
 		rh = rh + (int)((max_zoom_high - rh) * _viv_zoom_presets[_viv_zoom_pos]);
 	}
+	else
+	if ((_viv_shrink_pos) && (config_zoom_out_past_best_fit))
+	{
+		float scale;
+		
+		// zoomed out past best fit.
+		scale = _viv_get_shrink_scale(_viv_shrink_pos);
+		
+		rw = (int)(rw * scale);
+		rh = (int)(rh * scale);
+		
+		if (rw < 1)
+		{
+			rw = 1;
+		}
+		
+		if (rh < 1)
+		{
+			rh = 1;
+		}
+	}
 	
 	*prw = rw;
 	*prh = rh;
@@ -8393,6 +8424,8 @@ static INT_PTR CALLBACK _viv_options_view_proc(HWND hwnd,UINT msg,WPARAM wParam,
 
 			os_SetDlgItemText_localization_id(hwnd,IDC_CACHE_LAST_IMAGE_STATIC,LOCALIZATION_ID_CACHE_LAST_IMAGE_STATIC);
 			CheckDlgButton(hwnd,IDC_CACHE_LAST_IMAGE_STATIC,config_cache_last ? BST_CHECKED : BST_UNCHECKED);
+			os_SetDlgItemText_localization_id(hwnd,IDC_ZOOM_OUT_PAST_BEST_FIT_CHECKBOX,LOCALIZATION_ID_ZOOM_OUT_PAST_BEST_FIT_CHECKBOX);
+			CheckDlgButton(hwnd,IDC_ZOOM_OUT_PAST_BEST_FIT_CHECKBOX,config_zoom_out_past_best_fit ? BST_CHECKED : BST_UNCHECKED);
 			
 			{
 				int static_wide;
@@ -8774,6 +8807,20 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 					config_loop_animations_once = IsDlgButtonChecked(view_page,IDC_LOOP_ANIMATIONS_ONCE_STATIC) == BST_CHECKED ? 1 : 0;
 					config_preload_next = IsDlgButtonChecked(view_page,IDC_PRELOAD_NEXT_IMAGE_STATIC) == BST_CHECKED ? 1 : 0;
 					config_cache_last = IsDlgButtonChecked(view_page,IDC_CACHE_LAST_IMAGE_STATIC) == BST_CHECKED ? 1 : 0;
+					config_zoom_out_past_best_fit = IsDlgButtonChecked(view_page,IDC_ZOOM_OUT_PAST_BEST_FIT_CHECKBOX) == BST_CHECKED ? 1 : 0;
+					
+					// turning off zooming out past best fit returns to best fit.
+					if (!config_zoom_out_past_best_fit)
+					{
+						_viv_old_shrink_pos = 0;
+						
+						if (_viv_shrink_pos)
+						{
+							_viv_shrink_pos = 0;
+							_viv_view_set(_viv_view_x,_viv_view_y,1);
+							InvalidateRect(_viv_hwnd,0,FALSE);
+						}
+					}
 					
 					// copy keys.
 					_viv_key_list_copy(_viv_key_list,(_viv_key_list_t *)GetWindowLongPtr(GetDlgItem(controls_page,IDC_COMMANDS_LIST),GWLP_USERDATA));
@@ -9322,6 +9369,7 @@ static void _viv_view_1to1(void)
 		{
 			_viv_1to1 = 0;
 			_viv_zoom_pos = _viv_old_zoom_pos;
+			_viv_shrink_pos = config_zoom_out_past_best_fit ? _viv_old_shrink_pos : 0;
 			_viv_view_set(_viv_view_x,_viv_view_y,1);
 			InvalidateRect(_viv_hwnd,0,FALSE);
 			
@@ -9331,9 +9379,11 @@ static void _viv_view_1to1(void)
 	
 	_viv_have_old_zoom = 1;
 	_viv_old_zoom_pos = _viv_zoom_pos;
+	_viv_old_shrink_pos = _viv_shrink_pos;
 	
 	_viv_1to1 = 1;
 	_viv_zoom_pos = 0;
+	_viv_shrink_pos = 0;
 	_viv_view_set(_viv_view_x,_viv_view_y,1);
 	InvalidateRect(_viv_hwnd,0,FALSE);
 }
@@ -11692,7 +11742,7 @@ static void _viv_toolbar_update_buttons(void)
 		
 		tbbinfo.cbSize = sizeof(TBBUTTONINFO);
 		tbbinfo.dwMask = TBIF_STATE;
-		tbbinfo.fsState = ((_viv_zoom_pos == 0) && (!_viv_1to1)) ? (0) : (TBSTATE_ENABLED);
+		tbbinfo.fsState = ((_viv_zoom_pos == 0) && ((!_viv_shrink_pos) || (!config_zoom_out_past_best_fit)) && (!_viv_1to1)) ? (0) : (TBSTATE_ENABLED);
 		
 		SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONINFO,VIV_ID_VIEW_BESTFIT,(LPARAM)&tbbinfo);
 	}
@@ -13950,8 +14000,18 @@ static void _viv_do_mousewheel_action(int action,int delta,int x,int y)
 		__int64 new_cursor_x;
 		__int64 new_cursor_y;
 		int old_zoom_pos;
+		int old_shrink_pos;
+		int was_1to1;
+		
+		// zooming out past best fit only applies at the best fit zoom level.
+		if ((_viv_zoom_pos) || (!config_zoom_out_past_best_fit))
+		{
+			_viv_shrink_pos = 0;
+		}
 		
 		old_zoom_pos = _viv_zoom_pos;
+		old_shrink_pos = _viv_shrink_pos;
+		was_1to1 = _viv_1to1;
 		
 		GetClientRect(_viv_hwnd,&rect);
 		wide = rect.right - rect.left;
@@ -14008,6 +14068,7 @@ static void _viv_do_mousewheel_action(int action,int delta,int x,int y)
 		if (_viv_1to1)
 		{
 			_viv_1to1 = 0;
+			_viv_shrink_pos = 0;
 			
 			if (delta > 0)
 			{
@@ -14032,24 +14093,80 @@ static void _viv_do_mousewheel_action(int action,int delta,int x,int y)
 						break;
 					}
 				}
+				
+				// no zoom level is narrower than 1:1, so try best fit, then zoom out past best fit.
+				if ((_viv_zoom_pos < 0) && (config_zoom_out_past_best_fit))
+				{
+					int found;
+					
+					_viv_zoom_pos = 0;
+					found = 0;
+					
+					// best fit can already be smaller than 1:1 in one direction, eg: a tall thin image.
+					_viv_get_render_size(&rw,&rh);
+					
+					if ((rw < old_rw) || (rh < old_rh))
+					{
+						found = 1;
+					}
+					
+					while((!found) && (_viv_can_shrink_more()))
+					{
+						_viv_shrink_pos++;
+						
+						_viv_get_render_size(&rw,&rh);
+						
+						if ((rw < old_rw) || (rh < old_rh))
+						{
+							found = 1;
+						}
+					}
+					
+					if (!found)
+					{
+						// can't get smaller than 1:1, so stay at 1:1 instead of growing to best fit.
+						_viv_shrink_pos = 0;
+						_viv_1to1 = 1;
+						was_1to1 = 0;
+					}
+				}
 			}
 		}
 		else
 		{
 			if (delta > 0)
 			{
-				_viv_zoom_pos++;
+				if (_viv_shrink_pos)
+				{
+					// zoom back in towards best fit.
+					_viv_shrink_pos--;
+				}
+				else
+				{
+					_viv_zoom_pos++;
+				}
 			}
 			else
 			{
-				_viv_zoom_pos--;
+				if ((_viv_zoom_pos == 0) && (config_zoom_out_past_best_fit))
+				{
+					// zoom out past best fit.
+					if (_viv_can_shrink_more())
+					{
+						_viv_shrink_pos++;
+					}
+				}
+				else
+				{
+					_viv_zoom_pos--;
+				}
 			}
 		}
 		
 		if (_viv_zoom_pos < 0) _viv_zoom_pos = 0;
 		if (_viv_zoom_pos > _VIV_ZOOM_MAX-1) _viv_zoom_pos = _VIV_ZOOM_MAX-1;
 		
-		if (_viv_zoom_pos != old_zoom_pos)
+		if ((_viv_zoom_pos != old_zoom_pos) || (_viv_shrink_pos != old_shrink_pos) || (was_1to1))
 		{
 			_viv_get_render_size(&rw,&rh);
 	/*
@@ -15127,6 +15244,58 @@ static int _viv_clamp_zoom_pos(int zoom_pos)
 	}
 	
 	return zoom_pos;
+}
+
+// scale applied to the best fit size for a zoom out level past best fit.
+static float _viv_get_shrink_scale(int shrink_pos)
+{
+	float scale;
+	
+	scale = 1.0f;
+	
+	while(shrink_pos > 0)
+	{
+		scale *= _VIV_SHRINK_STEP;
+		
+		shrink_pos--;
+	}
+	
+	return scale;
+}
+
+// returns non-zero if we can zoom out one more step past best fit.
+// stops once the image would be smaller than _VIV_SHRINK_MIN_SIZE in both directions.
+static int _viv_can_shrink_more(void)
+{
+	int rw;
+	int rh;
+	BYTE old_doing;
+	BYTE old_1to1;
+	
+	if (_viv_shrink_pos >= _VIV_SHRINK_MAX)
+	{
+		return 0;
+	}
+	
+	// measure the real shrunk size, even while showing 1:1 or doing a 1:1 scroll.
+	old_doing = _viv_doing;
+	old_1to1 = _viv_1to1;
+	_viv_doing = _VIV_DOING_NOTHING;
+	_viv_1to1 = 0;
+	_viv_shrink_pos++;
+	
+	_viv_get_render_size(&rw,&rh);
+	
+	_viv_shrink_pos--;
+	_viv_1to1 = old_1to1;
+	_viv_doing = old_doing;
+	
+	if ((rw >= _VIV_SHRINK_MIN_SIZE) || (rh >= _VIV_SHRINK_MIN_SIZE))
+	{
+		return 1;
+	}
+	
+	return 0;
 }
 
 static void _viv_open_preload(void)
