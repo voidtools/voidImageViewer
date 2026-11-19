@@ -10331,6 +10331,44 @@ static int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 // 15.850 - SHCreateStreamOnFile
 // 14.914 - _viv stream - 1MB file buffer
 // 14.914 - _viv stream
+static int _viv_get_gdip_orientation(void *image)
+{
+	int orientation;
+	UINT size;
+	os_PropertyItem_t *property_item;
+
+	orientation = 0;
+	size = 0;
+
+	if ((os_GdipGetPropertyItemSize) && (os_GdipGetPropertyItem) &&
+		(os_GdipGetPropertyItemSize(image,0x0112,&size) == 0) &&
+		(size >= sizeof(os_PropertyItem_t)))
+	{
+		property_item = (os_PropertyItem_t *)mem_alloc(size);
+		if (property_item)
+		{
+			if ((os_GdipGetPropertyItem(image,0x0112,size,property_item) == 0) &&
+				(property_item->id == 0x0112) &&
+				(property_item->type == 3) &&
+				(property_item->length >= sizeof(WORD)) &&
+				(property_item->value))
+			{
+				WORD value;
+
+				os_copy_memory(&value,property_item->value,sizeof(WORD));
+				if ((value >= 1) && (value <= 8))
+				{
+					orientation = value;
+				}
+			}
+
+			mem_free(property_item);
+		}
+	}
+
+	return orientation;
+}
+
 static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 {
 	_viv_reply_load_image_first_frame_t first_frame;
@@ -10508,6 +10546,18 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 			{
 //				if (!_viv_load_image_terminate)
 				{
+					int gdiplus_orientation;
+
+					if (config_orientation)
+					{
+						gdiplus_orientation = _viv_get_gdip_orientation(image);
+						if (gdiplus_orientation)
+						{
+							orientation = gdiplus_orientation;
+							debug_printf("GDI+ orientation %d\n",orientation);
+						}
+					}
+
 					if (os_GdipGetImageWidth(image,&first_frame.wide) == 0)
 					{
 						if (os_GdipGetImageHeight(image,&first_frame.high) == 0)
