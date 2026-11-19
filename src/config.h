@@ -109,6 +109,7 @@ extern BYTE config_slideshow_custom_rate_type;
 extern BYTE config_scroll_window;
 extern BYTE config_preload_next;
 extern BYTE config_cache_last;
+extern BYTE config_zoom_out_past_best_fit;
 extern BYTE config_icm;
 extern BYTE config_show_menu;
 extern BYTE config_show_caption;

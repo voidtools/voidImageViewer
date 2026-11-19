@@ -80,6 +80,7 @@ BYTE config_slideshow_custom_rate_type = 1; // 0 = milliseconds, 1 = seconds, 2 
 BYTE config_scroll_window = 1;
 BYTE config_preload_next = 1;
 BYTE config_cache_last = 1;
+BYTE config_zoom_out_past_best_fit = 1; // allow zooming out below the best fit size (below 1:1 for images smaller than the window).
 BYTE config_icm = 1;
 BYTE config_show_menu = 1;
 BYTE config_show_caption = 1;
@@ -156,6 +157,7 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_scroll_window = ini_get_int(ini,(const utf8_t *)"scroll_window",config_scroll_window);
 		config_preload_next = ini_get_int(ini,(const utf8_t *)"preload_next",config_preload_next);
 		config_cache_last = ini_get_int(ini,(const utf8_t *)"cache_last",config_cache_last);
+		config_zoom_out_past_best_fit = ini_get_int(ini,(const utf8_t *)"zoom_out_past_best_fit",config_zoom_out_past_best_fit);
 		config_icm = ini_get_int(ini,(const utf8_t *)"icm",config_icm);
 		config_orientation = ini_get_int(ini,(const utf8_t *)"orientation",config_orientation);
 		config_toolbar_move_window = ini_get_int(ini,(const utf8_t *)"toolbar_move_window",config_toolbar_move_window);
@@ -340,6 +342,7 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"scroll_window",config_scroll_window);
 			_config_write_int(h,"preload_next",config_preload_next);
 			_config_write_int(h,"cache_last",config_cache_last);
+			_config_write_int(h,"zoom_out_past_best_fit",config_zoom_out_past_best_fit);
 			_config_write_int(h,"icm",config_icm);
 			_config_write_int(h,"orientation",config_orientation);
 			_config_write_int(h,"toolbar_move_window",config_toolbar_move_window);
