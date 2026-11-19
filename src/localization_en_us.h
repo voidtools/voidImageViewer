@@ -235,6 +235,7 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"&Left click action:", // LOCALIZATION_ID_LEFT_CLICK_ACTION_STATIC,
 	"&Right click action:", // LOCALIZATION_ID_RIGHT_CLICK_ACTION_STATIC,
 	"&Mouse wheel action:", // LOCALIZATION_ID_MOUSE_WHEEL_ACTION_STATIC,
+	"Escape &key closes the viewer", // LOCALIZATION_ID_ESCAPE_CLOSES_CHECKBOX,
 	"&Commands:", // LOCALIZATION_ID_COMMANDS_STATIC,
 	"Settings for selected command", // LOCALIZATION_ID_SETTINGS_FOR_SELECTED_COMMAND,
 	"&Add...", // LOCALIZATION_ID_ADD_KEY_BUTTON,

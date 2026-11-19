@@ -59,6 +59,7 @@ BYTE config_prevent_sleep = 1;
 BYTE config_loop_animations_once = 1;
 BYTE config_mouse_wheel_action = 0; // 0 = zoom, 1 = next/prev, 2=prev/next
 BYTE config_ctrl_mouse_wheel_action = 0; // 0 = zoom, 1 = next/prev, 2=prev/next
+BYTE config_escape_closes = 1; // escape closes the viewer when there is nothing to cancel and we are not fullscreen.
 BYTE config_left_click_action = 0; // 0 = scroll, 1 = play/pause slideshow, 2 = play/pause animation, 3=zoom in, 4=next, 5=1:1 scroll, 6=move-window
 BYTE config_right_click_action = 0; // 0 = context menu, 1=zoom out, 2=prev, 
 BYTE config_xbutton_action = 2; // 1=zoom, 2=next
@@ -131,6 +132,7 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_frame_minus = ini_get_int(ini,(const utf8_t *)"frame_minus",config_frame_minus);
 		config_mouse_wheel_action = ini_get_int(ini,(const utf8_t *)"mouse_wheel_action",config_mouse_wheel_action);
 		config_ctrl_mouse_wheel_action = ini_get_int(ini,(const utf8_t *)"ctrl_mouse_wheel_action",config_ctrl_mouse_wheel_action);
+		config_escape_closes = ini_get_int(ini,(const utf8_t *)"escape_closes",config_escape_closes);
 		config_left_click_action = ini_get_int(ini,(const utf8_t *)"left_click_action",config_left_click_action);
 		config_right_click_action = ini_get_int(ini,(const utf8_t *)"right_click_action",config_right_click_action);
 		config_xbutton_action = ini_get_int(ini,(const utf8_t *)"xbutton_action",config_xbutton_action);
@@ -315,6 +317,7 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"frame_minus",config_frame_minus);
 			_config_write_int(h,"mouse_wheel_action",config_mouse_wheel_action);
 			_config_write_int(h,"ctrl_mouse_wheel_action",config_ctrl_mouse_wheel_action);
+			_config_write_int(h,"escape_closes",config_escape_closes);
 			_config_write_int(h,"left_click_action",config_left_click_action);
 			_config_write_int(h,"right_click_action",config_right_click_action);
 			_config_write_int(h,"xbutton_action",config_xbutton_action);

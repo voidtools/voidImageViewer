@@ -88,6 +88,7 @@ extern BYTE config_prevent_sleep;
 extern BYTE config_loop_animations_once;
 extern BYTE config_mouse_wheel_action;
 extern BYTE config_ctrl_mouse_wheel_action;
+extern BYTE config_escape_closes;
 extern BYTE config_left_click_action;
 extern BYTE config_right_click_action;
 extern BYTE config_xbutton_action;

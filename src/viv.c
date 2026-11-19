@@ -6409,6 +6409,16 @@ static int _viv_is_msg(MSG *msg)
 							k = k->next;
 						}
 					}
+					
+					// close the viewer with escape.
+					// cancelling an action, leaving fullscreen and a command bound to escape all take priority.
+					// ignore key repeats so holding escape to leave fullscreen doesn't also close the viewer.
+					if ((config_escape_closes) && (key_flags == 0) && (msg->wParam == VK_ESCAPE) && (!(msg->lParam & 0x40000000)))
+					{
+						_viv_exit();
+						
+						return 1;
+					}
 				}
 			}
 			
@@ -8248,6 +8258,9 @@ static INT_PTR CALLBACK _viv_options_controls_proc(HWND hwnd,UINT msg,WPARAM wPa
 			os_ComboBox_AddString_localization_id(hwnd,IDC_MOUSEWHEELACTION_COMBOBOX,LOCALIZATION_ID_OPTIONS_ACTION_PREV_NEXT_COMBOBOXITEM);
 			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_MOUSEWHEELACTION_COMBOBOX),config_mouse_wheel_action);
 
+			os_SetDlgItemText_localization_id(hwnd,IDC_ESCAPE_CLOSES_CHECKBOX,LOCALIZATION_ID_ESCAPE_CLOSES_CHECKBOX);
+			CheckDlgButton(hwnd,IDC_ESCAPE_CLOSES_CHECKBOX,config_escape_closes ? BST_CHECKED : BST_UNCHECKED);
+			
 			os_SetDlgItemText_localization_id(hwnd,IDC_COMMANDS_STATIC,LOCALIZATION_ID_COMMANDS_STATIC);
 			os_SetDlgItemText_localization_id(hwnd,IDC_SETTINGS_FOR_SELECTED_COMMAND_STATIC,LOCALIZATION_ID_SETTINGS_FOR_SELECTED_COMMAND);
 			os_SetDlgItemText_localization_id(hwnd,IDC_ADD_KEY_BUTTON,LOCALIZATION_ID_ADD_KEY_BUTTON);
@@ -8713,6 +8726,7 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 						config_left_click_action = ComboBox_GetCurSel(GetDlgItem(controls_page,IDC_LEFTCLICKACTION_COMBOBOX));
 						config_right_click_action = ComboBox_GetCurSel(GetDlgItem(controls_page,IDC_RIGHTCLICKACTION_COMBOBOX));
 						config_mouse_wheel_action = ComboBox_GetCurSel(GetDlgItem(controls_page,IDC_MOUSEWHEELACTION_COMBOBOX));
+						config_escape_closes = IsDlgButtonChecked(controls_page,IDC_ESCAPE_CLOSES_CHECKBOX) == BST_CHECKED ? 1 : 0;
 						
 						if (ComboBox_GetCurSel(GetDlgItem(view_page,IDC_SHRINK_BLIT_MODE_COMBOBOX)) == 1)
 						{
